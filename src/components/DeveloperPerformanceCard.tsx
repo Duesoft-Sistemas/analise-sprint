@@ -23,6 +23,17 @@ interface DeveloperPerformanceCardProps {
     overall: number;
     total: number;
   };
+  teamAverage?: {
+    accuracyRate: number;
+    totalHoursWorked: number;
+    totalHoursEstimated: number;
+    performanceScore: number;
+  };
+  sprintHistory?: Array<{
+    sprintName: string;
+    accuracyRate: number;
+    performanceScore: number;
+  }>;
   onShowDetails?: () => void;
 }
 
@@ -30,6 +41,8 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
   metrics,
   insights,
   rank,
+  teamAverage,
+  sprintHistory,
   onShowDetails,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -49,11 +62,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
     if (score >= 60) return 'Bom';
     if (score >= 45) return 'Adequado';
     return 'Precisa Atenção';
-  };
-
-  const getTrendIcon = (tendency: boolean, isPositive: boolean) => {
-    if (!tendency) return <Minus className="w-4 h-4" />;
-    return isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />;
   };
 
   const getInsightIcon = (type: PerformanceInsight['type']) => {
@@ -124,7 +132,12 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {metrics.performanceScore.toFixed(0)}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 100</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 110</span>
+              {metrics.complexityBonus > 0 && (
+                <div className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  +{metrics.complexityBonus} bonus complexidade 🏆
+                </div>
+              )}
             </div>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
@@ -138,7 +151,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                   ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
                   : 'bg-gradient-to-r from-red-500 to-red-600'
               }`}
-              style={{ width: `${metrics.performanceScore}%` }}
+              style={{ width: `${Math.min(100, (metrics.performanceScore / 110) * 100)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-right">
@@ -149,14 +162,11 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
 
       {/* Main Metrics Grid */}
       <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Accuracy - Informative Only */}
+        {/* Execution Efficiency (formerly Accuracy) */}
         <div className="space-y-1 relative">
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Target className="w-3 h-3" />
-            <span>Acurácia</span>
-            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded">
-              Info
-            </span>
+            <span>Eficiência</span>
           </div>
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {metrics.accuracyRate.toFixed(0)}%
@@ -179,9 +189,9 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               </>
             )}
           </div>
-          <p className="text-[10px] text-gray-500 dark:text-gray-500 italic">
-            Responsabilidade da equipe/analista
-          </p>
+          <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1">
+            {formatHours(metrics.totalHoursEstimated)} est. | {formatHours(metrics.totalHoursWorked)} gasto
+          </div>
         </div>
 
         {/* Quality */}
@@ -194,15 +204,18 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
             {metrics.qualityScore.toFixed(0)}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">
-            {metrics.reworkRate.toFixed(0)}% retrabalho
+            {metrics.avgTestNote !== undefined
+              ? <>Nota média {metrics.avgTestNote.toFixed(1)}/5</>
+              : <>Nota média 5/5</>}
           </div>
         </div>
 
-        {/* Utilization */}
+        {/* Utilization - Context only */}
         <div className="space-y-1">
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Zap className="w-3 h-3" />
             <span>Utilização</span>
+            <span className="text-[10px] opacity-60" title="Métrica de contexto - não impacta o score">ⓘ</span>
           </div>
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {metrics.utilizationRate.toFixed(0)}%
@@ -226,6 +239,222 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           </div>
         </div>
       </div>
+
+      {/* Visual Comparison: Estimated vs Spent */}
+      <div className="px-5 pb-3">
+        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Estimado vs Gasto
+            </h4>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {(() => {
+                const variance = metrics.totalHoursWorked - metrics.totalHoursEstimated;
+                const variancePercent = metrics.totalHoursEstimated > 0 
+                  ? ((variance / metrics.totalHoursEstimated) * 100).toFixed(0)
+                  : '0';
+                const varianceSign = variance > 0 ? '+' : '';
+                return `${varianceSign}${variancePercent}%`;
+              })()}
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Estimated Bar */}
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">Estimado</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {formatHours(metrics.totalHoursEstimated)}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: `${Math.min(100, (metrics.totalHoursEstimated / Math.max(metrics.totalHoursEstimated, metrics.totalHoursWorked)) * 100)}%` 
+                  }}
+                />
+              </div>
+            </div>
+            
+            {/* Spent Bar */}
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">Gasto</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {formatHours(metrics.totalHoursWorked)}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    metrics.totalHoursWorked > metrics.totalHoursEstimated
+                      ? 'bg-red-500 dark:bg-red-400'
+                      : metrics.totalHoursWorked < metrics.totalHoursEstimated * 0.8
+                      ? 'bg-green-500 dark:bg-green-400'
+                      : 'bg-yellow-500 dark:bg-yellow-400'
+                  }`}
+                  style={{ 
+                    width: `${Math.min(100, (metrics.totalHoursWorked / Math.max(metrics.totalHoursEstimated, metrics.totalHoursWorked)) * 100)}%` 
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Complexity Profile */}
+      <div className="px-5 pb-3">
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <Award className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              Perfil de Complexidade
+            </h4>
+            <div className="text-right">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Média: {metrics.avgComplexity.toFixed(1)}/5
+              </div>
+            </div>
+          </div>
+          
+          {/* Complexity Distribution */}
+          <div className="space-y-2 mb-3">
+            {metrics.complexityDistribution.map(({ level, count }) => {
+              const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              return (
+                <div key={level} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 w-12">
+                    Nível {level}
+                  </span>
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        level >= 4 
+                          ? 'bg-gradient-to-r from-purple-500 to-purple-600' 
+                          : 'bg-gradient-to-r from-gray-400 to-gray-500'
+                      }`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-8 text-right">
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Complexity Impact */}
+          {metrics.complexityBonus > 0 && (
+            <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-purple-300/50 dark:border-purple-600/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  <div>
+                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                      Bonus de Complexidade
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {(() => {
+                        const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
+                        const complex = metrics.complexityDistribution
+                          .filter(d => d.level >= 4)
+                          .reduce((sum, d) => sum + d.count, 0);
+                        const pct = total > 0 ? ((complex / total) * 100).toFixed(0) : '0';
+                        return `${pct}% tarefas complexas`;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                  +{metrics.complexityBonus}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Team Comparison (if available) */}
+      {teamAverage && (
+        <div className="px-5 pb-3">
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+            <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-2">
+              <Info className="w-4 h-4" />
+              Comparação com Média da Equipe
+            </h4>
+            
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              {/* Efficiency Comparison */}
+              <div>
+                <div className="text-gray-600 dark:text-gray-400 mb-1">Eficiência</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {metrics.accuracyRate.toFixed(0)}%
+                  </span>
+                  <span className={`text-xs ${
+                    metrics.accuracyRate > teamAverage.accuracyRate
+                      ? 'text-green-600 dark:text-green-400'
+                      : metrics.accuracyRate < teamAverage.accuracyRate
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {metrics.accuracyRate > teamAverage.accuracyRate ? '▲' : metrics.accuracyRate < teamAverage.accuracyRate ? '▼' : '='} {Math.abs(metrics.accuracyRate - teamAverage.accuracyRate).toFixed(0)}pts
+                  </span>
+                </div>
+                <div className="text-gray-500 dark:text-gray-500 text-[10px]">
+                  Média: {teamAverage.accuracyRate.toFixed(0)}%
+                </div>
+              </div>
+
+              {/* Performance Score Comparison */}
+              <div>
+                <div className="text-gray-600 dark:text-gray-400 mb-1">Score Geral</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {metrics.performanceScore.toFixed(0)}
+                  </span>
+                  <span className={`text-xs ${
+                    metrics.performanceScore > teamAverage.performanceScore
+                      ? 'text-green-600 dark:text-green-400'
+                      : metrics.performanceScore < teamAverage.performanceScore
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {metrics.performanceScore > teamAverage.performanceScore ? '▲' : metrics.performanceScore < teamAverage.performanceScore ? '▼' : '='} {Math.abs(metrics.performanceScore - teamAverage.performanceScore).toFixed(0)}pts
+                  </span>
+                </div>
+                <div className="text-gray-500 dark:text-gray-500 text-[10px]">
+                  Média: {teamAverage.performanceScore.toFixed(0)}
+                </div>
+              </div>
+
+              {/* Variance Comparison */}
+              <div className="col-span-2 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                <div className="text-gray-600 dark:text-gray-400 mb-1">Variação Tempo</div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-gray-900 dark:text-white font-medium">Você: </span>
+                    <span className={metrics.totalHoursWorked > metrics.totalHoursEstimated ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {((metrics.totalHoursWorked - metrics.totalHoursEstimated) / Math.max(metrics.totalHoursEstimated, 1) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Média: </span>
+                    <span className={teamAverage.totalHoursWorked > teamAverage.totalHoursEstimated ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {((teamAverage.totalHoursWorked - teamAverage.totalHoursEstimated) / Math.max(teamAverage.totalHoursEstimated, 1) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Insights Preview (top 3) */}
       {insights.length > 0 && (
@@ -333,6 +562,102 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Sprint Evolution Chart (when expanded and history available) */}
+      {isExpanded && sprintHistory && sprintHistory.length > 1 && (
+        <div className="px-5 pb-5">
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+            Evolução ao Longo dos Sprints
+          </h4>
+          <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div className="space-y-4">
+              {/* Efficiency Evolution */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    Eficiência de Execução
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                    {sprintHistory[0].accuracyRate.toFixed(0)}% → {sprintHistory[sprintHistory.length - 1].accuracyRate.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="relative h-16">
+                  {/* Grid lines */}
+                  <div className="absolute inset-0 flex items-end">
+                    {sprintHistory.map((sprint, idx) => {
+                      const maxAccuracy = Math.max(...sprintHistory.map(s => s.accuracyRate), 100);
+                      const height = (sprint.accuracyRate / maxAccuracy) * 100;
+                      const isFirst = idx === 0;
+                      const isLast = idx === sprintHistory.length - 1;
+                      
+                      return (
+                        <div key={idx} className="flex-1 px-0.5 flex flex-col items-center justify-end group relative">
+                          <div
+                            className={`w-full rounded-t transition-all ${
+                              sprint.accuracyRate >= 70 
+                                ? 'bg-green-500 dark:bg-green-400'
+                                : sprint.accuracyRate >= 50
+                                ? 'bg-yellow-500 dark:bg-yellow-400'
+                                : 'bg-red-500 dark:bg-red-400'
+                            }`}
+                            style={{ height: `${height}%` }}
+                          />
+                          {(isFirst || isLast || sprintHistory.length <= 5) && (
+                            <div className="text-[8px] text-gray-500 dark:text-gray-500 mt-1 truncate w-full text-center">
+                              {sprint.sprintName.slice(-3)}
+                            </div>
+                          )}
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                            {sprint.sprintName}: {sprint.accuracyRate.toFixed(0)}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Score Evolution */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    Score de Performance
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                    {sprintHistory[0].performanceScore.toFixed(0)} → {sprintHistory[sprintHistory.length - 1].performanceScore.toFixed(0)}
+                  </span>
+                </div>
+                <div className="relative h-16">
+                  {sprintHistory.map((sprint, idx) => {
+                    const maxScore = Math.max(...sprintHistory.map(s => s.performanceScore), 100);
+                    const height = (sprint.performanceScore / maxScore) * 100;
+                    
+                    return (
+                      <div key={idx} className="flex-1 px-0.5 flex flex-col items-center justify-end group relative inline-block" style={{ width: `${100 / sprintHistory.length}%` }}>
+                        <div
+                          className={`w-full rounded-t transition-all ${
+                            sprint.performanceScore >= 75 
+                              ? 'bg-blue-500 dark:bg-blue-400'
+                              : sprint.performanceScore >= 60
+                              ? 'bg-yellow-500 dark:bg-yellow-400'
+                              : 'bg-orange-500 dark:bg-orange-400'
+                          }`}
+                          style={{ height: `${height}%` }}
+                        />
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                          {sprint.sprintName}: {sprint.performanceScore.toFixed(0)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

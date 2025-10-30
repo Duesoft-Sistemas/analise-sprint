@@ -22,10 +22,11 @@ const METRIC_ICONS: Record<string, React.ReactNode> = {
 };
 
 const METRIC_CATEGORIES = {
-  'Acurácia': ['estimationAccuracy', 'accuracyRate', 'consistencyScore'],
+  'Eficiência de Execução': ['accuracyRate', 'estimationAccuracy', 'consistencyScore'],
   'Qualidade': ['reworkRate', 'bugRate', 'qualityScore', 'bugsVsFeatures'],
-  'Eficiência': ['utilizationRate', 'completionRate'],
-  'Geral': ['performanceScore'],
+  'Conclusão': ['completionRate'],
+  'Contexto (não pontua)': ['utilizationRate'],
+  'Score Geral': ['performanceScore'],
 };
 
 export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = ({
@@ -36,12 +37,12 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
 
   const getMetricTitle = (key: string): string => {
     const titles: Record<string, string> = {
-      estimationAccuracy: 'Acurácia de Estimativa',
-      accuracyRate: 'Taxa de Acurácia',
+      estimationAccuracy: 'Desvio de Estimativa (por tarefa)',
+      accuracyRate: 'Eficiência de Execução ⭐',
       reworkRate: 'Taxa de Retrabalho',
       bugRate: 'Taxa de Bugs',
-      qualityScore: 'Score de Qualidade',
-      utilizationRate: 'Taxa de Utilização',
+      qualityScore: 'Score de Qualidade (Nota de Teste)',
+      utilizationRate: 'Taxa de Utilização ⚠️ (Contexto)',
       completionRate: 'Taxa de Conclusão',
       consistencyScore: 'Score de Consistência',
       performanceScore: 'Score de Performance',
@@ -155,12 +156,78 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               💡 Dica: Como Usar Essas Métricas
             </h4>
             <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-              <li>• <strong>Acurácia:</strong> Use para melhorar o processo de estimativa e planejamento</li>
-              <li>• <strong>Qualidade:</strong> Identifique áreas que precisam de mais testes ou code review</li>
-              <li>• <strong>Eficiência:</strong> Balance carga de trabalho e identifique gargalos</li>
-              <li>• <strong>Performance Geral:</strong> Acompanhe evolução ao longo do tempo, não compare diretamente entre pessoas</li>
-              <li>• <strong>Contexto Importa:</strong> Considere complexidade, módulos legados e tipo de trabalho ao analisar</li>
+              <li>• <strong>Qualidade (40% do score):</strong> Agora baseada na <strong>Nota de Teste (1–5)</strong> por tarefa, escalada para 0–100. Vazio conta como 5.</li>
+              <li>• <strong>Eficiência de Execução (35% do score):</strong> Capacidade de executar dentro do estimado ajustado por complexidade. Tarefas complexas têm mais tolerância</li>
+              <li>• <strong>Conclusão (25% do score):</strong> Foque em finalizar tarefas iniciadas antes de começar novas</li>
+              <li>• <strong>Utilização (não pontua):</strong> Métrica de contexto para identificar sobrecarga. Todos registram ~40h, então não diferencia performance</li>
+              <li>• <strong>Bonus de Complexidade (+10 pontos):</strong> Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos ao score final</li>
+              <li>• <strong>Score Total:</strong> Base (0-100) + Bonus de Complexidade (0-10) = Máximo 110 pontos 🏆</li>
             </ul>
+          </div>
+          
+          {/* New Features Notice */}
+          <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+            <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">
+              🆕 Novidades (v1.3 - Atual)
+            </h4>
+            <ul className="space-y-1 text-sm text-purple-800 dark:text-purple-200">
+              <li>• 🎯 <strong>Score mais justo:</strong> Utilização removida (não diferencia quem registra ~40h)</li>
+              <li>• 📊 <strong>Nova distribuição:</strong> 40% Qualidade + 35% Eficiência + 25% Conclusão</li>
+              <li>• 🏆 Qualidade agora vale mais (35% → 40%)</li>
+              <li>• ⚡ Eficiência ganha peso (25% → 35%)</li>
+            </ul>
+            
+            <h4 className="font-semibold text-purple-900 dark:text-purple-100 mt-3 mb-2">
+              Recursos (v1.2)
+            </h4>
+            <ul className="space-y-1 text-sm text-purple-800 dark:text-purple-200">
+              <li>• 🏆 <strong>Bonus de Complexidade:</strong> Até +10 pontos por trabalhar em tarefas complexas!</li>
+              <li>• 🎯 <strong>Limites dinâmicos:</strong> Tarefas complexas têm mais tolerância para atrasos (-40% vs -15%)</li>
+              <li>• ⚡ <strong>Executar mais rápido não penaliza!</strong> Até +50% mais rápido é excelente</li>
+              <li>• 📊 Gráfico visual de Estimado vs Gasto + Perfil de Complexidade</li>
+              <li>• 👥 Comparação com média da equipe (modo "Por Sprint")</li>
+              <li>• 📈 Gráficos de evolução histórica de eficiência e score</li>
+            </ul>
+          </div>
+          
+          {/* Efficiency Logic Explanation */}
+          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">
+              ⚡ Como a Eficiência é Calculada (Ajustada por Complexidade)
+            </h4>
+            <div className="space-y-3 text-sm text-green-800 dark:text-green-200">
+              <div>
+                <p className="font-medium">📘 Tarefa Simples (nível 1-2) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1 mt-1">
+                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
+                  <li>✅ 11h-11.5h (até -15% de atraso) → <strong>Aceitável</strong></li>
+                  <li>❌ 12h+ → <strong>Ineficiente</strong></li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="font-medium">📗 Tarefa Média (nível 3) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1 mt-1">
+                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
+                  <li>✅ 11h-12h (até -20% de atraso) → <strong>Aceitável</strong></li>
+                  <li>❌ 13h+ → <strong>Ineficiente</strong></li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="font-medium">📕 Tarefa Complexa (nível 4-5) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1 mt-1">
+                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
+                  <li>✅ 11h-14h (até -30% a -40% de atraso) → <strong>Aceitável</strong> 🏆</li>
+                  <li>❌ 15h+ → <strong>Ineficiente</strong></li>
+                </ul>
+                <p className="mt-1 text-xs italic">+ Ganhe até +10 pontos de bonus no score final!</p>
+              </div>
+              
+              <p className="mt-2 font-medium bg-green-100 dark:bg-green-800/30 p-2 rounded">
+                💡 Ser rápido é sempre valorizado! Tarefas complexas têm mais tolerância para imprevistos 🚀
+              </p>
+            </div>
           </div>
 
           {/* Legend for Score Interpretation */}

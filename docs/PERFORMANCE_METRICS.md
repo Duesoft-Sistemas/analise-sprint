@@ -34,7 +34,7 @@ Para calcular as métricas de performance, são utilizados os seguintes dados do
 - ✅ **Tempo Estimado** - Estimativa original da tarefa
 - ✅ **Tempo Gasto** - Tempo real trabalhado
 - ✅ **Tipo** - Bug, Tarefa, História ou Outro
-- ✅ **Retrabalho** - Se a tarefa foi retrabalho (Sim/Não)
+- ✅ **Nota de Teste** - Nota da tarefa nos testes (1–5; vazio=5)
 - ✅ **Complexidade** - Nível de 1 a 5
 - ✅ **Status** - Estado atual da tarefa
 - ✅ **Responsável** - Desenvolvedor alocado
@@ -43,7 +43,10 @@ Para calcular as métricas de performance, são utilizados os seguintes dados do
 
 ## 🎯 Métricas de Acurácia
 
-**⚠️ IMPORTANTE:** As métricas de acurácia são **INFORMATIVAS** e refletem a qualidade do processo de estimativa da **EQUIPE/ANALISTA**, não do desenvolvedor individual. O desenvolvedor contribui com input técnico, mas não é o responsável final pela estimativa.
+**⚠️ IMPORTANTE:** As métricas de acurácia medem a **eficiência de execução** do desenvolvedor em relação às estimativas. Embora a qualidade da estimativa inicial seja responsabilidade da equipe/analista, a capacidade de executar dentro do previsto (ou melhor) é um importante indicador de performance individual. Desvios significativos podem indicar:
+- **Problema de estimativa** (quando toda a equipe desvia similarmente)
+- **Oportunidade de melhoria individual** (quando apenas um desenvolvedor desvia significativamente)
+- **Eficiência excepcional** (quando consistentemente entrega mais rápido que estimado)
 
 ### 1. Acurácia de Estimativa (Estimation Accuracy)
 
@@ -76,25 +79,33 @@ Interpretação: Subestimou em 20%
 
 ---
 
-### 2. Taxa de Acurácia (Accuracy Rate)
+### 2. Taxa de Acurácia (Accuracy Rate) / Eficiência de Execução ⭐
 
 **Fórmula:**
 ```
-(Tarefas com desvio ≤ 20% / Total de Tarefas) × 100
+(Tarefas com boa eficiência / Total de Tarefas) × 100
+
+Onde "boa eficiência" é AJUSTADA POR COMPLEXIDADE:
+- Executou mais rápido: até +50% (sempre ótimo) ✅
+- Tarefas Simples (nível 1-2): até -15% de atraso ✅
+- Tarefas Médias (nível 3): até -20% de atraso ✅
+- Tarefas Complexas (nível 4-5): até -30% a -40% de atraso ✅
 ```
 
 **Descrição:**
-Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa original.
+Percentual de tarefas executadas de forma eficiente. **Importante:** Executar mais rápido que o estimado é POSITIVO! Os limites de tolerância são dinâmicos - tarefas complexas têm mais margem para imprevistos.
 
 **Interpretação:**
-Quanto maior, mais consistente e preciso o desenvolvedor é nas estimativas.
+Quanto maior, mais eficiente o desenvolvedor é na execução. A métrica favorece quem entrega mais rápido que o previsto.
 
 **Exemplo:**
 ```
 10 tarefas no sprint:
-- 8 ficaram dentro de ±20%
-- 2 ficaram fora de ±20%
-Taxa de Acurácia: (8 / 10) × 100 = 80%
+- 3 executadas mais rápido (7h gastadas vs 10h estimadas) = +30% → ✅ CONTA
+- 5 dentro do prazo (-20% a +20%) → ✅ CONTA
+- 2 com atraso significativo (15h gastadas vs 10h estimadas) = -50% → ❌ NÃO CONTA
+
+Taxa de Eficiência: (8 / 10) × 100 = 80%
 ```
 
 **Faixas de Avaliação:**
@@ -103,6 +114,51 @@ Taxa de Acurácia: (8 / 10) × 100 = 80%
 - `60-69%` - Bom
 - `50-59%` - Adequado
 - `<50%` - Precisa Atenção
+
+**⚡ Nota sobre Eficiência (Ajustada por Complexidade):**
+- Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
+- **Tarefa Simples** (nível 1-2): até -15% de atraso ✅
+- **Tarefa Média** (nível 3): até -20% de atraso ✅
+- **Tarefa Complexa** (nível 4-5): até -30% a -40% de atraso ✅
+- Atrasos **além dos limites** = ❌ Precisa atenção
+
+**🎯 Por que limites dinâmicos por complexidade?**
+
+Os limites são **ajustados por complexidade** porque:
+
+1. **Executar mais rápido é SEMPRE bom:**
+   - Mostra eficiência e domínio técnico
+   - Libera tempo para outras tarefas
+   - Aumenta previsibilidade do time
+   - Limite de +50% evita que estimativas irrealistas sejam aceitas
+
+2. **Tarefas complexas têm mais imprevistos:**
+   - Mais pontos de integração e dependências
+   - Maior incerteza técnica
+   - Mais tempo de debugging
+   - Limites maiores reconhecem essa realidade
+
+3. **Tarefas simples devem ser mais previsíveis:**
+   - Escopo bem definido, menos surpresas
+   - Limites mais restritos incentivam precisão
+
+4. **Comparação com a equipe identifica o problema real:**
+   - Se todos atrasam → problema de estimativa inicial
+   - Se só você atrasa → pode precisar de suporte técnico
+
+**Exemplo Real:**
+```
+Dev A (tarefa simples nível 1): Estimou 10h, gastou 7h → +30% ✅ EFICIENTE
+Dev B (tarefa simples nível 1): Estimou 10h, gastou 11h → -10% ✅ EFICIENTE
+Dev C (tarefa simples nível 1): Estimou 10h, gastou 12h → -20% ❌ INEFICIENTE (>-15%)
+
+Dev D (tarefa complexa nível 5): Estimou 10h, gastou 7h → +30% ✅ EFICIENTE
+Dev E (tarefa complexa nível 5): Estimou 10h, gastou 13h → -30% ✅ EFICIENTE
+Dev F (tarefa complexa nível 5): Estimou 10h, gastou 15h → -50% ❌ INEFICIENTE (>-40%)
+
+Taxa de eficiência da equipe: 67% (4 de 6 devs)
+Devs com bonus: D, E (tarefas complexas) ganham até +10 pontos no score final 🏆
+```
 
 ---
 
@@ -148,7 +204,30 @@ Consistency Score: 100 - (0.327 × 50) = 83.65
 
 ## 🏆 Métricas de Qualidade
 
-### 1. Taxa de Retrabalho (Rework Rate)
+### 1. Score de Qualidade (Quality Score)
+
+**Fórmula:**
+```
+Nota de Teste Média × 20
+```
+
+**Descrição:**
+Score de qualidade baseado exclusivamente na Nota de Teste por tarefa (escala 1–5), escalada para 0–100. Quando a nota não é informada no Excel, considera-se 5 por padrão.
+
+**Interpretação:**
+- `80-100` - Excelente
+- `60-79` - Bom
+- `<60` - Precisa Atenção
+
+**Exemplos:**
+```
+Nota média 4.5 → 90
+Nota média 3.0 → 60
+```
+
+---
+
+### 2. Taxa de Retrabalho (Rework Rate)
 
 **Fórmula:**
 ```
@@ -156,7 +235,7 @@ Consistency Score: 100 - (0.327 × 50) = 83.65
 ```
 
 **Descrição:**
-Percentual de tarefas que precisaram ser refeitas ou corrigidas.
+Percentual de tarefas que precisaram ser refeitas ou corrigidas. Não compõe o Quality Score (informativa), já que a qualidade é pontuada via Nota de Teste.
 
 **Interpretação:**
 Quanto menor, melhor a qualidade do trabalho entregue.
@@ -237,55 +316,15 @@ Interpretação: Para cada 4 features, há 1 bug (ótimo)
 
 ---
 
-### 4. Score de Qualidade (Quality Score)
+### 4. Nota de Teste (Detalhe)
 
-**Fórmula:**
-```
-100 - Taxa de Retrabalho
-```
-
-**Descrição:**
-Score simplificado de qualidade baseado no inverso da taxa de retrabalho.
-
-**Interpretação:**
-- `90-100` - Excelente
-- `80-89` - Muito Bom
-- `70-79` - Bom
-- `60-69` - Adequado
-- `<60` - Precisa Atenção
+Usada como base do Quality Score. Escala 1–5 por tarefa; vazio é tratado como 5.
 
 ---
 
 ## ⚡ Métricas de Eficiência
 
-### 1. Taxa de Utilização (Utilization Rate)
-
-**Fórmula:**
-```
-(Total de Horas Trabalhadas / 40h) × 100
-```
-
-**Descrição:**
-Percentual de utilização da capacidade semanal (assumindo 40h/semana).
-
-**Interpretação:**
-- `>100%` - Sobrecarga (risco de burnout)
-- `80-100%` - Bem utilizado (ideal)
-- `60-79%` - Utilização normal
-- `<60%` - Pode receber mais tarefas
-
-**Exemplo:**
-```
-36h trabalhadas / 40h = 90% de utilização
-```
-
-**Atenção:**
-- Acima de 100% por períodos prolongados é insustentável
-- Abaixo de 60% pode indicar bloqueios ou falta de tarefas
-
----
-
-### 2. Taxa de Conclusão (Completion Rate)
+### 1. Taxa de Conclusão (Completion Rate)
 
 **Fórmula:**
 ```
@@ -314,7 +353,7 @@ Percentual de tarefas que foram finalizadas em relação às iniciadas.
 
 ---
 
-### 3. Tempo Médio para Conclusão (Avg Time to Complete)
+### 2. Tempo Médio para Conclusão (Avg Time to Complete)
 
 **Fórmula:**
 ```
@@ -329,6 +368,37 @@ Tempo médio gasto em tarefas que foram finalizadas.
 - Identifique se tarefas complexas levam proporcionalmente mais tempo
 - Use para calibrar futuras estimativas
 
+### 3. Taxa de Utilização (Utilization Rate) ⚠️
+
+**⚠️ MÉTRICA DE CONTEXTO - NÃO IMPACTA O PERFORMANCE SCORE**
+
+**Fórmula:**
+```
+(Total de Horas Trabalhadas / 40h) × 100
+```
+
+**Descrição:**
+Percentual de utilização da capacidade semanal (assumindo 40h/semana).
+
+**Por que não faz parte do score?**
+Como todos os desenvolvedores registram aproximadamente 40 horas (incluindo reuniões, bloqueios, etc.), esta métrica não diferencia performance individual. Ela serve apenas como **métrica de contexto** para identificar sobrecarga.
+
+**Interpretação:**
+- `>100%` - Sobrecarga (risco de burnout) - **Requer atenção do gestor**
+- `80-100%` - Bem utilizado (ideal)
+- `60-79%` - Utilização normal
+- `<60%` - Pode indicar bloqueios ou tarefas insuficientes
+
+**Exemplo:**
+```
+36h trabalhadas / 40h = 90% de utilização
+```
+
+**Uso Recomendado:**
+- **Para gestores**: Identificar desenvolvedores sobrecarregados ou com bloqueios
+- **Para planejamento**: Balancear distribuição de tarefas
+- **NÃO usar**: Para comparar performance individual
+
 ---
 
 ## 🎖️ Score Geral de Performance
@@ -337,47 +407,75 @@ Tempo médio gasto em tarefas que foram finalizadas.
 
 **⚠️ IMPORTANTE:** Este score é uma ferramenta de **autoconhecimento e coaching**, não de avaliação de desempenho isolada. Use com contexto e empatia.
 
-**Fórmula Ponderada:**
+**Fórmula Ponderada (com Bonus de Complexidade):**
 ```
-Performance Score = 
-  (50% × Score de Qualidade) +
-  (30% × Utilização Normalizada) +
-  (20% × Taxa de Conclusão)
+Score Base = 
+  (40% × Score de Qualidade) +
+  (35% × Eficiência de Execução) +
+  (25% × Taxa de Conclusão)
+
+Bonus de Complexidade = (% de tarefas nível 4-5) × 10
+
+Performance Score Final = Score Base + Bonus de Complexidade
+Máximo: 110 pontos 🏆
 ```
 
 **Componentes:**
-1. **Score de Qualidade** = `100 - Taxa de Retrabalho`
-2. **Utilização Normalizada** = `min(100, Taxa de Utilização)`
-3. **Taxa de Conclusão** = `(Tarefas Concluídas / Tarefas Iniciadas) × 100`
+1. **Score de Qualidade** (40%) = `100 - Taxa de Retrabalho`
+2. **Eficiência de Execução** (35%) = % de tarefas dentro dos limites ajustados por complexidade
+3. **Taxa de Conclusão** (25%) = `(Tarefas Concluídas / Tarefas Iniciadas) × 100`
+4. **Bonus de Complexidade** = Recompensa por trabalhar em tarefas complexas (0-10 pontos)
 
-**Nota sobre Acurácia:**
-- A acurácia de estimativa é exibida como **métrica informativa**
-- **NÃO** impacta o score de performance individual
-- Motivo: Estimativas são responsabilidade do analista/equipe, não apenas do desenvolvedor
+**📊 Nota sobre Utilização:**
+A Taxa de Utilização **NÃO faz mais parte do score** (anteriormente era 25%). Como todos os desenvolvedores registram ~40h, ela não diferencia performance e foi removida para tornar o score mais justo e acionável.
+
+**Sobre Eficiência de Execução:**
+- Mede a capacidade do desenvolvedor de executar tarefas dentro do tempo estimado **ajustado por complexidade**
+- Tarefas simples têm limites mais rigorosos (-15%), tarefas complexas mais tolerantes (-40%)
+- Alta eficiência: consistentemente entrega no prazo ou antes
+- Baixa eficiência: frequentemente ultrapassa limites (pode indicar necessidade de suporte)
+- Considera contexto: juniores esperado ter mais variação
+
+**Sobre Bonus de Complexidade:**
+- Reconhece que trabalhar em tarefas complexas tem mais valor
+- 0% de tarefas complexas = 0 pontos de bonus
+- 50% de tarefas complexas = +5 pontos de bonus
+- 100% de tarefas complexas = +10 pontos de bonus
+- Incentiva seniors a pegarem tarefas desafiadoras
 
 **Exemplo:**
 ```
+Desenvolvedor trabalhando em mix de tarefas (40% complexas):
+
 Qualidade: 90 (10% de retrabalho)
-Utilização: 85 (85% de utilização)
+Eficiência: 75 (75% das tarefas dentro dos limites ajustados)
 Conclusão: 100 (todas concluídas)
 
-Score = (0.5 × 90) + (0.3 × 85) + (0.2 × 100)
-Score = 45 + 25.5 + 20 = 90.5
+Score Base = (0.40 × 90) + (0.35 × 75) + (0.25 × 100)
+Score Base = 36 + 26.25 + 25 = 87.25
+
+Bonus Complexidade = 0.40 × 10 = 4 pontos
+
+Score Final = 87.25 + 4 = 91.25 🏆
 ```
 
 ### Interpretação dos Scores
 
 | Range | Classificação | Descrição |
 |-------|--------------|-----------|
-| 90-100 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
+| 100-110 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas |
+| 90-99 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
 | 75-89 | ⭐⭐⭐⭐ Muito Bom | Performance acima da média, consistente |
 | 60-74 | ⭐⭐⭐ Bom | Performance adequada, algumas áreas para melhorar |
 | 45-59 | ⭐⭐ Adequado | Performance aceitável, precisa atenção em algumas áreas |
 | <45 | ⭐ Precisa Atenção | Performance abaixo do esperado, necessita melhorias |
 
+**Nota:** Scores acima de 100 indicam excelente performance base (90+) combinada com trabalho significativo em tarefas complexas (nível 4-5).
+
 ### Coloração Visual
 
-- 🟢 **Verde** (90+) - Excelente
+- 🏆 **Excepcional** (100+) - Performance base excelente + bonus de complexidade
+- 🟢 **Verde** (90-99) - Excelente
 - 🔵 **Azul** (75-89) - Muito Bom
 - 🟡 **Amarelo** (60-74) - Bom
 - 🟠 **Laranja** (45-59) - Adequado
@@ -512,54 +610,77 @@ Usa **regressão linear** nos valores dos últimos sprints:
 ### Exemplo 1: Desenvolvedor Subestimando
 
 **Métricas:**
-- Acurácia: -25% (gasta 25% a mais que estimado)
-- Taxa de Acurácia: 45%
+- Eficiência de Execução: 45% (apenas 45% das tarefas dentro dos limites ajustados)
+- Acurácia Média: -25% (gasta 25% a mais que estimado)
 - Qualidade: 85
+- Conclusão: 100%
+
+**Cálculo do Score:**
+```
+Score = (0.40 × 85) + (0.35 × 45) + (0.25 × 100)
+Score = 34 + 15.75 + 25 = 74.75
+```
 
 **Diagnóstico:**
-Subestima consistentemente, mas entrega com qualidade.
+Subestima consistentemente, mas entrega com qualidade. Score impactado pela baixa eficiência de execução (35% do score).
 
 **Ações:**
-1. Adicionar buffer de 30% nas estimativas
-2. Quebrar tarefas maiores em menores
-3. Revisar definição de "pronto"
-4. Considerar se está incluindo testes na estimativa
+1. Adicionar buffer de 30% nas estimativas iniciais
+2. Quebrar tarefas maiores em menores para melhor precisão
+3. Revisar definição de "pronto" com a equipe
+4. Considerar se está incluindo tempo de testes e review na estimativa
+5. Comparar com média da equipe - se todos subestimam, ajustar processo de planejamento
 
 ---
 
 ### Exemplo 2: Desenvolvedor com Alto Retrabalho
 
 **Métricas:**
-- Acurácia: 5% (estimativas boas)
-- Taxa de Retrabalho: 35%
-- Qualidade Score: 65
+- Eficiência de Execução: 75% (estimativas boas)
+- Qualidade Score: 65 (35% de retrabalho)
+- Conclusão: 85%
+
+**Cálculo do Score:**
+```
+Score = (0.40 × 65) + (0.35 × 75) + (0.25 × 85)
+Score = 26 + 26.25 + 21.25 = 73.5
+```
 
 **Diagnóstico:**
-Estima bem, mas qualidade inicial baixa.
+Executa dentro do estimado, mas qualidade inicial baixa prejudica score. Alto retrabalho (35%) é o principal problema (representa 40% do score!).
 
 **Ações:**
-1. Reforçar testes unitários e integração
-2. Aumentar cobertura de code review
-3. Checklist de qualidade antes de finalizar
-4. Pair programming em tarefas críticas
+1. Reforçar testes unitários e integração antes de entregar
+2. Aumentar cobertura de code review rigoroso
+3. Criar checklist de qualidade antes de finalizar tarefa
+4. Pair programming em tarefas críticas ou complexas
+5. Documentar requisitos claramente para evitar mal-entendidos
 
 ---
 
 ### Exemplo 3: Desenvolvedor Sobrecarregado
 
 **Métricas:**
-- Utilização: 135%
+- Eficiência de Execução: 60%
+- Qualidade: 90
 - Taxa de Conclusão: 65%
-- Performance Score: 55
+- Utilização: 135% (contexto: sobrecarga!)
+
+**Cálculo do Score:**
+```
+Score = (0.40 × 90) + (0.35 × 60) + (0.25 × 65)
+Score = 36 + 21 + 16.25 = 73.25
+```
 
 **Diagnóstico:**
-Muito trabalho, mas baixa conclusão (provável bloqueio ou interrupções).
+Alta qualidade (90), mas baixa conclusão (65%) e eficiência média (60%). A utilização de 135% indica **sobrecarga crítica** - desenvolvedor está trabalhando muito mas não consegue finalizar tarefas. Situação insustentável!
 
 **Ações:**
-1. Reduzir carga de trabalho
-2. Investigar bloqueios
-3. Priorizar tarefas
-4. Eliminar interrupções
+1. **URGENTE:** Reduzir carga de trabalho para evitar burnout
+2. Investigar bloqueios recorrentes e removê-los
+3. Priorizar tarefas - focar em finalizar antes de iniciar novas
+4. Eliminar interrupções e reuniões desnecessárias
+5. Comunicar sobrecarga ao tech lead/manager
 
 ---
 
@@ -567,10 +688,10 @@ Muito trabalho, mas baixa conclusão (provável bloqueio ou interrupções).
 
 ### 1. Por que meu score caiu mesmo entregando tudo?
 
-**R:** O score considera qualidade, não apenas quantidade. Verifique:
-- Taxa de retrabalho aumentou?
-- Acurácia das estimativas piorou?
-- Houve mais bugs que features?
+**R:** O score considera qualidade e eficiência, não apenas quantidade. Verifique:
+- **Taxa de retrabalho aumentou?** (40% do score - Qualidade)
+- **Eficiência de execução piorou?** (35% do score - Tarefas dentro do prazo)
+- **Taxa de conclusão diminuiu?** (25% do score - Tarefas finalizadas)
 
 ---
 
@@ -593,15 +714,19 @@ Muito trabalho, mas baixa conclusão (provável bloqueio ou interrupções).
 
 ---
 
-### 3. Como melhorar minha acurácia de estimativas?
+### 3. Como melhorar minha eficiência de execução?
 
-**Dicas:**
-1. **Quebre tarefas grandes** em menores
-2. **Use técnicas** como Planning Poker
-3. **Considere o todo**: desenvolvimento + testes + review + deploy
-4. **Aprenda com o passado**: compare estimado vs real
-5. **Inclua buffer**: 20-30% para imprevistos
-6. **Esclareça requisitos**: dúvidas levam a subestimação
+**⚠️ IMPORTANTE:** Eficiência de execução agora representa **35% do seu performance score**!
+
+**Dicas para executar dentro do estimado:**
+1. **Quebre tarefas grandes** em menores e mais previsíveis
+2. **Use técnicas de estimativa** como Planning Poker com a equipe
+3. **Considere o todo**: desenvolvimento + testes + review + deploy + documentação
+4. **Aprenda com o passado**: compare seu estimado vs real e calibre
+5. **Inclua buffer realista**: 20-30% para imprevistos
+6. **Esclareça requisitos**: dúvidas levam a subestimação e retrabalho
+7. **Compare com a equipe**: se todos desviam similarmente, problema é de estimativa inicial
+8. **Busque suporte técnico**: se só você desvia muito, pode precisar de ajuda
 
 ---
 
@@ -631,6 +756,82 @@ Muito trabalho, mas baixa conclusão (provável bloqueio ou interrupções).
 
 ---
 
+### 6. Como usar a comparação com a média da equipe?
+
+**R:** O card de **"Comparação com Média da Equipe"** (roxo) aparece na visualização "Por Sprint" e mostra:
+
+**📊 Eficiência:**
+- Sua eficiência vs média da equipe
+- ▲ Verde = você está acima da média
+- ▼ Vermelho = você está abaixo da média
+
+**💡 Como interpretar:**
+- **Diferença < 10 pontos:** Normal, você está alinhado com a equipe
+- **Você muito acima (+15pts):** Excelente! Você está mais consistente que a média
+- **Você muito abaixo (-15pts):** Atenção! Possíveis causas:
+  - Tarefas mais complexas que a média
+  - Necessidade de suporte técnico
+  - Estimativas inadequadas para seu nível
+
+**🎯 Variação de Tempo:**
+- Mostra quanto você desvia das estimativas vs a média
+- Se **toda equipe desvia +50%:** Problema é de estimativa inicial (responsabilidade do time/analista)
+- Se **só você desvia +50%:** Pode indicar necessidade de ajuda ou tarefas desproporcionais
+
+**Ação recomendada:**
+1. Compare suas tarefas com as da equipe (complexidade similar?)
+2. Se diferença grande, converse com tech lead sobre distribuição
+3. Use para identificar se precisa de mentoria ou treinamento específico
+
+---
+
+### 7. Como interpretar os gráficos de evolução?
+
+**R:** Ao expandir o card de performance, você vê sua evolução ao longo dos sprints:
+
+**📈 Gráfico de Eficiência de Execução:**
+- Barras verdes (≥70%): Você está executando bem dentro do estimado
+- Barras amarelas (50-70%): Performance média, há espaço para melhoria
+- Barras vermelhas (<50%): Atenção! Muitas tarefas fora do prazo
+
+**📊 Gráfico de Score de Performance:**
+- Barras azuis (≥75): Performance muito boa
+- Barras amarelas (60-75): Performance adequada
+- Barras laranjas (<60): Precisa atenção
+
+**Como usar:**
+- **Tendência ascendente:** Você está melhorando! Continue
+- **Tendência descendente:** Identifique o que mudou (tarefas mais complexas? cansaço? bloqueios?)
+- **Estável e alta:** Consistência excelente!
+- **Estável e baixa:** Precisa intervenção (mentoria, ajuste de tarefas, etc.)
+
+---
+
+### 8. Por que executar mais rápido não reduz minha eficiência?
+
+**R:** 🎉 **Essa é uma correção importante da v1.2!**
+
+**Antes (injusto):**
+- Tarefa estimada 10h, gastou 7h = **fora de ±20%** → ❌ Penalizado
+- Tarefa estimada 10h, gastou 13h = **fora de ±20%** → ❌ Penalizado
+
+**Agora (justo):**
+- Tarefa estimada 10h, gastou 7h = **+30% mais rápido** → ✅ EFICIENTE!
+- Tarefa estimada 10h, gastou 13h = **-30% de atraso** → ❌ Ineficiente
+
+**Por quê?**
+Executar mais rápido é POSITIVO:
+- Mostra domínio técnico
+- Libera capacidade para mais tarefas
+- Aumenta previsibilidade
+
+**Limites:**
+- ✅ Até **+50% mais rápido** conta como eficiente
+- ✅ Até **-20% de atraso** ainda é aceitável
+- ❌ Mais de **-20% de atraso** precisa atenção
+
+---
+
 ## 🎯 Conclusão
 
 As métricas de performance são ferramentas para:
@@ -638,17 +839,72 @@ As métricas de performance são ferramentas para:
 - ✅ **Planejamento** mais preciso
 - ✅ **Identificação** de necessidades de suporte
 - ✅ **Celebração** de conquistas
+- ✅ **Identificação de padrões** (individual vs equipe)
+- ✅ **Evolução ao longo do tempo**
 
 **Não são:**
 - ❌ Ferramenta de punição
 - ❌ Único critério de avaliação
 - ❌ Métricas absolutas de "valor"
+- ❌ Comparação injusta sem considerar contexto
 
-Use com sabedoria, contexto e empatia! 🚀
+**Use com sabedoria, contexto e empatia!** 🚀
+
+### 📊 Recursos Visuais Disponíveis:
+1. **Gráfico Estimado vs Gasto** - visualização imediata da variação
+2. **Comparação com Equipe** - identifique se está alinhado com a média
+3. **Evolução Histórica** - veja seu progresso ao longo dos sprints
+4. **Insights Comparativos** - recomendações contextualizadas baseadas na equipe
 
 ---
 
-**Versão:** 1.0  
-**Última Atualização:** Outubro 2024  
+## 🆕 Novidades (v1.2)
+
+### Mudanças na Fórmula do Score (v1.3 - Atual)
+- **Utilização removida do score** (todos registram ~40h, não diferencia performance)
+- **Nova distribuição**: 40% Qualidade + 35% Eficiência + 25% Conclusão
+- Eficiência de Execução ganha mais peso (25% → 35%)
+- Qualidade permanece fundamental (35% → 40%)
+
+### Histórico (v1.2)
+- Acurácia passou a contar 25% do score (antes era apenas informativa)
+- Renomeada para "Eficiência de Execução" para refletir melhor seu significado
+- Distribuição anterior: 35% Qualidade + 25% Eficiência + 25% Utilização + 15% Conclusão
+
+### Novos Recursos Visuais
+- ✨ **Gráfico de barras Estimado vs Gasto** em cada card
+- ✨ **Card de comparação com média da equipe** (quando visualizando por sprint)
+- ✨ **Gráficos de evolução** histórica de eficiência e score
+- ✨ **Insights comparativos automáticos** destacando desvios significativos da média
+
+### Por que a mudança?
+A eficiência de execução (capacidade de entregar dentro do estimado) é um indicador importante de:
+- **Maturidade técnica** do desenvolvedor
+- **Previsibilidade** para planejamento
+- **Necessidade de suporte** quando apenas um desenvolvedor desvia muito
+
+A comparação com a equipe ajuda a identificar se o problema é:
+- **Estimativa inicial ruim** (todos desviam) → responsabilidade do time/analista
+- **Performance individual** (só um desvia) → oportunidade de melhoria ou necessidade de suporte
+
+### Por que executar mais rápido não penaliza?
+**v1.2 corrigiu uma injustiça:** antes, executar em 7h uma tarefa estimada em 10h era penalizado igualmente a executar em 13h!
+
+**Nova lógica (assimétrica e justa):**
+- ⚡ **Mais rápido (até +50%):** CONTA como eficiente (não penaliza!)
+- ⏱️ **Dentro do prazo (-20% a +20%):** CONTA como eficiente
+- 🐌 **Muito mais devagar (>-20%):** NÃO CONTA (precisa atenção)
+
+**Exemplo prático:**
+- Estimou 10h, gastou 5h = **+50% mais rápido** → ✅ Eficiente!
+- Estimou 10h, gastou 7h = **+30% mais rápido** → ✅ Eficiente!
+- Estimou 10h, gastou 12h = **-20% de atraso** → ✅ Aceitável
+- Estimou 10h, gastou 15h = **-50% de atraso** → ❌ Ineficiente
+
+---
+
+**Versão:** 1.3  
+**Última Atualização:** Outubro 2025  
+**Principais Mudanças v1.3:** Utilização removida do Performance Score (não diferencia devs que registram ~40h)  
 **Contato:** Sprint Analysis Dashboard Team
 

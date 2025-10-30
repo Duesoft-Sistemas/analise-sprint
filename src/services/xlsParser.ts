@@ -36,6 +36,7 @@ const COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'Campo personalizado (Detalhes Ocultos)': ['Campo personalizado (Detalhes Ocultos)'],
   'Campo personalizado (Retrabalho)': ['Campo personalizado (Retrabalho)'],
   'Campo personalizado (Complexidade)': ['Campo personalizado (Complexidade)'],
+  'Campo personalizado (Nota Teste)': ['Campo personalizado (Nota Teste)', 'Campo personalizado (Nota de Teste)'],
 };
 
 /**
@@ -67,6 +68,14 @@ function getRawColumnValue(row: XlsRow, columnName: string): any {
   }
   
   return '';
+}
+
+function parseNotaTeste(value: any): number {
+  if (value === undefined || value === null || value === '') return 5;
+  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+  if (isNaN(num)) return 5;
+  // clamp to 1-5, default already handled
+  return Math.max(1, Math.min(5, num));
 }
 
 /**
@@ -225,6 +234,7 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
       const detalhesOcultos = normalizeText(getColumnValue(row, 'Campo personalizado (Detalhes Ocultos)'));
       const retrabalhoRaw = getColumnValue(row, 'Campo personalizado (Retrabalho)');
       const complexidadeRaw = getRawColumnValue(row, 'Campo personalizado (Complexidade)');
+      const notaTesteRaw = getRawColumnValue(row, 'Campo personalizado (Nota Teste)');
       
       // Ler o tipo diretamente da coluna, se existir
       const tipoRaw = getColumnValue(row, 'Tipo de item');
@@ -256,6 +266,7 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
         tipo,
         retrabalho: parseRetrabalho(retrabalhoRaw),
         complexidade: parseComplexidade(complexidadeRaw),
+        notaTeste: parseNotaTeste(notaTesteRaw),
       };
 
       tasks.push(task);

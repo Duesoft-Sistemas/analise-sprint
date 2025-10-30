@@ -4,6 +4,19 @@
 
 A funcionalidade de **Análise Híbrida** permite calcular métricas de sprint de forma mais precisa, separando o tempo gasto em diferentes sprints. Isso resolve o problema de tarefas que atravessam múltiplos sprints, onde parte do trabalho foi feito em sprints anteriores.
 
+## ⚠️ REGRA FUNDAMENTAL
+
+**O tempo gasto nos cálculos SEMPRE vem do worklog, NUNCA da planilha de sprint.**
+
+- ✅ **Usar**: `tempoGastoTotal`, `tempoGastoNoSprint`, `tempoGastoOutrosSprints` (calculados do worklog)
+- ❌ **NUNCA usar**: `tempoGasto` (campo da planilha de sprint) nos cálculos
+
+**Por quê?**
+- O worklog é a fonte verdadeira do tempo efetivamente trabalhado
+- A planilha de sprint pode ter valores desatualizados ou incorretos
+- Todos os cálculos de performance, capacidade e alertas devem usar o tempo real do worklog
+- Se não houver worklog, o tempo gasto é **0** (zero), não o valor da planilha
+
 ## 🎯 Problema Resolvido
 
 ### Antes (Problema)

@@ -1,30 +1,64 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Upload, FileSpreadsheet, AlertCircle, Clock, Calendar } from 'lucide-react';
-import { parseXLSFile } from '../services/xlsParser';
-import { parseWorklogFile } from '../services/worklogParser';
-import { parseSprintPeriod, getDefaultSprintPeriod, formatDateForInput } from '../services/hybridCalculations';
+import { parseXLSFile, validateXLSStructure } from '../services/xlsParser';
+import { parseWorklogFile, validateWorklogStructure } from '../services/worklogParser';
+import { parseSprintsFile, validateSprintsStructure } from '../services/sprintsParser';
 import { useSprintStore } from '../store/useSprintStore';
-
-type FileType = 'layout' | 'worklog';
 
 export const XlsUploader: React.FC = () => {
   const [isDraggingLayout, setIsDraggingLayout] = useState(false);
   const [isDraggingWorklog, setIsDraggingWorklog] = useState(false);
+  const [isDraggingSprints, setIsDraggingSprints] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingLayout, setIsLoadingLayout] = useState(false);
   const [isLoadingWorklog, setIsLoadingWorklog] = useState(false);
+  const [isLoadingSprints, setIsLoadingSprints] = useState(false);
   const [layoutFileName, setLayoutFileName] = useState<string | null>(null);
   const [worklogFileName, setWorklogFileName] = useState<string | null>(null);
+  const [sprintsFileName, setSprintsFileName] = useState<string | null>(null);
   
   const setTasks = useSprintStore((state) => state.setTasks);
   const setWorklogs = useSprintStore((state) => state.setWorklogs);
-  const setSprintPeriod = useSprintStore((state) => state.setSprintPeriod);
-  const selectedSprint = useSprintStore((state) => state.selectedSprint);
-  
-  // Initialize with default period (Monday to Friday of current week)
-  const defaultPeriod = getDefaultSprintPeriod('Sprint Atual');
-  const [startDate, setStartDate] = useState(formatDateForInput(defaultPeriod.startDate));
-  const [endDate, setEndDate] = useState(formatDateForInput(defaultPeriod.endDate));
+  const setSprintMetadata = useSprintStore((state) => state.setSprintMetadata);
+
+  const handleSprintsFile = useCallback(
+    async (file: File) => {
+      console.log('📅 Iniciando upload de sprints:', file.name);
+      
+      const isValidFile = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      
+      if (!isValidFile) {
+        setError('Por favor, selecione um arquivo Excel válido (.xlsx ou .xls)');
+        return;
+      }
+
+      setIsLoadingSprints(true);
+      setError(null);
+      // Validate headers before parsing
+      const isValidStructure = await validateSprintsStructure(file);
+      if (!isValidStructure) {
+        setIsLoadingSprints(false);
+        setError('Estrutura inválida no arquivo de sprints. Verifique as colunas obrigatórias: Sprint, Data Início, Data Fim.');
+        return;
+      }
+
+      const result = await parseSprintsFile(file);
+      console.log('📅 Resultado do parse de sprints:', result);
+
+      if (result.success && result.data) {
+        console.log(`✅ Sprints carregados com sucesso: ${result.data.length} sprints`);
+        setSprintMetadata(result.data, file.name);
+        setSprintsFileName(file.name);
+        setError(null);
+      } else {
+        console.error('❌ Erro ao processar sprints:', result.error);
+        setError(result.error || 'Erro ao processar o arquivo de sprints');
+      }
+
+      setIsLoadingSprints(false);
+    },
+    [setSprintMetadata]
+  );
 
   const handleLayoutFile = useCallback(
     async (file: File) => {
@@ -35,14 +69,15 @@ export const XlsUploader: React.FC = () => {
         return;
       }
 
-      // Validate sprint period dates are filled
-      if (!startDate || !endDate) {
-        setError('Por favor, preencha as datas do período do sprint antes de fazer upload do layout');
-        return;
-      }
-
       setIsLoadingLayout(true);
       setError(null);
+      // Validate headers before parsing
+      const isValidStructure = await validateXLSStructure(file);
+      if (!isValidStructure) {
+        setIsLoadingLayout(false);
+        setError('Estrutura inválida no arquivo de layout. Verifique as colunas obrigatórias: Chave, Resumo, Tempo gasto, Sprint, Estimativa original, Status.');
+        return;
+      }
 
       const result = await parseXLSFile(file);
 
@@ -56,7 +91,7 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingLayout(false);
     },
-    [setTasks, startDate, endDate]
+    [setTasks]
   );
 
   const handleWorklogFile = useCallback(
@@ -70,6 +105,13 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingWorklog(true);
       setError(null);
+      // Validate headers before parsing
+      const isValidStructure = await validateWorklogStructure(file);
+      if (!isValidStructure) {
+        setIsLoadingWorklog(false);
+        setError('Estrutura inválida no arquivo de worklog. Verifique as colunas obrigatórias: ID da tarefa, Responsável, Tempo gasto, Data.');
+        return;
+      }
 
       const result = await parseWorklogFile(file);
 
@@ -86,18 +128,38 @@ export const XlsUploader: React.FC = () => {
     [setWorklogs]
   );
 
-  const handleSprintPeriodChange = useCallback(() => {
-    if (startDate && endDate) {
-      try {
-        const sprintName = selectedSprint || 'Sprint Atual';
-        const period = parseSprintPeriod(sprintName, startDate, endDate);
-        setSprintPeriod(period);
-        setError(null);
-      } catch (err) {
-        setError('Erro ao definir período do sprint. Verifique as datas.');
+  // Sprints file handlers
+  const handleSprintsDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDraggingSprints(false);
+
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        handleSprintsFile(file);
       }
-    }
-  }, [startDate, endDate, selectedSprint, setSprintPeriod]);
+    },
+    [handleSprintsFile]
+  );
+
+  const handleSprintsDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingSprints(true);
+  }, []);
+
+  const handleSprintsDragLeave = useCallback(() => {
+    setIsDraggingSprints(false);
+  }, []);
+
+  const handleSprintsFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleSprintsFile(file);
+      }
+    },
+    [handleSprintsFile]
+  );
 
   // Layout file handlers
   const handleLayoutDrop = useCallback(
@@ -165,71 +227,85 @@ export const XlsUploader: React.FC = () => {
     [handleWorklogFile]
   );
 
-  // Update sprint period when dates change
-  React.useEffect(() => {
-    handleSprintPeriodChange();
-  }, [handleSprintPeriodChange]);
-
   return (
     <div className="w-full space-y-6">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Upload de Arquivos</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Configure o período do sprint (obrigatório) e faça upload dos arquivos
-        </p>
       </div>
 
-      {/* Sprint Period Configuration - SEMPRE VISÍVEL */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl p-6 border-2 border-blue-300 dark:border-blue-700 shadow-lg">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-6 h-6 text-blue-700 dark:text-blue-400" />
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            1. Período do Sprint (Obrigatório)
-          </h3>
+      {/* Sprints Configuration File Upload */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          1. Configuração de Sprints (Obrigatório)
+        </label>
+        <div
+          className={`
+            border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300
+            ${isDraggingSprints 
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-105' 
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+            }
+            ${isLoadingSprints ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg'}
+          `}
+          onDrop={handleSprintsDrop}
+          onDragOver={handleSprintsDragOver}
+          onDragLeave={handleSprintsDragLeave}
+          onClick={() => document.getElementById('sprints-file-input')?.click()}
+        >
+          <input
+            id="sprints-file-input"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleSprintsFileInput}
+            className="hidden"
+          />
+
+          <div className="flex flex-col items-center gap-3">
+            {isLoadingSprints ? (
+              <>
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
+                <p className="text-gray-600 dark:text-gray-400">Processando sprints...</p>
+              </>
+            ) : sprintsFileName ? (
+              <>
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
+                  <Calendar className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">✓ {sprintsFileName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Clique para substituir</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl">
+                  <Calendar className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-base font-medium text-gray-700 dark:text-gray-200">
+                    Arraste o arquivo de sprints
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    ou clique para selecionar
+                  </p>
+                  <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Colunas obrigatórias:</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                      Sprint | Data Início | Data Fim
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-          📅 Defina o período de análise do sprint. Por padrão, mostra segunda a sexta da semana atual.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              Data Início (Segunda-feira) *
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-              className="w-full px-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              Data Fim (Sexta-feira) *
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              required
-              className="w-full px-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-            />
-          </div>
-        </div>
-        {startDate && endDate && (
-          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-lg">
-            <p className="text-sm font-medium text-green-800 dark:text-green-300">
-              ✅ Período configurado: {startDate.split('-').reverse().join('/')} a {endDate.split('-').reverse().join('/')}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Worklog File Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          2. Worklog (Opcional - para análise detalhada por período)
+          2. Worklog (Opcional - análise detalhada)
         </label>
         <div
           className={`
@@ -281,6 +357,12 @@ export const XlsUploader: React.FC = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     ou clique para selecionar
                   </p>
+                  <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Colunas obrigatórias:</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                      ID da tarefa | Responsável | Tempo gasto | Data
+                    </p>
+                  </div>
                 </div>
               </>
             )}
@@ -291,7 +373,7 @@ export const XlsUploader: React.FC = () => {
       {/* Layout File Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          3. Layout do Sprint (Obrigatório)
+          3. Layout do Sprint (Obrigatório - tarefas)
         </label>
         <div
           className={`
@@ -343,12 +425,35 @@ export const XlsUploader: React.FC = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     ou clique para selecionar
                   </p>
+                  <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Colunas obrigatórias:</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                      Chave | Resumo | Tempo gasto | Sprint | Estimativa | Status
+                    </p>
+                  </div>
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
+
+      {/* Success Message */}
+      {sprintsFileName && !error && (
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-start gap-3 animate-slide-in">
+          <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
+            <Calendar className="w-5 h-5 text-green-600 dark:text-green-300 flex-shrink-0" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-green-800 dark:text-green-300">
+              ✅ Sprints carregados com sucesso!
+            </p>
+            <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+              Arquivo: {sprintsFileName}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {error && (

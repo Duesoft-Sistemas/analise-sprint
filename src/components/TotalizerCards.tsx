@@ -5,7 +5,6 @@ import {
   ListTodo,
   Bug,
   Layers,
-  Package,
   Users,
   AlertCircle,
 } from 'lucide-react';
@@ -30,7 +29,8 @@ export const TotalizerCards: React.FC<TotalizerCardsProps> = ({ analytics }) => 
     
     return {
       count: blockedTasks.length,
-      hours: blockedTasks.reduce((sum, t) => sum + t.tempoGasto, 0),
+      // IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint)
+      hours: blockedTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
       estimatedHours: blockedTasks.reduce((sum, t) => sum + t.estimativa, 0),
     };
   }, [tasks, selectedSprint]);
@@ -126,18 +126,7 @@ export const TotalizerCards: React.FC<TotalizerCardsProps> = ({ analytics }) => 
         </div>
       </div>
 
-      {/* By Module */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-          <Package className="w-5 h-5" />
-          Por Módulo
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {analytics.byModule.slice(0, 6).map((totalizer) => (
-            <DimensionCard key={totalizer.label} totalizer={totalizer} />
-          ))}
-        </div>
-      </div>
+      
 
       {/* By Client */}
       <div>

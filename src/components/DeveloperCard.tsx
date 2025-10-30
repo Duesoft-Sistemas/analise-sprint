@@ -84,10 +84,13 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         )}
       </div>
 
-      {/* Utilization Bar */}
+      {/* Utilization Bar - Allocation for the current sprint */}
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1">
-          <span className="text-xs text-gray-600 dark:text-gray-400">Utilização</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-600 dark:text-gray-400">Alocado no sprint</span>
+            <span className="text-[9px] opacity-60" title="Soma do que falta executar neste sprint (estimativa restante)">ⓘ</span>
+          </div>
           <span className={`text-sm font-bold ${colors.text}`}>
             {developer.utilizationPercent}%
           </span>
@@ -105,7 +108,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
           />
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {formatHours(developer.totalAllocatedHours)} de 40h semanais
+          {formatHours(developer.totalAllocatedHours)} de 40h (capacidade semanal)
         </p>
       </div>
 
@@ -114,7 +117,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Clock className="w-3 h-3" />
-            <span>Estimado</span>
+            <span>Estimado (original)</span>
           </div>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.estimatedHours)}
@@ -153,6 +156,18 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
           <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.totalAvailableHours)}
+          </span>
+        </div>
+
+        {/* Sprint Balance */}
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-xs text-gray-600 dark:text-gray-400">Saldo do sprint</span>
+          <span className={`text-sm font-medium ${
+            developer.totalAllocatedHours - developer.totalSpentHours > 0
+              ? 'text-gray-900 dark:text-white'
+              : 'text-green-700 dark:text-green-400'
+          }`}>
+            {formatHours(developer.totalAllocatedHours - developer.totalSpentHours)}
           </span>
         </div>
         

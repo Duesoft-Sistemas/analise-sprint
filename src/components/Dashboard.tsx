@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock } from 'lucide-react';
+import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -8,18 +8,25 @@ import { AlertPanel } from './AlertPanel';
 import { TaskList } from './TaskList';
 import { CrossSprintAnalysis } from './CrossSprintAnalysis';
 import { PerformanceDashboard } from './PerformanceDashboard';
+import { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution';
 
 export const Dashboard: React.FC = () => {
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
   const crossSprintAnalytics = useSprintStore((state) => state.crossSprintAnalytics);
   const riskAlerts = useSprintStore((state) => state.riskAlerts);
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
-  const sprintPeriod = useSprintStore((state) => state.sprintPeriod);
+  const selectedSprint = useSprintStore((state) => state.selectedSprint);
+  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
+  const sprintsFileName = useSprintStore((state) => state.sprintsFileName);
+  const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
   const layoutFileName = useSprintStore((state) => state.layoutFileName);
   const worklogFileName = useSprintStore((state) => state.worklogFileName);
   const worklogs = useSprintStore((state) => state.worklogs);
+  
+  // Get current sprint period from metadata
+  const currentSprintPeriod = selectedSprint ? getSprintPeriod(selectedSprint) : null;
 
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
 
@@ -31,25 +38,29 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Sprint Info Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Sprint Period */}
-        {sprintPeriod && (
+        {/* Sprints Configuration */}
+        {sprintsFileName ? (
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 rounded-2xl p-5 shadow-xl border-2 border-blue-400 dark:border-blue-500">
             <div className="flex items-center gap-3">
               <Calendar className="w-6 h-6 text-white" />
-              <div>
-                <h3 className="text-xs font-medium text-blue-100 uppercase tracking-wide">Período do Sprint</h3>
-                <p className="text-lg font-bold text-white mt-0.5">
-                  {sprintPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} a{' '}
-                  {sprintPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xs font-medium text-blue-100 uppercase tracking-wide">Configuração de Sprints</h3>
+                <p className="text-sm font-bold text-white mt-0.5 truncate" title={sprintsFileName}>
+                  {sprintsFileName}
                 </p>
                 <p className="text-xs text-blue-100 mt-0.5">
-                  {sprintPeriod.startDate.toLocaleDateString('pt-BR', { weekday: 'short' })} a{' '}
-                  {sprintPeriod.endDate.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                  {sprintMetadata.length} sprint{sprintMetadata.length !== 1 ? 's' : ''} configurado{sprintMetadata.length !== 1 ? 's' : ''}
                 </p>
+                {currentSprintPeriod && (
+                  <p className="text-xs text-blue-100 mt-1">
+                    🗓️ Atual: {currentSprintPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} a{' '}
+                    {currentSprintPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Layout File */}
         {layoutFileName && (
@@ -105,7 +116,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Header with Sprint Selector and View Toggles */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        {viewMode !== 'performance' && <SprintSelector />}
+        {viewMode !== 'performance' && viewMode !== 'evolution' && <SprintSelector />}
         
         <div className="flex flex-wrap gap-3">
           <button
@@ -143,11 +154,25 @@ export const Dashboard: React.FC = () => {
             <Target className="w-4 h-4" />
             Performance
           </button>
+          
+          <button
+            onClick={() => setViewMode('evolution')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'evolution'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Evolução Temporal
+          </button>
         </div>
       </div>
 
       {/* Content based on view mode */}
-      {viewMode === 'performance' ? (
+      {viewMode === 'evolution' ? (
+        <TemporalEvolutionDashboard />
+      ) : viewMode === 'performance' ? (
         <PerformanceDashboard />
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis analytics={crossSprintAnalytics} />

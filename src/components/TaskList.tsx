@@ -5,10 +5,10 @@ import { useSprintStore } from '../store/useSprintStore';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
 
 export const TaskList: React.FC = () => {
-  const tasks = useSprintStore((state) => state.tasks);
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
-  const getFilteredTasks = useSprintStore((state) => state.getFilteredTasks);
+  const tasks = useSprintStore((state) => state.tasks);
+  const taskFilters = useSprintStore((state) => state.taskFilters);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFeature, setFilterFeature] = useState('');
@@ -17,8 +17,45 @@ export const TaskList: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterNoEstimate, setFilterNoEstimate] = useState(false);
 
+  // Get base filtered tasks (by sprint, developer and global filters)
+  const baseFilteredTasks = useMemo(() => {
+    let filtered = tasks;
+
+    // Filter by selected sprint
+    if (selectedSprint) {
+      filtered = filtered.filter((t) => t.sprint === selectedSprint);
+    }
+
+    // Filter by selected developer
+    if (selectedDeveloper) {
+      filtered = filtered.filter((t) => t.responsavel === selectedDeveloper);
+    }
+
+    // Apply global task filters from store
+    if (taskFilters.responsavel) {
+      filtered = filtered.filter((t) => t.responsavel === taskFilters.responsavel);
+    }
+    if (taskFilters.feature) {
+      filtered = filtered.filter((t) => t.feature === taskFilters.feature);
+    }
+    if (taskFilters.modulo) {
+      filtered = filtered.filter((t) => t.modulo === taskFilters.modulo);
+    }
+    if (taskFilters.categoria) {
+      filtered = filtered.filter((t) => t.categorias.includes(taskFilters.categoria!));
+    }
+    if (taskFilters.sprint) {
+      filtered = filtered.filter((t) => t.sprint === taskFilters.sprint);
+    }
+    if (taskFilters.status) {
+      filtered = filtered.filter((t) => t.status === taskFilters.status);
+    }
+
+    return filtered;
+  }, [tasks, selectedSprint, selectedDeveloper, taskFilters]);
+
   const filteredTasks = useMemo(() => {
-    let result = getFilteredTasks();
+    let result = baseFilteredTasks;
 
     // Apply search
     if (searchTerm) {
@@ -49,29 +86,29 @@ export const TaskList: React.FC = () => {
     }
 
     return result;
-  }, [getFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate]);
+  }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate]);
 
-  // Get unique values for filters
+  // Get unique values for filters - BASED ON CURRENT SPRINT TASKS
   const uniqueFeatures = useMemo(() => {
-    const features = new Set(tasks.filter((t) => t.feature).map((t) => t.feature));
+    const features = new Set(baseFilteredTasks.filter((t) => t.feature).map((t) => t.feature));
     return Array.from(features).sort();
-  }, [tasks]);
+  }, [baseFilteredTasks]);
 
   const uniqueModules = useMemo(() => {
-    const modules = new Set(tasks.filter((t) => t.modulo).map((t) => t.modulo));
+    const modules = new Set(baseFilteredTasks.filter((t) => t.modulo).map((t) => t.modulo));
     return Array.from(modules).sort();
-  }, [tasks]);
+  }, [baseFilteredTasks]);
 
   const uniqueClients = useMemo(() => {
     const clients = new Set<string>();
-    tasks.forEach((t) => t.categorias.forEach((c) => clients.add(c)));
+    baseFilteredTasks.forEach((t) => t.categorias.forEach((c) => clients.add(c)));
     return Array.from(clients).sort();
-  }, [tasks]);
+  }, [baseFilteredTasks]);
 
   const uniqueStatuses = useMemo(() => {
-    const statuses = new Set(tasks.map((t) => t.status));
+    const statuses = new Set(baseFilteredTasks.map((t) => t.status));
     return Array.from(statuses).sort();
-  }, [tasks]);
+  }, [baseFilteredTasks]);
 
   const hasFilters =
     searchTerm || filterFeature || filterModule || filterClient || filterStatus || filterNoEstimate;
@@ -217,6 +254,9 @@ export const TaskList: React.FC = () => {
                     Resumo
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Sprint
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Responsável
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -230,6 +270,9 @@ export const TaskList: React.FC = () => {
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Retrabalho
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Nota Teste
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Estimado
@@ -260,8 +303,8 @@ interface TaskRowProps {
 }
 
 const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
-  // Use hybrid fields if available
-  const tempoGasto = task.tempoGastoNoSprint ?? task.tempoGasto;
+  // Use hybrid fields - IMPORTANT: Time spent is ALWAYS from worklog
+  const tempoGasto = task.tempoGastoNoSprint ?? 0;
   const estimativaRestante = task.estimativaRestante ?? task.estimativa;
   const tempoOutrosSprints = task.tempoGastoOutrosSprints ?? 0;
   
@@ -279,11 +322,21 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     return 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300';
   };
 
+  const getTestNoteColor = (note: number) => {
+    if (note >= 4.5) return 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300';
+    if (note >= 3.5) return 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300';
+    if (note >= 2.5) return 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300';
+    return 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300';
+  };
+
   return (
     <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isOverTime ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{task.chave}</td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-md truncate" title={task.resumo}>
         {task.resumo}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+        {task.sprint || '-'}
       </td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{task.responsavel || '-'}</td>
       <td className="px-4 py-3">
@@ -326,6 +379,19 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
         ) : (
           <span className="text-gray-400 dark:text-gray-500">-</span>
         )}
+      </td>
+      <td className="px-4 py-3 text-center">
+        {(() => {
+          const note = task.notaTeste ?? 5;
+          return (
+            <span
+              className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getTestNoteColor(note)}`}
+              title={`Nota de Teste: ${note.toFixed(1)}/5`}
+            >
+              {note.toFixed(1)}/5
+            </span>
+          );
+        })()}
       </td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right">
         <div className="flex flex-col items-end">

@@ -1,249 +1,498 @@
 # Sprint Analysis Dashboard
 
-Uma aplicação web moderna para análise e controle de sprints semanais, construída com React, TypeScript e TailwindCSS.
+Uma aplicação web moderna para análise e controle de sprints semanais. Ajuda equipes a monitorar progresso, identificar riscos e melhorar continuamente.
 
-## Recursos
+---
 
-### Fase 1: Análise do Sprint Ativo
+## 🎯 O Que Este Sistema Faz?
 
-- **Métricas de Desenvolvedores:**
-  - Total de horas alocadas por desenvolvedor
-  - Horas disponíveis (excluindo tarefas concluídas)
-  - Comparação entre tempo estimado vs tempo gasto
-  - Indicadores de risco (capacidade excedida)
-  - Drill-down para ver tarefas específicas de cada desenvolvedor
+O Sprint Analysis Dashboard transforma seus dados de sprint em **insights acionáveis** para:
+- 📊 **Monitorar** o progresso do sprint em tempo real
+- ⚠️ **Identificar** riscos e bloqueios antes que se tornem problemas
+- 👥 **Gerenciar** capacidade da equipe (evitar sobrecarga)
+- 📈 **Analisar** performance e identificar oportunidades de melhoria
+- 🎯 **Tomar decisões** baseadas em dados concretos
 
-- **Totalizadores por Tipo:**
-  - Bugs (separando bugs reais de dúvidas ocultas)
-  - Tarefas
-  - Histórias
-  - Outros
+---
 
-- **Totalizadores por Dimensão:**
-  - Por Feature
-  - Por Módulo
-  - Por Cliente
+## ✨ Principais Funcionalidades
 
-- **Lista de Tarefas Filtráveis:**
-  - Filtrar por responsável, feature, módulo, cliente e status
-  - Busca por texto livre
-  - Visualização de estimativa vs tempo gasto
+### 📊 Análise do Sprint Atual
 
-- **Alertas e Riscos:**
-  - Tarefas próximas ou acima do tempo estimado
-  - Desenvolvedores com sobrecarga
-  - Tarefas sem progresso
+**O que você vê:**
+- **Cards de Desenvolvedores:** Quanto cada pessoa tem alocado, quanto já gastou, quanto ainda tem disponível
+- **Indicadores de Risco:** Quem está sobrecarregado (acima de 40h semanais)
+- **Totalizadores:** Quantos bugs, tarefas e histórias você tem no sprint
+- **Por Dimensão:** Quanto tempo está indo para cada feature, módulo ou cliente
 
-### Fase 2: Análise Multi-Sprint
+**Para que serve:**
+- Balancear carga de trabalho da equipe
+- Identificar desenvolvedores sobrecarregados
+- Entender onde o tempo está sendo gasto
+- Priorizar o que é mais importante
 
-- Total de tarefas em backlog
-- Distribuição de horas por sprint
-- Alocação de horas por desenvolvedor em todos os sprints
-- Alocação de horas por cliente em todos os sprints
+**Como usar:**
+1. Faça upload do seu arquivo Excel exportado do Jira/Azure DevOps
+2. Selecione o sprint ativo
+3. Veja os cards de desenvolvedores e totalizadores
+4. Clique em um desenvolvedor para ver suas tarefas em detalhe
 
-### Fase 3: Análise Híbrida com Worklog 🆕 NOVO
+---
 
-- **Análise Precisa por Período:**
-  - Upload de worklog detalhado com data de lançamento
-  - Separação automática de tempo entre sprints
-  - Cálculo de estimativa restante para o sprint atual
-  - Visualização de tempo gasto em sprints anteriores
-  
-- **Benefícios:**
-  - ✅ Alocação correta de capacidade (40h por dev)
-  - ✅ Métricas de performance precisas
-  - ✅ Identificação de tarefas que atravessam sprints
-  - ✅ Análise de produtividade real
+### ⚠️ Sistema de Alertas
 
-📖 [Ver documentação completa](docs/WORKLOG_HYBRID_ANALYSIS.md)
+**O que o sistema identifica:**
 
-### Fase 4: Análise de Performance ⭐
+🔴 **Alertas Críticos (Vermelho):**
+- Desenvolvedores com mais de 40h alocadas (sobrecarga)
+- Tarefas que já ultrapassaram o tempo estimado
 
-**⚠️ IMPORTANTE:** As métricas de performance são ferramentas de **autoconhecimento, coaching e melhoria contínua**, não de avaliação isolada ou ranking competitivo. Use com contexto e empatia.
+🟡 **Alertas de Atenção (Amarelo):**
+- Tarefas próximas do limite (80-100% do tempo estimado)
 
-- **Métricas de Acurácia (Informativas):**
-  - Acurácia de estimativa (desvio % entre estimado e gasto)
-  - Taxa de acurácia (% de tarefas dentro de ±20%)
-  - Tendência de estimativa (subestima/superestima)
-  - **Nota:** Reflete o processo de estimativa da equipe/analista, não apenas do dev
+🔵 **Alertas Informativos (Azul):**
+- Tarefas sem progresso registrado
 
-- **Métricas de Qualidade:**
-  - Taxa de retrabalho (% de tarefas refeitas) - **Considera apenas tarefas concluídas**
-  - Taxa de bugs (% de tarefas que são bugs)
-  - Ratio bugs vs features
-  - Score de qualidade geral (100 - taxa de retrabalho)
+**Para que serve:**
+- Agir proativamente antes que problemas se tornem críticos
+- Redistribuir trabalho quando necessário
+- Identificar tarefas que precisam de ajuda ou clarificação
 
-- **Métricas de Eficiência:**
-  - Taxa de utilização (% da capacidade semanal - 40h)
-  - Taxa de conclusão (% de tarefas finalizadas) - **Métrica chave**
-  - Tempo médio para conclusão
-  - Identificação de bloqueios e sobrecarga
+---
 
-- **Performance Geral:**
-  - Score ponderado: 50% Qualidade + 30% Utilização + 20% Conclusão
-  - Rankings contextualizados (considere complexidade e módulo)
-  - Análise por complexidade (níveis 1-5)
-  - Análise por tipo de tarefa (Bug/Tarefa/História)
+### 🗓️ Análise Multi-Sprint
 
-- **Tendências e Evolução:**
-  - Evolução da qualidade ao longo dos sprints
-  - Evolução da produtividade ao longo dos sprints
-  - Insights automáticos e recomendações acionáveis
-  - Identificação de padrões de melhoria
+**O que você vê:**
+- **Backlog:** Quantas tarefas estão sem sprint definido
+- **Distribuição por Sprint:** Como o trabalho está distribuído entre sprints futuros
+- **Alocação por Dev:** Quanto cada desenvolvedor tem em cada sprint
+- **Alocação por Cliente:** Como o tempo está distribuído entre clientes
 
-- **Transparência Total:**
-  - Documentação completa de como cada métrica é calculada
-  - Fórmulas, interpretações e exemplos práticos
-  - Modal explicativo integrado na interface
-  - Guia detalhado em `docs/PERFORMANCE_METRICS.md`
-  - Revisão completa do sistema em `docs/SYSTEM_REVIEW.md`
+**Para que serve:**
+- Planejar sprints futuros
+- Identificar acúmulo de backlog
+- Garantir distribuição equilibrada de trabalho
+- Visualizar compromissos de longo prazo
 
-**📚 Boas Práticas:**
-- ✅ Use para identificar necessidades de treinamento
-- ✅ Use para detectar sobrecarga e bloqueios
-- ✅ Use em retrospectivas de equipe
-- ✅ Celebre melhorias e pontos fortes
-- ❌ Não use como único critério de avaliação
-- ❌ Não compare devs sem considerar contexto
-- ❌ Não crie competição prejudicial
+**Como usar:**
+1. Clique em "Ver Multi-Sprint" no dashboard
+2. Analise a distribuição de trabalho
+3. Use os dados para ajustar planejamento
 
-## Tecnologias
+---
 
-- **React 18** - Framework UI
-- **TypeScript** - Type safety
-- **Vite** - Build tool e dev server
-- **TailwindCSS** - Styling
-- **Zustand** - State management
-- **SheetJS (xlsx)** - Excel parsing
-- **Lucide React** - Icons
+### ⏱️ Análise Híbrida com Worklog
 
-## Instalação
+**O que faz:**
+Separa automaticamente o tempo gasto em diferentes sprints, resolvendo o problema de tarefas que atravessam múltiplos sprints.
 
-1. Instale as dependências:
-```bash
-npm install
+**Problema resolvido:**
+```
+Antes: Tarefa estimada em 15h aparece totalmente no Sprint 2
+       Mas 5h foram gastas no Sprint 1!
+       Resultado: capacidade calculada errada ❌
+
+Depois: Sistema separa automaticamente:
+        - 5h gastas no Sprint 1 (outros sprints)
+        - 10h restantes para o Sprint 2
+        Resultado: capacidade calculada correta ✅
 ```
 
-2. Execute o servidor de desenvolvimento:
+**Para que serve:**
+- Calcular capacidade disponível corretamente (40h por dev)
+- Ver quanto realmente falta fazer em cada tarefa
+- Analisar performance histórica com precisão
+
+**Como usar:**
+1. Exporte o worklog detalhado do Jira (com datas)
+2. Faça upload junto com o arquivo de layout
+3. Defina o período do sprint (ou deixe usar semana atual)
+4. O sistema separa automaticamente o tempo
+
+📖 [Documentação completa da Análise Híbrida](docs/WORKLOG_HYBRID_ANALYSIS.md)
+
+---
+
+### 📈 Análise de Performance
+
+**⚠️ IMPORTANTE:** Use estas métricas para **coaching e melhoria contínua**, nunca como único critério de avaliação.
+
+#### 🎯 Métricas de Qualidade
+- **Taxa de Retrabalho:** % de tarefas que precisaram ser refeitas
+- **Taxa de Bugs:** % de tarefas que são correções
+- **Quality Score:** 100 - taxa de retrabalho
+
+**Use para:**
+- Identificar necessidade de mais testes
+- Detectar requisitos mal compreendidos
+- Melhorar processo de code review
+
+#### ⚡ Métricas de Eficiência
+- **Taxa de Utilização:** % da capacidade semanal (40h) sendo usada
+- **Taxa de Conclusão:** % de tarefas finalizadas das iniciadas
+- **Tempo Médio para Conclusão:** Quanto tempo leva para completar tarefas
+
+**Use para:**
+- Identificar bloqueios e interrupções
+- Detectar sobrecarga ou subutilização
+- Melhorar fluxo de trabalho
+
+#### ℹ️ Métricas de Acurácia (Informativas)
+- **Desvio de Estimativa:** Diferença entre estimado e gasto
+- **Taxa de Acurácia:** % de tarefas dentro de ±20% da estimativa
+- **Tendência:** Se a equipe tende a subestimar ou superestimar
+
+**⚠️ Nota:** Estas métricas refletem o **processo de estimativa da equipe/analista**, não responsabilidade individual do desenvolvedor.
+
+**Use para:**
+- Melhorar o processo de estimativa da equipe
+- Calibrar Planning Poker
+- Identificar tipos de tarefa difíceis de estimar
+
+#### 🏆 Performance Score
+
+**Fórmula:** 50% Qualidade + 30% Utilização + 20% Conclusão
+
+**Interpretação:**
+- 90-100: ⭐⭐⭐⭐⭐ Excelente
+- 75-89: ⭐⭐⭐⭐ Muito Bom
+- 60-74: ⭐⭐⭐ Bom
+- 45-59: ⭐⭐ Adequado
+- <45: ⭐ Precisa Atenção
+
+**Use para:**
+- Conversas 1:1 de desenvolvimento
+- Identificar necessidades de treinamento
+- Reconhecer e celebrar melhorias
+- Detectar necessidade de suporte
+
+**❌ NÃO use para:**
+- Avaliação de desempenho isolada
+- Comparações diretas sem contexto
+- Bônus ou promoções como único critério
+- Criar competição prejudicial
+
+📖 [Guia Completo de Métricas](docs/PERFORMANCE_METRICS.md) | [Quick Start Performance](docs/PERFORMANCE_QUICK_START.md)
+
+---
+
+### 🌙 Dark Mode
+
+Interface completa em modo claro e escuro:
+- Toggle no header da aplicação
+- Preferência salva automaticamente
+- Design moderno e elegante
+- Conforto visual em qualquer ambiente
+
+---
+
+## 🚀 Como Começar
+
+### 1. Instalação (Uma Vez Apenas)
+
 ```bash
+# Instale as dependências
+npm install
+
+# Inicie o servidor
 npm run dev
 ```
 
-3. Abra o navegador em `http://localhost:5173`
+Acesse em: **http://localhost:5173**
 
-## Como Usar
+### 2. Preparar Seus Dados
 
-1. **Upload do Excel**: Na primeira tela, faça upload de um arquivo Excel (.xlsx ou .xls) com os dados do seu sprint
-2. **Selecione o Sprint**: Use o seletor para escolher o sprint ativo que deseja analisar
-3. **Visualize as Métricas**: Explore os totalizadores, métricas de desenvolvedores e alertas
-4. **Drill-Down**: Clique em um card de desenvolvedor para ver suas tarefas específicas
-5. **Multi-Sprint**: Clique em "Ver Multi-Sprint" para análise cross-sprint
-6. **Análise de Performance**: Clique em "Performance" para ver métricas detalhadas de acurácia, qualidade e produtividade
-   - Visualize por sprint individual ou todos os sprints
-   - Veja rankings e comparações entre desenvolvedores
-   - Consulte insights automáticos e recomendações
-   - Clique em "Como são Calculadas?" para entender cada métrica
+**Arquivo de Layout (Obrigatório):**
+- Exporte seus dados do Jira/Azure DevOps como Excel (.xlsx)
+- Ou use o arquivo de exemplo: `project/out25-sem4.xlsx`
 
-## Formato do Excel
+**Arquivo de Worklog (Opcional):**
+- Exporte o relatório de worklog detalhado do Jira
+- Necessário apenas se quiser análise híbrida precisa por período
 
-O arquivo Excel (.xlsx ou .xls) deve conter as seguintes colunas:
+### 3. Usar o Dashboard
 
-### Colunas Obrigatórias
-- Chave da item
+1. **Arraste e solte** o arquivo Excel na tela inicial
+2. **Selecione o sprint** ativo que deseja analisar
+3. **Explore** as métricas, alertas e totalizadores
+4. **Clique** em um card de desenvolvedor para drill-down
+5. **Use os filtros** na lista de tarefas para encontrar o que precisa
+
+---
+
+## 📊 Formato dos Dados
+
+### Colunas do Excel
+
+**Obrigatórias:**
+- Tipo de item (Bug, Tarefa, História, Outro)
+- Chave da item (ex: PROJ-101)
 - ID da item
-- Resumo
-- Tempo gasto (formato: "1h 30m" ou "2h" ou "45m")
-- Sprint
-- Criado
-- Estimativa original (formato: "1h 30m" ou "2h")
-- Responsável
+- Resumo (descrição)
+- Tempo gasto (ex: "2h", "2h 30m", ou segundos)
+- Sprint (nome do sprint)
+- Criado (data)
+- Estimativa original (ex: "4h" ou segundos)
+- Responsável (nome do desenvolvedor)
 - ID do responsável
-- Status
+- Status (ex: "Em progresso", "Concluído")
 - Campo personalizado (Modulo)
 - Campo personalizado (Feature)
-- Categorias
+- Categorias (clientes)
 - Campo personalizado (Detalhes Ocultos)
 
-### Colunas Opcionais (para Análise de Performance)
-- **Tipo de item** - Bug, Tarefa, História ou Outro
-- **Campo personalizado (Retrabalho)** - "Sim" ou "Não" (indica se é retrabalho)
-- **Campo personalizado (Complexidade)** - Número de 1 a 5 (nível de complexidade)
+**Opcionais (para análise de performance):**
+- Campo personalizado (Retrabalho): "Sim" ou "Não"
+- Campo personalizado (Complexidade): 1 a 5
 
-### Exemplo de Excel
+**Formatos de Tempo Aceitos:**
+- `2h` (horas)
+- `2h 30m` (horas e minutos)
+- `45m` (apenas minutos)
+- `7200` (segundos)
+- `2.5h` (horas decimais)
 
-Veja o arquivo `project/out25-sem4.xlsx` para um exemplo completo com dados reais.
+### Status Considerados "Concluídos"
 
-## Status Considerados como "Concluído"
+Para cálculo de horas disponíveis:
+- `teste` - Dev entregou para testes
+- `teste gap` - Dev entregou para testes de gap
+- `compilar` - Pronto para compilar/deploy
+- `concluído` ou `concluido` - Finalizado
 
-Para o cálculo de horas disponíveis e métricas de performance, os seguintes status são considerados como "entregue pelo desenvolvedor":
+**Rationale:** Uma vez em teste, o dev liberou capacidade. Se houver problemas, a métrica de retrabalho captura o impacto.
 
-- **teste** - Dev entregou para testes
-- **teste gap** - Dev entregou para testes de gap
-- **compilar** - Pronto para compilar/deploy
-- **concluído** ou **concluido** - Finalizado (aceita com ou sem acento)
+📖 [Notas Detalhadas sobre Formato](docs/XLS_FORMAT_NOTES.md)
 
-**Rationale:** Uma vez que o desenvolvedor move a tarefa para teste, ele liberou capacidade para outras tarefas. Se houver problemas identificados nos testes, a métrica de **retrabalho** captura o impacto na qualidade.
+---
 
-## Interpretação dos Alertas
+## 💡 Casos de Uso
 
-### Alertas de Risco Alto (Vermelho)
-- Desenvolvedores com mais de 100% de utilização (>40h alocadas)
-- Tarefas onde o tempo gasto já excedeu a estimativa
+### Daily Standup (5 minutos)
+1. Abra o dashboard do sprint ativo
+2. Verifique alertas vermelhos (ação imediata)
+3. Veja progresso de cada desenvolvedor
+4. Identifique bloqueios e tarefas sem progresso
 
-### Alertas de Risco Médio (Amarelo)
-- Tarefas onde o tempo gasto está entre 80% e 100% da estimativa
+### Sprint Planning (30 minutos)
+1. Analise o sprint anterior (métricas de performance)
+2. Veja variação estimado vs gasto (calibrar estimativas)
+3. Use multi-sprint para ver carga futura
+4. Planeje capacidade considerando alocação atual
 
-### Alertas de Risco Baixo (Azul)
-- Tarefas sem progresso registrado
+### Sprint Review (15 minutos)
+1. Mostre totalizadores e progresso
+2. Apresente entregas por cliente/feature
+3. Destaque métricas de sucesso
+4. Celebre conquistas da equipe
 
-## Build para Produção
+### Retrospectiva (45 minutos)
+1. Analise tendências de performance
+2. Identifique padrões (tipos de tarefa que estouram, bloqueios recorrentes)
+3. Discuta melhorias baseadas em dados
+4. Estabeleça metas mensuráveis
 
+### Gestão de Riscos (Diário)
+1. Monitore alertas diariamente
+2. Aja em alertas vermelhos imediatamente
+3. Redistribua carga se necessário
+4. Ajuste escopo do sprint se preciso
+
+### 1:1 com Desenvolvedor (Quinzenal)
+1. Analise performance individual (com empatia!)
+2. Celebre pontos fortes e melhorias
+3. Identifique necessidades de treinamento
+4. Estabeleça plano de desenvolvimento
+5. Remova bloqueios e impedimentos
+
+---
+
+## 🎨 Interpretando os Indicadores
+
+### Cores de Risco (Desenvolvedores)
+
+🟢 **Verde (0-70% utilização)**
+- Capacidade disponível
+- Pode receber mais trabalho
+- Bem balanceado
+
+🟡 **Amarelo (70-89% utilização)**
+- Bem alocado
+- Próximo ao limite ideal
+- Monitorar
+
+🔴 **Vermelho (90%+ utilização)**
+- Sobrecarregado
+- Risco de atraso ou burnout
+- **Ação necessária:** Redistribuir trabalho
+
+### Variação de Tempo
+
+🟢 **Verde (negativo):** Abaixo da estimativa (economia de tempo)
+⚫ **Zero:** Exatamente na estimativa (perfeito!)
+🔴 **Vermelho (positivo):** Acima da estimativa (estouro)
+
+### Badges de Complexidade
+
+🟢 **Verde (1-2):** Tarefas simples
+🟡 **Amarelo (3):** Complexidade média
+🔴 **Vermelho (4-5):** Alta complexidade
+
+---
+
+## 🔍 Filtros e Buscas
+
+### Filtros Disponíveis
+- **Por Desenvolvedor:** Ver apenas tarefas de alguém específico
+- **Por Feature:** Filtrar por feature específica
+- **Por Módulo:** Filtrar por área do sistema
+- **Por Cliente:** Filtrar por categoria/cliente
+- **Por Status:** Filtrar por estado atual
+- **Busca Livre:** Procurar em resumo, chave ou responsável
+
+### Dicas de Uso
+- Combine múltiplos filtros para refinamento preciso
+- Use busca livre para encontrar tarefas específicas rapidamente
+- Clique em "Limpar" para resetar todos os filtros
+
+---
+
+## 📚 Documentação Completa
+
+### Guias de Uso
+- [GETTING_STARTED.md](GETTING_STARTED.md) - Guia de primeiros passos
+- [docs/QUICK_START.md](docs/QUICK_START.md) - Tutorial rápido passo a passo
+
+### Funcionalidades Específicas
+- [docs/WORKLOG_HYBRID_ANALYSIS.md](docs/WORKLOG_HYBRID_ANALYSIS.md) - Análise híbrida detalhada
+- [docs/PERFORMANCE_METRICS.md](docs/PERFORMANCE_METRICS.md) - Guia completo de métricas
+- [docs/PERFORMANCE_QUICK_START.md](docs/PERFORMANCE_QUICK_START.md) - Quick start de performance
+- [docs/DARK_MODE.md](docs/DARK_MODE.md) - Documentação do dark mode
+
+### Referências
+- [docs/XLS_FORMAT_NOTES.md](docs/XLS_FORMAT_NOTES.md) - Formato do Excel em detalhes
+- [docs/WORKLOG_TEMPLATE.md](docs/WORKLOG_TEMPLATE.md) - Template e exemplos de worklog
+- [docs/SYSTEM_REVIEW.md](docs/SYSTEM_REVIEW.md) - Boas práticas e revisão do sistema
+- [docs/DECISIONS.md](docs/DECISIONS.md) - Decisões de design e rationale
+- [docs/ADDITIONAL_FEATURES.md](docs/ADDITIONAL_FEATURES.md) - Ideias para o futuro
+
+---
+
+## ❓ Perguntas Frequentes
+
+### Como exportar dados do Jira?
+1. Vá para sua board/filtro
+2. Clique em "Exportar" → "Excel"
+3. Selecione as colunas necessárias
+4. Faça o download do arquivo .xlsx
+
+### Como exportar dados do Azure DevOps?
+1. Abra sua query
+2. Clique em "Export" → "Export to Excel"
+3. Salve o arquivo .xlsx
+
+### Preciso converter para CSV?
+**Não!** O sistema aceita Excel (.xlsx e .xls) diretamente.
+
+### O que fazer se um desenvolvedor está com 120% de utilização?
+1. **Imediato:** Redistribua tarefas para outros devs
+2. **Curto prazo:** Reduza escopo do sprint
+3. **Médio prazo:** Revise processo de estimativa
+4. **Longo prazo:** Considere aumentar a equipe
+
+### Como melhorar acurácia de estimativas?
+1. Quebre tarefas grandes em menores
+2. Use Planning Poker com toda a equipe
+3. Inclua tempo de testes, review e deploy
+4. Adicione buffer de 20-30% para imprevistos
+5. Aprenda com histórico (compare estimado vs real)
+6. Esclareça requisitos antes de estimar
+
+### Taxa de retrabalho alta, o que fazer?
+1. Reforce testes unitários e de integração
+2. Aumente cobertura de code review
+3. Crie checklist de "Definition of Done"
+4. Melhore clareza dos requisitos
+5. Faça pair programming em tarefas críticas
+
+### Desenvolvedor com baixa taxa de conclusão?
+Investigue possíveis causas:
+- Bloqueios ou dependências?
+- Interrupções frequentes?
+- Tarefas muito grandes?
+- Prioridades mudando constantemente?
+- Necessidade de suporte técnico?
+
+---
+
+## 🎯 Boas Práticas
+
+### ✅ Faça
+
+- **Use diariamente** para monitorar progresso
+- **Aja em alertas** vermelhos imediatamente
+- **Celebre melhorias** e pontos fortes
+- **Combine com conversas** 1:1 regulares
+- **Considere contexto** ao analisar métricas
+- **Foque em tendências** ao longo do tempo
+- **Use para coaching** e desenvolvimento
+
+### ❌ Evite
+
+- Usar como **único critério** de avaliação
+- Comparar devs **sem considerar contexto** (complexidade, módulo, experiência)
+- Criar **competição prejudicial**
+- Cobrar score específico sem entender causas
+- Ignorar fatores externos (bloqueios, mudanças, etc)
+- Usar métricas para **micromanagement**
+
+---
+
+## 🚀 Deploy para Produção
+
+### Build
 ```bash
 npm run build
 ```
+Arquivos otimizados serão gerados em `dist/`
 
-Os arquivos otimizados serão gerados na pasta `dist/`.
+### Hospedagem
+Esta aplicação é 100% frontend. Pode ser hospedada em:
+- **Vercel** (recomendado - deploy automático)
+- **Netlify** (simples e rápido)
+- **GitHub Pages** (gratuito)
+- **AWS S3 + CloudFront** (escalável)
 
-## Deploy
+---
 
-Esta aplicação é 100% frontend e pode ser hospedada em qualquer serviço de hosting estático:
-- Vercel
-- Netlify
-- GitHub Pages
-- AWS S3 + CloudFront
+## 💡 Melhorias Futuras
 
-## Arquitetura
-
-A aplicação segue uma arquitetura de componentes modulares:
-
-```
-src/
-├── components/        # Componentes React
-├── services/          # Lógica de parsing e analytics
-├── store/            # State management (Zustand)
-├── types/            # TypeScript interfaces
-└── utils/            # Funções utilitárias
-```
-
-### Fluxo de Dados
-
-1. Arquivo Excel é carregado via `XlsUploader`
-2. `xlsParser` converte Excel em objetos `TaskItem`
-3. Dados são armazenados no `useSprintStore`
-4. `analytics` calcula métricas e totalizadores
-5. Componentes renderizam os dados processados
-
-## Contribuindo
-
-Sugestões de melhorias são bem-vindas! Algumas ideias para o futuro:
-
-- Gráficos de burndown
+Ideias para próximas versões:
+- Gráficos de burndown em tempo real
 - Export de relatórios em PDF
 - Comparação de velocidade entre sprints
 - Integração direta com Jira/Azure DevOps
-- Modo escuro
+- Temas customizáveis adicionais
+- Modo automático (baseado no sistema)
+- Alertas por email/Slack
+- Previsão de conclusão com IA
 
-## Licença
+---
 
-MIT
+## 📞 Suporte
 
+**Precisa de ajuda?**
+
+1. Consulte a [documentação completa](docs/)
+2. Veja [exemplos práticos](docs/PERFORMANCE_METRICS.md#exemplos-práticos)
+3. Leia as [perguntas frequentes](#perguntas-frequentes)
+
+---
+
+## 📄 Licença
+
+MIT - Livre para uso e modificação
+
+---
+
+**Construído com foco em ajudar equipes a melhorarem continuamente** 🚀

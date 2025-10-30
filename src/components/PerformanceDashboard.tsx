@@ -4,16 +4,14 @@ import {
   TrendingUp,
   Users,
   HelpCircle,
-  Download,
   Filter,
-  ArrowLeft,
   Calendar,
   Award,
   Target,
   Zap,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
-import { calculatePerformanceAnalytics } from '../services/performanceAnalytics';
+import { calculatePerformanceAnalytics, generateComparativeInsights } from '../services/performanceAnalytics';
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
 import { PerformanceMetricsModal } from './PerformanceMetricsModal';
 import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics } from '../types';
@@ -25,13 +23,12 @@ export const PerformanceDashboard: React.FC = () => {
   const tasks = useSprintStore((state) => state.tasks);
   const sprints = useSprintStore((state) => state.sprints);
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
-  const setSelectedSprint = useSprintStore((state) => state.setSelectedSprint);
 
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
   const [selectedSprintView, setSelectedSprintView] = useState<string>(selectedSprint || sprints[0] || '');
   const [sortBy, setSortBy] = useState<SortBy>('overall');
   const [showMetricsModal, setShowMetricsModal] = useState(false);
-  const [selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
+  const [_selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
 
   // Calculate all performance analytics
   const analytics = useMemo(() => {
@@ -127,9 +124,7 @@ export const PerformanceDashboard: React.FC = () => {
   const summaryStats = useMemo(() => {
     if (sortedMetrics.length === 0) return null;
 
-    const isAllSprints = viewMode === 'allSprints';
-    
-    if (isAllSprints) {
+    if (viewMode === 'allSprints') {
       const allSprintsMetrics = sortedMetrics as AllSprintsPerformanceMetrics[];
       return {
         totalDevelopers: allSprintsMetrics.length,
@@ -146,6 +141,8 @@ export const PerformanceDashboard: React.FC = () => {
         avgAccuracyRate: sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length,
         avgQualityScore: sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / sprintMetrics.length,
         avgUtilization: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
+        totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
+        totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
       };
     }
   }, [sortedMetrics, viewMode]);
@@ -299,6 +296,11 @@ export const PerformanceDashboard: React.FC = () => {
               {summaryStats.avgQualityScore.toFixed(0)}
               <span className="text-lg text-gray-500 dark:text-gray-400">/100</span>
             </p>
+            {summaryStats.avgTestNote !== undefined && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Nota média {summaryStats.avgTestNote.toFixed(1)}/5
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -313,43 +315,60 @@ export const PerformanceDashboard: React.FC = () => {
             const comparison = currentComparisons.find(
               (c) => c.developerId === metrics.developerId
             );
-            const insights = getInsightsForDeveloper(metrics.developerId);
+            let insights = getInsightsForDeveloper(metrics.developerId);
 
             // Cast to SprintPerformanceMetrics for the card (they have compatible interfaces)
-            const sprintMetrics = viewMode === 'sprint' 
-              ? (metrics as SprintPerformanceMetrics)
-              : {
-                  ...(metrics as AllSprintsPerformanceMetrics),
-                  sprintName: 'Todos os Sprints',
-                  totalHoursWorked: (metrics as AllSprintsPerformanceMetrics).totalHoursWorked,
-                  tasksCompleted: (metrics as AllSprintsPerformanceMetrics).totalTasksCompleted,
-                  tasksStarted: (metrics as AllSprintsPerformanceMetrics).sprints.reduce(
-                    (sum, s) => sum + s.tasksStarted, 0
-                  ),
-                  averageHoursPerTask: (metrics as AllSprintsPerformanceMetrics).totalHoursWorked / 
-                    (metrics as AllSprintsPerformanceMetrics).totalTasksCompleted || 0,
-                  estimationAccuracy: (metrics as AllSprintsPerformanceMetrics).avgEstimationAccuracy,
-                  accuracyRate: (metrics as AllSprintsPerformanceMetrics).avgAccuracyRate,
-                  tendsToOverestimate: (metrics as AllSprintsPerformanceMetrics).avgEstimationAccuracy > 10,
-                  tendsToUnderestimate: (metrics as AllSprintsPerformanceMetrics).avgEstimationAccuracy < -10,
-                  reworkRate: (metrics as AllSprintsPerformanceMetrics).avgReworkRate,
-                  bugRate: (metrics as AllSprintsPerformanceMetrics).avgBugRate,
-                  bugsVsFeatures: 0,
-                  qualityScore: (metrics as AllSprintsPerformanceMetrics).avgQualityScore,
-                  utilizationRate: ((metrics as AllSprintsPerformanceMetrics).averageHoursPerSprint / 40) * 100,
-                  completionRate: 100,
-                  avgTimeToComplete: (metrics as AllSprintsPerformanceMetrics).averageHoursPerSprint,
-                  consistencyScore: 50,
-                  avgComplexity: 0,
-                  complexityDistribution: (metrics as AllSprintsPerformanceMetrics).performanceByComplexity.map(
-                    c => ({ level: c.level, count: c.totalTasks, avgAccuracy: Math.abs(c.accuracy) })
-                  ),
-                  performanceByComplexity: (metrics as AllSprintsPerformanceMetrics).performanceByComplexity.map(
-                    c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
-                  ),
-                  performanceScore: (metrics as AllSprintsPerformanceMetrics).avgPerformanceScore,
-                  tasks: [],
-                } as SprintPerformanceMetrics;
+            let sprintMetrics: SprintPerformanceMetrics;
+            
+            if (viewMode === 'sprint') {
+              sprintMetrics = metrics as SprintPerformanceMetrics;
+              
+              // Add comparative insights when team average is available
+              if (summaryStats) {
+                const teamAvg = {
+                  accuracyRate: summaryStats.avgAccuracyRate,
+                  totalHoursWorked: summaryStats.totalHoursWorked || 0,
+                  totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
+                  performanceScore: summaryStats.avgPerformanceScore,
+                };
+                const comparativeInsights = generateComparativeInsights(sprintMetrics, teamAvg);
+                insights = [...insights, ...comparativeInsights];
+              }
+            } else {
+              const allSprintsMetrics = metrics as AllSprintsPerformanceMetrics;
+              sprintMetrics = {
+                developerId: allSprintsMetrics.developerId,
+                developerName: allSprintsMetrics.developerName,
+                sprintName: 'Todos os Sprints',
+                totalHoursWorked: allSprintsMetrics.totalHoursWorked,
+                totalHoursEstimated: allSprintsMetrics.totalHoursEstimated,
+                tasksCompleted: allSprintsMetrics.totalTasksCompleted,
+                tasksStarted: allSprintsMetrics.totalTasksStarted,
+                averageHoursPerTask: allSprintsMetrics.totalHoursWorked / 
+                  allSprintsMetrics.totalTasksCompleted || 0,
+                estimationAccuracy: allSprintsMetrics.avgEstimationAccuracy,
+                accuracyRate: allSprintsMetrics.avgAccuracyRate,
+                tendsToOverestimate: allSprintsMetrics.tendsToOverestimate,
+                tendsToUnderestimate: allSprintsMetrics.tendsToUnderestimate,
+                reworkRate: allSprintsMetrics.avgReworkRate,
+                bugRate: allSprintsMetrics.avgBugRate,
+                bugsVsFeatures: 0,
+                qualityScore: allSprintsMetrics.avgQualityScore,
+                utilizationRate: allSprintsMetrics.utilizationRate,
+                completionRate: allSprintsMetrics.completionRate,
+                avgTimeToComplete: allSprintsMetrics.avgTimeToComplete,
+                consistencyScore: allSprintsMetrics.consistencyScore,
+                avgComplexity: allSprintsMetrics.avgComplexity,
+                complexityDistribution: allSprintsMetrics.complexityDistribution,
+                performanceByComplexity: allSprintsMetrics.performanceByComplexity.map(
+                  c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
+                ),
+                performanceScore: allSprintsMetrics.avgPerformanceScore,
+                baseScore: allSprintsMetrics.avgPerformanceScore,
+                complexityBonus: 0,
+                tasks: [],
+              };
+            }
 
             return (
               <DeveloperPerformanceCard
@@ -361,6 +380,16 @@ export const PerformanceDashboard: React.FC = () => {
                     ? {
                         overall: comparison.overallRank,
                         total: comparison.totalDevelopers,
+                      }
+                    : undefined
+                }
+                teamAverage={
+                  summaryStats && viewMode === 'sprint'
+                    ? {
+                        accuracyRate: summaryStats.avgAccuracyRate,
+                        totalHoursWorked: summaryStats.totalHoursWorked || 0,
+                        totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
+                        performanceScore: summaryStats.avgPerformanceScore,
                       }
                     : undefined
                 }

@@ -17,18 +17,19 @@ function sumWorklogHours(worklogs: WorklogEntry[]): number {
 
 /**
  * Calculate hybrid metrics for a single task based on worklogs and sprint period
+ * IMPORTANT: Time spent is ALWAYS from worklog, never from sprint spreadsheet
  */
 export function calculateTaskHybridMetrics(
   task: TaskItem,
   worklogs: WorklogEntry[],
   sprintPeriod: SprintPeriod | null
 ): TaskItem {
-  // If no worklogs provided, return task as-is with fallback values
+  // If no worklogs provided, time spent is 0 (NEVER use task.tempoGasto)
   if (!worklogs || worklogs.length === 0) {
     return {
       ...task,
-      tempoGastoTotal: task.tempoGasto,
-      tempoGastoNoSprint: task.tempoGasto,
+      tempoGastoTotal: 0,
+      tempoGastoNoSprint: 0,
       tempoGastoOutrosSprints: 0,
       estimativaRestante: task.estimativa,
     };
@@ -39,14 +40,14 @@ export function calculateTaskHybridMetrics(
     (w) => w.taskId === task.id || w.taskId === task.chave
   );
 
-  // If no worklogs for this task, use the original tempoGasto
+  // If no worklogs for this task, time spent is 0 (NEVER use task.tempoGasto)
   if (taskWorklogs.length === 0) {
     return {
       ...task,
-      tempoGastoTotal: task.tempoGasto,
-      tempoGastoNoSprint: task.tempoGasto,
+      tempoGastoTotal: 0,
+      tempoGastoNoSprint: 0,
       tempoGastoOutrosSprints: 0,
-      estimativaRestante: Math.max(0, task.estimativa - task.tempoGasto),
+      estimativaRestante: task.estimativa,
     };
   }
 
@@ -104,10 +105,17 @@ export function parseSprintPeriod(
   startDate: string | Date,
   endDate: string | Date
 ): SprintPeriod {
+  // Helper function to parse date string as local timezone (not UTC)
+  const parseLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    // Month is 0-indexed in JavaScript Date
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  };
+  
   return {
     sprintName,
-    startDate: typeof startDate === 'string' ? new Date(startDate) : startDate,
-    endDate: typeof endDate === 'string' ? new Date(endDate) : endDate,
+    startDate: typeof startDate === 'string' ? parseLocalDate(startDate) : startDate,
+    endDate: typeof endDate === 'string' ? parseLocalDate(endDate) : endDate,
   };
 }
 

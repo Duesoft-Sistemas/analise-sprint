@@ -1,26 +1,31 @@
 // Parse time string from CSV (format: "1h 30m" or "2h" or "45m") or numeric seconds
 export function parseTimeToHours(timeString: string | number): number {
-  if (!timeString) return 0;
+  if (timeString === null || timeString === undefined || timeString === '') return 0;
   
   // Se for número, assumir que está em segundos e converter para horas
   if (typeof timeString === 'number') {
+    // Verificar se é um número válido
+    if (isNaN(timeString)) return 0;
     return timeString / 3600;
   }
   
-  // Se for string vazia
-  if (timeString.trim() === '') return 0;
+  // Converter para string se ainda não for
+  const timeStr = String(timeString).trim();
+  
+  // Se for string vazia após trim
+  if (timeStr === '') return 0;
   
   // Tentar converter string para número (caso seja número em formato string)
-  const numericValue = parseFloat(timeString);
-  if (!isNaN(numericValue) && !timeString.includes('h') && !timeString.includes('m')) {
+  const numericValue = parseFloat(timeStr);
+  if (!isNaN(numericValue) && !timeStr.includes('h') && !timeStr.includes('m')) {
     // É um número em formato string, assumir que está em segundos
     return numericValue / 3600;
   }
   
   // Processar formato de texto "1h 30m" ou "2h" ou "45m" ou "0.5h"
   // Regex que aceita decimais: (\d+\.?\d*) pega números inteiros e decimais
-  const hoursMatch = timeString.match(/(\d+\.?\d*)h/);
-  const minutesMatch = timeString.match(/(\d+\.?\d*)m/);
+  const hoursMatch = timeStr.match(/(\d+\.?\d*)h/);
+  const minutesMatch = timeStr.match(/(\d+\.?\d*)m/);
   
   const hours = hoursMatch ? parseFloat(hoursMatch[1]) : 0;
   const minutes = minutesMatch ? parseFloat(minutesMatch[1]) : 0;
@@ -83,11 +88,39 @@ export function calculateRiskLevel(utilizationPercent: number): 'low' | 'medium'
   return 'low';
 }
 
-// Parse date from CSV
+// Parse date from CSV or Excel
 export function parseDate(dateString: string): Date {
   if (!dateString) return new Date();
   
-  // Try various date formats
+  const str = dateString.trim();
+  
+  // Try ISO format first (YYYY-MM-DD) - parse as local date
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [year, month, day] = str.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  
+  // Try Brazilian format (DD/MM/YYYY) - most common in this application
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    const [day, month, year] = str.split('/').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  
+  // Try with time component (YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss)
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const parts = str.split(/[\s T]/);
+    const [year, month, day] = parts[0].split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  
+  // Try DD/MM/YYYY with time component
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
+    const parts = str.split(/[\s T]/);
+    const [day, month, year] = parts[0].split('/').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  
+  // Fallback: try native Date parsing but be aware of timezone issues
   const date = new Date(dateString);
   return isNaN(date.getTime()) ? new Date() : date;
 }

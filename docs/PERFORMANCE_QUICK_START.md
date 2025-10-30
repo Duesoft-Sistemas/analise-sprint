@@ -28,10 +28,11 @@ A **Análise de Performance** é um módulo completo que avalia desenvolvedores 
 ### Performance Score (0-100)
 
 Um score geral que combina:
-- 40% Acurácia nas estimativas
-- 30% Qualidade (sem retrabalho)
-- 20% Produtividade
-- 10% Taxa de conclusão
+- 40% Qualidade (Nota de Teste × 20)
+- 35% Eficiência de Execução (acurácia ajustada por complexidade)
+- 25% Taxa de conclusão
+
+**Nota:** A acurácia de estimativa alimenta a Eficiência de Execução (35%) com limites por complexidade.
 
 **Interpretação:**
 - 🟢 90-100 = Excelente
@@ -47,8 +48,8 @@ Um score geral que combina:
 - Mostra se você tende a subestimar ou superestimar
 
 **Qualidade (/100)**
-- Score baseado no inverso da taxa de retrabalho
-- Quanto maior, melhor a qualidade
+- Score baseado na Nota de Teste média (1–5 → 0–100). Vazio = 5
+- Quanto maior, melhor a qualidade percebida nos testes
 
 **Utilização (%)**
 - % da sua capacidade semanal (40h) que está sendo usada

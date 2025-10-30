@@ -13,6 +13,7 @@ import {
 } from '../utils/calculations';
 
 // Calculate analytics for a specific sprint
+// IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint), never from sprint spreadsheet
 export function calculateSprintAnalytics(
   tasks: TaskItem[],
   sprintName: string
@@ -21,9 +22,9 @@ export function calculateSprintAnalytics(
 
   const completedTasks = sprintTasks.filter((t) => isCompletedStatus(t.status));
   
-  // Use hybrid fields for current sprint analysis
+  // Use hybrid fields for current sprint analysis - ALWAYS from worklog
   const totalHours = sprintTasks.reduce(
-    (sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 
+    (sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 
     0
   );
   const totalEstimatedHours = sprintTasks.reduce(
@@ -31,7 +32,7 @@ export function calculateSprintAnalytics(
     0
   );
   const completedHours = completedTasks.reduce(
-    (sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 
+    (sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 
     0
   );
 
@@ -68,7 +69,7 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
   for (const [name, devTasks] of devMap.entries()) {
     // HYBRID APPROACH:
     // - For capacity allocation: use estimativaRestante (what's left for THIS sprint)
-    // - For time spent in sprint: use tempoGastoNoSprint (time logged in THIS sprint)
+    // - For time spent in sprint: use tempoGastoNoSprint (time logged in THIS sprint) - ALWAYS from worklog
     // - For performance analysis: use original estimativa and tempoGastoTotal
     
     // Capacity/Allocation metrics (for "can they finish the sprint?")
@@ -77,17 +78,23 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
       0
     );
     const totalSpentHours = devTasks.reduce(
-      (sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 
+      (sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 
       0
     );
-    const availableHours = Math.max(0, 40 - totalAllocatedHours);
+    
+    // Available hours calculation: use the MAXIMUM between estimated and spent for each task
+    // This ensures that if a task goes over estimate, it consumes the actual hours spent
+    const totalConsumedHours = devTasks.reduce(
+      (sum, t) => sum + Math.max(
+        t.estimativaRestante ?? t.estimativa,
+        t.tempoGastoNoSprint ?? 0
+      ),
+      0
+    );
+    const availableHours = Math.max(0, 40 - totalConsumedHours);
     
     // Performance metrics (for accuracy analysis)
     const estimatedHours = devTasks.reduce((sum, t) => sum + t.estimativa, 0);
-    const totalWorkedHours = devTasks.reduce(
-      (sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGasto), 
-      0
-    );
     
     // Utilization based on current sprint allocation
     const utilizationPercent = calculatePercentage(totalAllocatedHours, 40); // 40h work week
@@ -178,12 +185,13 @@ function calculateClientMetrics(tasks: TaskItem[]): Totalizer[] {
 }
 
 // Helper to create totalizer object
+// IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint)
 function createTotalizer(label: string, tasks: TaskItem[]): Totalizer {
   return {
     label,
     count: tasks.length,
-    // Use hybrid fields: tempoGastoNoSprint for current sprint hours
-    hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 0),
+    // Use hybrid fields: tempoGastoNoSprint for current sprint hours - ALWAYS from worklog
+    hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
     // Use estimativaRestante for remaining work in current sprint
     estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
   };
@@ -209,7 +217,7 @@ export function calculateCrossSprintAnalytics(
     ([sprintName, sprintTasks]) => ({
       sprintName,
       tasks: sprintTasks.length,
-      hours: sprintTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 0),
+      hours: sprintTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
       estimatedHours: sprintTasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
     })
   );
@@ -235,7 +243,7 @@ export function calculateCrossSprintAnalytics(
       const sprintsData = Array.from(sprints.entries()).map(
         ([sprintName, tasks]) => ({
           sprintName,
-          hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 0),
+          hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
           estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
         })
       );
@@ -271,7 +279,7 @@ export function calculateCrossSprintAnalytics(
       const sprintsData = Array.from(sprints.entries()).map(
         ([sprintName, tasks]) => ({
           sprintName,
-          hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? t.tempoGasto), 0),
+          hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
           estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
         })
       );
@@ -302,11 +310,12 @@ export function calculateRiskAlerts(
   const sprintTasks = tasks.filter((t) => t.sprint === sprintName);
 
   // Tasks with high time variance
+  // IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint)
   for (const task of sprintTasks) {
     if (isCompletedStatus(task.status)) continue;
     
-    // Use hybrid fields for current sprint analysis
-    const tempoGasto = task.tempoGastoNoSprint ?? task.tempoGasto;
+    // Use hybrid fields for current sprint analysis - ALWAYS from worklog
+    const tempoGasto = task.tempoGastoNoSprint ?? 0;
     const estimativaRestante = task.estimativaRestante ?? task.estimativa;
     
     if (estimativaRestante > 0 && tempoGasto / estimativaRestante > 0.8) {

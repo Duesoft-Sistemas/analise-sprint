@@ -7,6 +7,7 @@ import {
   TaskFilters,
   WorklogEntry,
   SprintPeriod,
+  SprintMetadata,
 } from '../types';
 import {
   calculateSprintAnalytics,
@@ -29,6 +30,10 @@ interface SprintStore {
   worklogs: WorklogEntry[];
   sprintPeriod: SprintPeriod | null;
   
+  // Sprint metadata from sprints.xlsx
+  sprintMetadata: SprintMetadata[];
+  sprintsFileName: string | null;
+  
   // File metadata
   layoutFileName: string | null;
   worklogFileName: string | null;
@@ -43,6 +48,7 @@ interface SprintStore {
   setTasks: (tasks: TaskItem[], fileName?: string) => void;
   setWorklogs: (worklogs: WorklogEntry[], fileName?: string) => void;
   setSprintPeriod: (period: SprintPeriod | null) => void;
+  setSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => void;
   setSelectedSprint: (sprint: string) => void;
   setTaskFilters: (filters: TaskFilters) => void;
   setSelectedDeveloper: (developer: string | null) => void;
@@ -50,6 +56,7 @@ interface SprintStore {
   
   // Computed getters
   getFilteredTasks: () => TaskItem[];
+  getSprintPeriod: (sprintName: string) => SprintPeriod | null;
 }
 
 export const useSprintStore = create<SprintStore>((set, get) => ({
@@ -62,6 +69,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   riskAlerts: [],
   worklogs: [],
   sprintPeriod: null,
+  sprintMetadata: [],
+  sprintsFileName: null,
   layoutFileName: null,
   worklogFileName: null,
   taskFilters: {},
@@ -69,15 +78,66 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
 
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => {
-    const { worklogs, sprintPeriod } = get();
+    const { worklogs, sprintMetadata } = get();
     
     // Calculate hybrid metrics if worklogs are available
-    const processedTasks = worklogs.length > 0
-      ? calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod)
-      : tasks;
+    // Use sprint-specific periods from metadata
+    let processedTasks = tasks;
+    if (worklogs.length > 0 && sprintMetadata.length > 0) {
+      // Process each sprint separately with its correct period
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        // Only consider sprints that exist in the sprint metadata (with dates)
+        if (!metadata) {
+          return; // skip tasks from sprints not declared in the sprints spreadsheet
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else if (worklogs.length > 0) {
+      // Fallback: use single period if no metadata
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+    }
     
-    const sprints = getAllSprints(processedTasks);
-    const selectedSprint = sprints.length > 0 ? sprints[0] : null;
+    // Build sprint options: prefer explicit sprint metadata (from sprints.xlsx)
+    let sprints: string[];
+    if (sprintMetadata.length > 0) {
+      // Respect the order by start date from the spreadsheet
+      const ordered = [...sprintMetadata].sort(
+        (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+      );
+      sprints = ordered.map((m) => m.sprint);
+    } else {
+      // Fallback to inferring from tasks when metadata not provided
+      sprints = getAllSprints(processedTasks);
+    }
+
+    // Choose default selected sprint
+    let selectedSprint: string | null = null;
+    if (sprintMetadata.length > 0) {
+      const today = new Date().getTime();
+      const active = sprintMetadata.find(
+        (m) => today >= m.dataInicio.getTime() && today <= m.dataFim.getTime()
+      );
+      selectedSprint = active ? active.sprint : sprints[0] || null;
+    } else {
+      selectedSprint = sprints.length > 0 ? sprints[0] : null;
+    }
     
     const sprintAnalytics = selectedSprint
       ? calculateSprintAnalytics(processedTasks, selectedSprint)
@@ -103,10 +163,38 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   },
 
   setWorklogs: (worklogs: WorklogEntry[], fileName?: string) => {
-    const { tasks, sprintPeriod, selectedSprint } = get();
+    const { tasks, sprintMetadata, selectedSprint } = get();
     
-    // Recalculate hybrid metrics with new worklogs
-    const processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+    // Recalculate hybrid metrics with new worklogs using sprint-specific periods
+    let processedTasks = tasks;
+    if (sprintMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        if (!metadata) {
+          return; // ignore tasks from sprints not listed in metadata
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else {
+      // Fallback: use single period if no metadata
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+    }
     
     const sprintAnalytics = selectedSprint
       ? calculateSprintAnalytics(processedTasks, selectedSprint)
@@ -125,6 +213,72 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       crossSprintAnalytics,
       riskAlerts,
       worklogFileName: fileName || null,
+    });
+  },
+
+  setSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => {
+    const { tasks, worklogs, selectedSprint } = get();
+    
+    // Recalculate hybrid metrics with sprint-specific periods
+    let processedTasks = tasks;
+    if (worklogs.length > 0 && metadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const sprintMeta = metadata.find(m => m.sprint === sprintName);
+        if (!sprintMeta) {
+          return; // ignore tasks for sprints not present in spreadsheet
+        }
+        const period = {
+          sprintName,
+          startDate: sprintMeta.dataInicio,
+          endDate: sprintMeta.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    }
+    
+    // Build sprint options strictly from metadata
+    const ordered = [...metadata].sort(
+      (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+    );
+    const sprints = ordered.map((m) => m.sprint);
+
+    // Determine selected sprint: prefer currently active by date
+    const today = new Date().getTime();
+    const active = ordered.find(
+      (m) => today >= m.dataInicio.getTime() && today <= m.dataFim.getTime()
+    );
+    const newSelected = active
+      ? active.sprint
+      : (selectedSprint && sprints.includes(selectedSprint))
+        ? selectedSprint
+        : sprints[0] || null;
+
+    const sprintAnalytics = newSelected
+      ? calculateSprintAnalytics(processedTasks, newSelected)
+      : null;
+    
+    const riskAlerts = newSelected
+      ? calculateRiskAlerts(processedTasks, newSelected)
+      : [];
+
+    set({
+      sprintMetadata: metadata,
+      sprintsFileName: fileName || null,
+      tasks: processedTasks,
+      sprints,
+      selectedSprint: newSelected,
+      sprintAnalytics,
+      riskAlerts,
     });
   },
 
@@ -183,6 +337,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       riskAlerts: [],
       worklogs: [],
       sprintPeriod: null,
+      sprintMetadata: [],
+      sprintsFileName: null,
       layoutFileName: null,
       worklogFileName: null,
       taskFilters: {},
@@ -232,6 +388,22 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
 
     return filtered;
+  },
+  
+  // Get sprint period from metadata
+  getSprintPeriod: (sprintName: string) => {
+    const { sprintMetadata } = get();
+    const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+    
+    if (metadata) {
+      return {
+        sprintName,
+        startDate: metadata.dataInicio,
+        endDate: metadata.dataFim,
+      };
+    }
+    
+    return null;
   },
 }));
 
