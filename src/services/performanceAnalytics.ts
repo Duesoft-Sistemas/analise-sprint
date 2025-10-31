@@ -14,7 +14,6 @@ import { isCompletedStatus } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
-  getEfficiencyZone,
   MAX_SENIORITY_EFFICIENCY_BONUS,
 } from '../config/performanceConfig';
 
@@ -31,10 +30,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   accuracyRate: {
-    formula: '(Tarefas eficientes / Total) × 100. Avaliação unificada: Zona de Complexidade (horas absolutas) + Limites de Tolerância (desvio percentual)',
-    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA: Complexidades 1-4 usam zona de eficiência (APENAS horas gastas, não usa estimativa). Complexidade 5 usa desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
-    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: Para complexidades 1-4, o sistema usa APENAS horas gastas (não considera a estimativa original, que não é responsabilidade só do dev). Para complexidade 5, usa desvio percentual. O sistema detecta: 1) Tarefas simples com tempo excessivo (ex: complexidade 1 gastou 20h = ineficiente), 2) Para complexidade 5: desvios além dos limites ajustados. Executar tarefas complexas com alta eficiência gera bonus de senioridade adicional.',
-    example: 'Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). Complexidade 1 gastou 20h = ❌ ineficiente (>4h aceitável). Complexidade 4 gastou 12h (≤16h eficiente) = ✅ eficiente + bonus senioridade. Complexidade 5: estimou 10h, gastou 14h (-40%) = ✅ eficiente (dentro do limite).',
+    formula: '(Tarefas eficientes / Total) × 100. Avaliação separada: Bugs usam zona OR desvio, Features usam apenas desvio',
+    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-4 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
+    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). FEATURES: Complexidade 1 estimou 10h, gastou 12h (-20%) = ❌ ineficiente (limite -15%). Complexidade 5: estimou 30h, gastou 35h (-16%) = ✅ eficiente (limite -40%).',
+    example: 'Bug complexidade 1 gastou 3h = ✅ eficiente (zona: ≤4h aceitável). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Bug complexidade 4 gastou 12h = ✅ eficiente (zona: ≤16h). Feature complexidade 4 estimou 10h, gastou 15h (-50%) = ❌ ineficiente (limite -30%).',
   },
   
   bugRate: {
@@ -74,8 +73,8 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   
   performanceScore: {
     formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Score máximo: 125. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas dentro dos limites de horas esperados - este é o indicador principal de senioridade.',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas FEATURES com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs NÃO contam para bonus de senioridade. Score máximo: 125. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas FEATURES dentro dos limites de horas esperados - este é o indicador principal de senioridade.',
     example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5 🏆⭐',
   },
   
@@ -172,8 +171,9 @@ function calculateSeniorityEfficiencyBonus(
   taskMetrics: TaskPerformanceMetrics[]
 ): number {
   // Filter complex tasks (level 4-5) that were completed
+  // EXCLUDES bugs - only features get seniority bonus
   const complexTasks = taskMetrics.filter(t => 
-    t.complexityScore >= 4 && t.hoursEstimated > 0
+    t.complexityScore >= 4 && t.hoursEstimated > 0 && t.task.tipo !== 'Bug'
   );
   
   if (complexTasks.length === 0) return 0;
@@ -208,7 +208,8 @@ function calculateSeniorityEfficiencyBonus(
         const efficiencyResult = checkComplexityZoneEfficiency(
           task.complexityScore,
           task.hoursSpent,
-          task.hoursEstimated
+          task.hoursEstimated,
+          task.task.tipo // Passa tipo da tarefa
         );
         if (efficiencyResult.zone === 'efficient') {
           highlyEfficientComplex++;
@@ -247,14 +248,16 @@ export function calculateTaskMetrics(task: TaskItem): TaskPerformanceMetrics {
   
   const isOnTime = hoursSpent <= hoursEstimated;
   
-  // SISTEMA UNIFICADO: Verificar zona de eficiência por complexidade para TODAS as tarefas
-  // Verifica se horas gastas excedem o limite esperado para aquela complexidade
+  // SISTEMA SEPARADO: Verificar zona de eficiência APENAS para bugs
+  // Bugs: usam zona de complexidade (1-4) OU desvio (5)
+  // Features/Outros: usam APENAS desvio percentual
   // IMPORTANTE: Usa apenas horas gastas, não a estimativa original (que não é responsabilidade só do dev)
   // A estimativa original ainda é usada no cálculo do desvio percentual (fallback)
   let efficiencyImpact = checkComplexityZoneEfficiency(
     task.complexidade,
     hoursSpent,
-    hoursEstimated
+    hoursEstimated,
+    task.tipo // Passa tipo da tarefa para diferenciar bugs de features
   );
   
   return {
@@ -323,11 +326,11 @@ export function calculateSprintPerformance(
     estimationAccuracy = deviations.reduce((sum, d) => sum + d, 0) / deviations.length;
     
     // Tasks with good execution efficiency
-    // SISTEMA UNIFICADO: Prioriza zona de eficiência por complexidade
-    // Se a tarefa foi avaliada pela zona de complexidade, usa esse resultado
-    // Caso contrário, usa desvio percentual (limites de tolerância)
+    // SISTEMA SEPARADO: Bugs usam zona OU desvio, Features usam apenas desvio
+    // Se a tarefa foi avaliada pela zona de complexidade (bugs), usa esse resultado
+    // Caso contrário, usa desvio percentual (limites de tolerância para todos)
     const tasksWithinRange = completedWithEstimates.filter(t => {
-      // Check if this task was evaluated by complexity zone
+      // Check if this task was evaluated by complexity zone (bugs only)
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
         tasksImpactedByComplexityZone++;
         // Use complexity zone evaluation result
@@ -335,6 +338,7 @@ export function calculateSprintPerformance(
       }
       
       // Normal evaluation: use deviation from estimate (limites de tolerância)
+      // Applies to: features and bugs without zone evaluation
       const deviation = t.estimationAccuracy;
       const threshold = getEfficiencyThreshold(t.complexityScore);
       

@@ -118,6 +118,9 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Clock className="w-3 h-3" />
             <span>Estimado (original)</span>
+            <span className="text-[9px] opacity-60" title="Soma das estimativas originais de todas as tarefas do desenvolvedor, usada para análise de performance">
+              ⓘ
+            </span>
           </div>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.estimatedHours)}
@@ -128,6 +131,9 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <TrendingUp className="w-3 h-3" />
             <span>Gasto</span>
+            <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs. Não inclui tempo de sprints anteriores">
+              ⓘ
+            </span>
           </div>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.totalSpentHours)}
@@ -136,7 +142,12 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
 
         {variance !== 0 && (
           <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Variação</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Variação</span>
+              <span className="text-[9px] opacity-60" title="Diferença entre o tempo gasto e a estimativa original. Positivo = gastou mais que o estimado, Negativo = gastou menos que o estimado">
+                ⓘ
+              </span>
+            </div>
             <span
               className={`text-sm font-bold ${
                 variance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
@@ -153,7 +164,12 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
       {/* Available Hours */}
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
+            <span className="text-[9px] opacity-60" title="Capacidade restante da semana (40h). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa, garantindo que tarefas que ultrapassaram a estimativa consumam o tempo real gasto">
+              ⓘ
+            </span>
+          </div>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.totalAvailableHours)}
           </span>
@@ -161,7 +177,12 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
 
         {/* Sprint Balance */}
         <div className="flex justify-between items-center mt-2">
-          <span className="text-xs text-gray-600 dark:text-gray-400">Saldo do sprint</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-600 dark:text-gray-400">Saldo do sprint</span>
+            <span className="text-[9px] opacity-60" title="Diferença entre o alocado no sprint (estimativa restante) e o tempo gasto neste sprint. Positivo = ainda falta trabalho, Negativo = já gastou mais que o alocado">
+              ⓘ
+            </span>
+          </div>
           <span className={`text-sm font-medium ${
             developer.totalAllocatedHours - developer.totalSpentHours > 0
               ? 'text-gray-900 dark:text-white'
@@ -182,9 +203,14 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
       {/* Complexity Distribution */}
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="mb-2">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            Distribuição por Complexidade
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              Distribuição por Complexidade
+            </span>
+            <span className="text-[9px] opacity-60" title="Quantidade e percentual de tarefas do desenvolvedor em cada nível de complexidade (1=muito simples, 5=muito complexa)">
+              ⓘ
+            </span>
+          </div>
         </div>
         <div className="space-y-1.5">
           {complexityDistribution.map(({ level, count }) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calculator, Info, TrendingUp, Award, Target } from 'lucide-react';
-import { SprintPerformanceMetrics, TaskPerformanceMetrics } from '../types';
+import { SprintPerformanceMetrics } from '../types';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
@@ -125,7 +125,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           label: 'Taxa de Eficiência',
           value: `${metrics.accuracyRate.toFixed(1)}%`,
           formula: `(Tarefas Eficientes / Total com Estimativa) × 100 = (${efficientTasks.length} / ${completedWithEstimates.length}) × 100`,
-          explanation: 'Percentual de tarefas executadas de forma eficiente. Considera zonas de complexidade para tarefas 1-4 e limites de tolerância para complexidade 5.',
+          explanation: 'Percentual de tarefas executadas de forma eficiente. Bugs usam zona de complexidade (1-4) OU desvio percentual (5). Features usam apenas desvio percentual.',
           tasks: completedWithEstimates.map(t => {
             const isEfficient = efficientTasks.includes(t);
             const zone = t.efficiencyImpact;

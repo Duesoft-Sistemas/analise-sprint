@@ -60,6 +60,53 @@ Decisão também tomada sobre quais status considerar como "concluído pelo dese
 
 ---
 
+## 2024-12-XX: Avaliação Separada de Bugs vs Features
+
+### Contexto
+Eficiência considerava zona de complexidade para todas as tarefas, causando confusão quando estimativas não batiam com complexidade.
+
+### Problema
+- Features com estimativas ruins causavam ineficiência sem culpa do dev
+- Bugs naturalmente imprevisíveis não tinham tratamento adequado
+- Desenvolvedores confusos sobre se eficiência era baseada em zona ou desvio
+
+### Decisão
+Implementar sistema separado:
+- **BUGS**: Usar zona de complexidade (1-4) OU desvio percentual (5)
+- **FEATURES/OUTROS**: Usar apenas desvio percentual (todas complexidades)
+- **Bonus de Senioridade**: Aplicar APENAS para features complexas (bugs excluídos)
+
+### Justificativa
+1. Bugs são imprevisíveis → zona protege dev de estimativas ruins
+2. Features têm estimativas confiáveis → dev deve executar conforme estimado
+3. Complexidade ainda usada para bonus/senioridade (mais justo)
+4. Remove ambiguidade sobre qual métrica usar
+
+### Implementação
+- Modificar `checkComplexityZoneEfficiency()` para aceitar `taskType`
+- Filtrar bugs do cálculo de bonus de senioridade
+- Atualizar UI para explicar diferenças claramente
+- Documentar em PERFORMANCE_METRICS.md
+
+### Alternativas Consideradas
+
+**Opção A: Manter sistema unificado**
+- ✅ Consistência simples
+- ❌ Não resolve problema de confusão
+- ❌ Unjusto para features com estimativas ruins
+
+**Opção B (ESCOLHIDA): Sistema separado**
+- ✅ Justo para bugs e features
+- ✅ Remove ambiguidade
+- ✅ Transparente para devs
+- ⚠️ Requer educação de equipe
+
+**Opção C: Apenas alertas de desalinhamento**
+- ✅ Minimal change
+- ❌ Não resolve problema fundamental
+
+---
+
 ## Próximas Decisões Pendentes
 
 ### 1. Utilização no Performance Score
@@ -89,5 +136,5 @@ Decisão também tomada sobre quais status considerar como "concluído pelo dese
 
 ---
 
-**Última Atualização:** 29 de Outubro de 2025
+**Última Atualização:** Dezembro 2024
 

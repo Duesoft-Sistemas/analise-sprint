@@ -87,46 +87,11 @@ Interpretação: Subestimou em 20%
 ```
 (Tarefas eficientes / Total de Tarefas) × 100
 
-Onde "eficiente" é determinado por SISTEMA UNIFICADO:
-
-1. ZONA DE EFICIÊNCIA POR COMPLEXIDADE (Complexidades 1-4):
-   - **IMPORTANTE: Usa APENAS horas gastas, NÃO usa a estimativa original**
-   - A estimativa não é responsabilidade só do dev, então não é considerada aqui
-   - Verifica se horas gastas excedem limites esperados para a complexidade:
-     - Complexidade 1: máximo 2h eficiente, 4h aceitável
-     - Complexidade 2: máximo 4h eficiente, 8h aceitável
-     - Complexidade 3: máximo 8h eficiente, 16h aceitável
-     - Complexidade 4: máximo 16h eficiente, 32h aceitável
-   - **Resultado:** Se horas gastas ≤ limite aceitável → eficiente, senão → ineficiente
-
-2. DESVIO PERCENTUAL (Complexidade 5 apenas):
-   - **Complexidade 5 não tem limites de horas absolutos** (só recebe bonus de complexidade)
-   - **Usa desvio percentual:** compara estimativa original vs horas gastas
-   - Limites de tolerância:
-     - Executou mais rápido: até +50% (sempre ótimo) ✅
-     - Pode atrasar até: -40% de atraso ✅
+Onde "eficiente" é determinado por SISTEMA SEPARADO (ver abaixo)
 ```
 
 **Descrição:**
-Percentual de tarefas executadas de forma eficiente. **SISTEMA:** 
-- **Complexidades 1-4:** Avaliadas por zona de eficiência (APENAS horas gastas, não usa estimativa original)
-- **Complexidade 5:** Avaliada por desvio percentual (compara estimativa vs horas gastas)
-
-**IMPORTANTE:** Para complexidades 1-4, a estimativa original não é usada porque não é responsabilidade só do dev. Apenas as horas gastas são consideradas na avaliação de eficiência.
-
-**Interpretação:**
-Quanto maior, mais eficiente o desenvolvedor é na execução. Para complexidades 1-4, avalia apenas se o tempo gasto está dentro dos limites esperados para aquela complexidade (sem considerar a estimativa original).
-
-**Exemplo:**
-```
-10 tarefas no sprint:
-- Tarefa complexidade 1: gastou 3h → ✅ EFICIENTE (dentro de 4h aceitável)
-- Tarefa complexidade 1: gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
-- Tarefa complexidade 2: gastou 5h → ✅ EFICIENTE (≤8h aceitável) - estimativa não é considerada
-- Tarefa complexidade 5: estimou 20h, gastou 25h = -25% → ✅ EFICIENTE (dentro de -40%, sem limite de horas)
-
-Taxa de Eficiência: (3 / 4) × 100 = 75%
-```
+Percentual de tarefas executadas de forma eficiente. Sistema separado: bugs e features têm regras diferentes.
 
 **Faixas de Avaliação:**
 - `≥80%` - Excelente
@@ -135,50 +100,53 @@ Taxa de Eficiência: (3 / 4) × 100 = 75%
 - `50-59%` - Adequado
 - `<50%` - Precisa Atenção
 
-**⚡ SISTEMA UNIFICADO DE AVALIAÇÃO:**
+**⚡ SISTEMA SEPARADO DE AVALIAÇÃO:**
 
-O sistema usa duas camadas de verificação:
+O sistema usa diferentes regras para diferentes tipos de tarefa:
 
-1. **ZONA DE EFICIÊNCIA POR COMPLEXIDADE (Complexidades 1-4):**
+1. **BUGS - Zona de Eficiência por Complexidade (Complexidades 1-4):**
    - **IMPORTANTE: Usa APENAS horas gastas, NÃO usa a estimativa original**
-   - A estimativa não é responsabilidade só do dev, então não é considerada
-   - Detecta tarefas simples com tempo excessivo baseado apenas nas horas gastas
-   - Exemplo: Complexidade 1 gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
-   - Exemplo: Complexidade 1 gastou 3h → ✅ EFICIENTE (dentro de 4h aceitável)
-   - Aplica para TODAS as tarefas complexidades 1-4 (bugs e não-bugs)
-   - **A estimativa original NÃO é usada nesta avaliação**
+   - Bugs são imprevisíveis, então não penalizamos por estimativas ruins
+   - Detecta bugs simples que levaram tempo excessivo baseado apenas nas horas gastas
+   - Exemplo: Bug complexidade 1 gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
+   - Exemplo: Bug complexidade 1 gastou 3h → ✅ EFICIENTE (dentro de 4h aceitável)
+   - Aplica apenas para BUGS complexidades 1-4
+   - **A estimativa original NÃO é usada nesta avaliação para bugs**
 
-2. **DESVIO PERCENTUAL (Complexidade 5 apenas):**
-   - **Complexidade 5 não tem limites de horas absolutos** (só recebe bonus de complexidade)
+2. **FEATURES/OUTROS - Desvio Percentual (Todas complexidades):**
    - **Usa desvio percentual:** compara estimativa original vs horas gastas
+   - Features têm estimativas mais confiáveis, dev deve executar conforme estimado
    - Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
-   - Pode atrasar até: -40% de atraso ✅
-   - Atrasos **além dos limites** = ❌ Precisa atenção
-   - **Esta é a ÚNICA complexidade onde a estimativa é considerada na avaliação de eficiência**
+   - Limites ajustados por complexidade: Simples (-15%), Complexa (-30%), Muito Complexa (-40%)
+   - Atrasos **além dos limites** = ❌ Ineficiente
 
-**🎯 Por que sistema unificado?**
+3. **COMPLEXIDADE 5 - Desvio Percentual (Ambos):**
+   - **Não tem limites de horas absolutos** (tarefas muito imprevisíveis)
+   - Bugs e Features usam desvio percentual com tolerância de -40%
 
-1. **Detecta estimativas ruins desde o início:**
-   - Tarefa simples com estimativa de 20h já é sinalizada
-   - Não depende de desvio percentual (que pode ser 0% mesmo com estimativa ruim)
+**🎯 Por que sistema separado?**
 
-2. **Justo para bugs e tarefas normais:**
-   - Mesma regra aplica para todos
-   - Não penaliza devs que trabalham em bugs
+1. **Justo para bugs:**
+   - Bugs são imprevisíveis por natureza
+   - Não penaliza dev por estimativa ruim do time
+   - Usa zona de complexidade como referência
 
-3. **Reconhece imprevisibilidade de tarefas complexas:**
-   - Complexidade 5 não tem limite de horas
-   - Apenas avalia por desvio percentual (mais tolerante)
+2. **Responsabiliza features:**
+   - Features têm estimativas mais confiáveis
+   - Dev deve executar conforme planejado
+   - Premia eficiência em execução
+
+3. **Reconhece imprevisibilidade de tarefas muito complexas:**
+   - Complexidade 5: ambas usam desvio percentual
+   - Maior tolerância (-40%)
 
 **Exemplo Real:**
 ```
-Dev A (complexidade 1): Estimou 10h, gastou 7h = +30% → ✅ EFICIENTE (dentro de limites)
-
-Dev B (complexidade 1): Estimou 20h, gastou 20h = 0% → ❌ INEFICIENTE (20h > 4h aceitável!)
-
-Dev C (complexidade 3): Estimou 8h, gastou 9h = -12.5% → ✅ EFICIENTE (dentro de limites de horas E percentuais)
-
-Dev D (complexidade 5): Estimou 30h, gastou 35h = -16.6% → ✅ EFICIENTE (sem limite de horas, -16.6% < -40%)
+Bug complexidade 1: Estima 10h, gasta 3h → ✅ EFICIENTE (zona: ≤4h aceitável)
+Feature complexidade 1: Estima 10h, gasta 12h (-20%) → ❌ INEFICIENTE (limite -15%)
+Bug complexidade 4: Estima 5h, gasta 12h → ✅ EFICIENTE (zona: ≤32h aceitável)
+Feature complexidade 4: Estima 10h, gasta 15h (-50%) → ❌ INEFICIENTE (limite -30%)
+Complexidade 5 (qualquer): Estima 30h, gasta 35h (-16%) → ✅ EFICIENTE (limite -40%)
 ```
 
 ---
@@ -451,9 +419,10 @@ Máximo: 125 pontos 🏆⭐
 A Taxa de Utilização **NÃO faz mais parte do score** (anteriormente era 25%). Como todos os desenvolvedores registram ~40h, ela não diferencia performance e foi removida para tornar o score mais justo e acionável.
 
 **Sobre Eficiência de Execução:**
-- Mede a capacidade do desenvolvedor de executar tarefas dentro do tempo estimado **ajustado por complexidade**
-- Tarefas simples têm limites mais rigorosos (-15%), tarefas complexas mais tolerantes (-40%)
-- Alta eficiência: consistentemente entrega no prazo ou antes
+- Mede a capacidade do desenvolvedor de executar tarefas dentro do tempo estimado **ajustado por tipo e complexidade**
+- **BUGS:** Avaliados por zona de complexidade OU desvio (5)
+- **FEATURES:** Avaliadas apenas por desvio, limites: simples (-15%), complexa (-30%), muito complexa (-40%)
+- Alta eficiência: consistentemente entrega dentro dos limites
 - Baixa eficiência: frequentemente ultrapassa limites (pode indicar necessidade de suporte)
 - Considera contexto: juniores esperado ter mais variação
 
@@ -467,11 +436,15 @@ A Taxa de Utilização **NÃO faz mais parte do score** (anteriormente era 25%).
 **Sobre Bonus de Senioridade (0-15 pontos): 🎯**
 - **Este é o indicador principal de senioridade!** 
 - Recompensa não apenas pegar tarefas complexas, mas **executá-las com alta eficiência**
-- Calculado baseado na eficiência em tarefas complexas:
-  - Tarefas na zona **eficiente** (ex: Complexidade 4 gastou ≤16h) = peso 1.0
-  - Tarefas na zona **aceitável** (ex: Complexidade 4 gastou ≤32h) = peso 0.5
-  - Tarefas **ineficientes** (ex: Complexidade 4 gastou >32h) = não contam
-- 100% de eficiência alta em tarefas complexas = +15 pontos (máximo)
+- **IMPORTANTE:** Aplicado APENAS para FEATURES complexas (bugs são excluídos)
+- Calculado baseado na eficiência em tarefas FEATURES complexas:
+  - Features eficientes = peso 1.0
+  - Features aceitáveis = peso 0.5
+  - Features ineficientes = não contam
+- 100% de eficiência alta em features complexas = +15 pontos (máximo)
+- Por que bugs são excluídos?
+  - Bugs são imprevisíveis por natureza
+  - Bonus recompensa execução conforme estimativa em features
 - Por que vale mais que o bonus de complexidade?
   - **Executar bem** é mais difícil que apenas **pegar** tarefas complexas
   - Indica **senioridade real**: não só aceita desafios, mas os resolve com maestria

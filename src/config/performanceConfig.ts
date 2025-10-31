@@ -11,9 +11,9 @@
 // Define os limites esperados de horas para tarefas (complexidade 1-4)
 // Usado para detectar tarefas simples que levaram tempo excessivo
 // 
-// SISTEMA UNIFICADO: Aplica para TODAS as tarefas (bugs e não-bugs)
-// Se horas gastas ou estimadas excedem o limite esperado para aquela complexidade,
-// a tarefa é considerada ineficiente, independente do desvio percentual.
+// SISTEMA SEPARADO: Zonas aplicam APENAS para bugs
+// Features/Outros: usam apenas desvio percentual
+// Bugs: usam zona (1-4) OU desvio (5)
 // 
 // IMPORTANTE: Complexidade 5 NÃO tem limites de zona de eficiência.
 // Ela recebe apenas bonus de complexidade, sem penalizações por tempo excessivo.
@@ -134,8 +134,9 @@ export const PERFORMANCE_SCORE_CLASSIFICATIONS = {
 // =============================================================================
 // AVALIAÇÃO DE EFICIÊNCIA POR COMPLEXIDADE
 // =============================================================================
-// Sistema unificado que verifica se horas gastas/estimadas excedem
-// os limites esperados para aquela complexidade
+// Sistema separado que verifica eficiência baseado no tipo de tarefa
+// Bugs: usa zonas (1-4) OU desvio (5)
+// Features/Outros: usa apenas desvio
 // =============================================================================
 
 export interface EfficiencyImpactReason {
@@ -155,7 +156,10 @@ export interface EfficiencyImpactReason {
 
 /**
  * Verifica se uma tarefa é eficiente baseado na zona de complexidade
- * SISTEMA UNIFICADO: Aplica para complexidades 1-4 apenas
+ * SISTEMA SEPARADO: Aplica zonas APENAS para bugs
+ * 
+ * - BUGS: Usam zona de complexidade (1-4) OU desvio percentual (5)
+ * - FEATURES/OUTROS: Sempre usam apenas desvio percentual
  * 
  * Se horas gastas excedem o limite esperado para aquela complexidade,
  * a tarefa é considerada ineficiente, independente do desvio percentual.
@@ -168,8 +172,19 @@ export interface EfficiencyImpactReason {
 export function checkComplexityZoneEfficiency(
   complexity: number,
   hoursSpent: number,
-  _hoursEstimated?: number // Para complexidade 5, a estimativa é necessária para avaliação por desvio percentual (não usado aqui, apenas documentação)
+  _hoursEstimated?: number, // Para complexidade 5, a estimativa é necessária para avaliação por desvio percentual (não usado aqui, apenas documentação)
+  taskType?: 'Bug' | 'Tarefa' | 'História' | 'Outro' // Novo: tipo da tarefa
 ): EfficiencyImpactReason {
+  // Se não é bug, retornar type: 'normal' imediatamente (avaliado por desvio percentual)
+  if (taskType && taskType !== 'Bug') {
+    return {
+      type: 'normal',
+      description: `Tarefas não-bugs (${taskType}) usam apenas desvio percentual, não zona de complexidade`,
+      isEfficient: false, // Não marcamos como eficiente aqui - será avaliado por desvio percentual no código que chama
+      hoursSpent,
+    };
+  }
+
   // Complexidade 5 não tem zona de eficiência - deve ser avaliada por desvio percentual
   // Retornamos type: 'normal' para indicar que não foi avaliada por zona e deve usar desvio percentual
   // IMPORTANTE: Para complexidade 5, é necessário ter estimativa para avaliar eficiência por desvio percentual

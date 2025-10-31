@@ -95,29 +95,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               </button>
               {expandedSections.has('complexity-zones') && (
                 <div className="p-4 bg-white dark:bg-gray-800">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Define os limites esperados de horas para tarefas <strong>(complexidade 1-4)</strong>.
-                    <strong>SISTEMA UNIFICADO:</strong> Aplica para TODAS as tarefas complexidades 1-4 (bugs e não-bugs).
+                    <strong>SISTEMA SEPARADO:</strong> Zonas aplicam APENAS para bugs. Features usam desvio percentual.
                   </p>
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold">
-                      💡 <strong>IMPORTANTE:</strong> Para complexidades 1-4, usa APENAS horas gastas, NÃO usa a estimativa original. A estimativa não é responsabilidade só do dev, então não é considerada nesta avaliação.
+                      🐛 <strong>BUGS:</strong> Complexidades 1-4 usam zona de eficiência (APENAS horas gastas). Complexidade 5 usa desvio percentual.
                     </p>
                   </div>
                   <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                     <p className="text-sm text-purple-800 dark:text-purple-200">
-                      <Info className="w-4 h-4 inline mr-1" />
-                      <strong>Complexidade 5:</strong> Não tem limites de zona de eficiência (só recebe bonus de complexidade). Usa desvio percentual para avaliar eficiência (compara estimativa vs horas gastas).
+                      ✅ <strong>FEATURES:</strong> Todas usam desvio percentual (compara estimativa vs horas gastas).
                     </p>
                   </div>
                   <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                     <p className="text-sm text-green-800 dark:text-green-200">
                       <Info className="w-4 h-4 inline mr-1" />
-                      <strong>Como funciona:</strong>
+                      <strong>Por quê?</strong>
                     </p>
                     <ul className="text-sm text-green-800 dark:text-green-200 mt-2 ml-6 space-y-1 list-disc">
-                      <li><strong>Complexidades 1-4:</strong> Avaliadas por zona de eficiência (APENAS horas gastas, não usa estimativa)</li>
-                      <li><strong>Complexidade 5:</strong> Avaliada por desvio percentual (compara estimativa vs horas gastas)</li>
+                      <li>Bugs são imprevisíveis → zona protege dev de estimativas ruins</li>
+                      <li>Features têm estimativas confiáveis → dev deve executar conforme estimado</li>
                     </ul>
                   </div>
                   <div className="overflow-x-auto">

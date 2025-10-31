@@ -421,7 +421,16 @@ export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAna
     });
   }
 
-  return analyses.sort((a, b) => b.totalTasks - a.totalTasks);
+  // Ordenar por quantidade de problemas (bugs reais + dúvidas ocultas)
+  return analyses.sort((a, b) => {
+    const aProblems = a.realBugs + a.dubidasOcultas;
+    const bProblems = b.realBugs + b.dubidasOcultas;
+    // Se a quantidade de problemas for igual, ordenar por total de tarefas
+    if (aProblems === bProblems) {
+      return b.totalTasks - a.totalTasks;
+    }
+    return bProblems - aProblems;
+  });
 }
 
 // Calculate problem analysis by client (bugs reais e dúvidas ocultas)

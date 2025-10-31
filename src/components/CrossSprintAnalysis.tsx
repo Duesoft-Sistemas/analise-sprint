@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Inbox, Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType } from '../types';
 import { formatHours } from '../utils/calculations';
-import { calculateProblemAnalysisByFeature, calculateProblemAnalysisByClient } from '../services/analytics';
+import { calculateProblemAnalysisByFeature } from '../services/analytics';
 
 interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
@@ -12,6 +12,8 @@ interface CrossSprintAnalysisProps {
 
 export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks }) => {
   const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
+  const [topSprintLimit, setTopSprintLimit] = useState<number | null>(10);
+  const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(10);
   const [topClientLimit, setTopClientLimit] = useState<number | null>(10);
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [selectedSprints, setSelectedSprints] = useState<string[]>(sprints);
@@ -53,7 +55,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         developerAllocation: [],
         clientAllocation: [],
         byFeature: [],
-        byClient: [],
       };
     }
     
@@ -101,7 +102,9 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         const sprintsData = Array.from(sprints.entries()).map(
           ([sprintName, tasks]) => ({
             sprintName,
-            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
+            // No multi-sprint, usar tempoGastoTotal (tempo total) ao invés de tempoGastoNoSprint
+            // tempoGastoNoSprint só funciona para o sprint atual/selecionado
+            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0), 0),
             estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
           })
         );
@@ -137,7 +140,8 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         const sprintsData = Array.from(sprints.entries()).map(
           ([sprintName, tasks]) => ({
             sprintName,
-            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
+            // Alocação por cliente usa horas estimadas (tempo alocado) ao invés de tempo gasto
+            hours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
             estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
           })
         );
@@ -157,7 +161,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       developerAllocation,
       clientAllocation,
       byFeature: calculateProblemAnalysisByFeature(tasksWithSprint),
-      byClient: calculateProblemAnalysisByClient(tasksWithSprint),
     };
   }, [analytics, tasks, selectedSprints]);
 
@@ -257,27 +260,59 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
 
       {/* Sprint Distribution */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
-            <Calendar className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+              <Calendar className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Distribuição por Sprint</h3>
           </div>
-          Distribuição por Sprint
-        </h3>
-        <div className="space-y-3">
-          {filteredAnalytics.sprintDistribution.map((sprint) => (
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <select
+              value={topSprintLimit === null ? 'all' : topSprintLimit.toString()}
+              onChange={(e) => setTopSprintLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
+              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {TOP_OPTIONS.map((option) => (
+                <option key={option ?? 'all'} value={option ?? 'all'}>
+                  Top {option ?? 'Todas'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {filteredAnalytics.sprintDistribution
+            .sort((a, b) => b.tasks - a.tasks)
+            .slice(0, topSprintLimit ?? undefined)
+            .map((sprint, index) => (
             <div
               key={sprint.sprintName}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:shadow-md transition-all duration-300"
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
             >
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">{sprint.sprintName}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{sprint.tasks} tarefas</p>
+              <div className="flex-shrink-0 w-8 text-center">
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {formatHours(sprint.hours)} / {formatHours(sprint.estimatedHours)}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">gasto / estimado</p>
+              <div className="flex-shrink-0 min-w-[200px]">
+                <p className="font-medium text-gray-900 dark:text-white text-sm">{sprint.sprintName}</p>
+              </div>
+              <div className="flex-1 flex items-center gap-3">
+                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                  {sprint.tasks} tarefa{sprint.tasks !== 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+                    {formatHours(sprint.hours)}
+                  </span>
+                  <span className="text-xs text-gray-400">/</span>
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    {formatHours(sprint.estimatedHours)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <span className="text-xs text-gray-500 dark:text-gray-400">gasto / estimado</span>
               </div>
             </div>
           ))}
@@ -286,35 +321,63 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
 
       {/* Developer Allocation */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
-            <Users className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
+              <Users className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Desenvolvedor (Todos os Sprints)</h3>
           </div>
-          Alocação por Desenvolvedor (Todos os Sprints)
-        </h3>
-        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <select
+              value={topDeveloperLimit === null ? 'all' : topDeveloperLimit.toString()}
+              onChange={(e) => setTopDeveloperLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
+              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {TOP_OPTIONS.map((option) => (
+                <option key={option ?? 'all'} value={option ?? 'all'}>
+                  Top {option ?? 'Todas'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-2">
           {filteredAnalytics.developerAllocation
             .sort((a, b) => b.totalHours - a.totalHours)
-            .map((dev) => (
-              <div key={dev.name} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{dev.name}</h4>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-                    {formatHours(dev.totalHours)} total
-                  </span>
+            .slice(0, topDeveloperLimit ?? undefined)
+            .map((dev, index) => (
+              <div 
+                key={dev.name} 
+                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+              >
+                <div className="flex-shrink-0 w-8 text-center">
+                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div className="flex-shrink-0 min-w-[180px]">
+                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{dev.name}</h4>
+                </div>
+                <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                   {dev.sprints.map((sprint) => (
                     <div
                       key={sprint.sprintName}
-                      className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg px-3 py-2 flex justify-between items-center"
+                      className="inline-flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1 text-xs"
+                      title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
                     >
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{sprint.sprintName}</span>
-                      <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
+                        {sprint.sprintName}
+                      </span>
+                      <span className="text-blue-700 dark:text-blue-400 font-semibold whitespace-nowrap">
                         {formatHours(sprint.hours)}
                       </span>
                     </div>
                   ))}
+                </div>
+                <div className="flex-shrink-0">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                    {formatHours(dev.totalHours)} total
+                  </span>
                 </div>
               </div>
             ))}
@@ -323,49 +386,77 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
 
       {/* Client Allocation */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg">
-            <Building2 className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Cliente (Todos os Sprints)</h3>
           </div>
-          Alocação por Cliente (Todos os Sprints)
-        </h3>
-        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <select
+              value={topClientLimit === null ? 'all' : topClientLimit.toString()}
+              onChange={(e) => setTopClientLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
+              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {TOP_OPTIONS.map((option) => (
+                <option key={option ?? 'all'} value={option ?? 'all'}>
+                  Top {option ?? 'Todas'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-2">
           {filteredAnalytics.clientAllocation
             .sort((a, b) => b.totalHours - a.totalHours)
-            .map((client) => (
-              <div key={client.client} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{client.client}</h4>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-                    {formatHours(client.totalHours)} total
-                  </span>
+            .slice(0, topClientLimit ?? undefined)
+            .map((client, index) => (
+              <div 
+                key={client.client} 
+                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+              >
+                <div className="flex-shrink-0 w-8 text-center">
+                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div className="flex-shrink-0 min-w-[180px]">
+                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{client.client}</h4>
+                </div>
+                <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                   {client.sprints.map((sprint) => (
                     <div
                       key={sprint.sprintName}
-                      className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg px-3 py-2 flex justify-between items-center"
+                      className="inline-flex items-center gap-1.5 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-400/20 dark:to-green-500/20 border border-green-200/50 dark:border-green-700/50 rounded-md px-2 py-1 text-xs"
+                      title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
                     >
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{sprint.sprintName}</span>
-                      <span className="text-sm font-medium text-purple-900 dark:text-purple-300">
+                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
+                        {sprint.sprintName}
+                      </span>
+                      <span className="text-green-700 dark:text-green-400 font-semibold whitespace-nowrap">
                         {formatHours(sprint.hours)}
                       </span>
                     </div>
                   ))}
+                </div>
+                <div className="flex-shrink-0">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                    {formatHours(client.totalHours)} total
+                  </span>
                 </div>
               </div>
             ))}
         </div>
       </div>
 
-      {/* Análise de Problemas por Feature */}
+      {/* Análise de Features */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
               <Code className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Problemas por Feature</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Features</h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -383,164 +474,75 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
           </div>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Identificando features com mais bugs reais e dúvidas ocultas para priorizar melhorias
+          Distribuição de tarefas, bugs e dúvidas ocultas por feature
         </p>
-        <div className="space-y-4">
+        <div className="space-y-2">
           {filteredAnalytics.byFeature.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhuma feature com problemas registrada.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhuma feature registrada.</p>
           ) : (
             filteredAnalytics.byFeature
               .slice(0, topFeatureLimit ?? undefined)
-              .map((feature) => (
-              <div key={feature.label} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{feature.label}</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+              .map((feature, index) => {
+                const totalProblems = feature.realBugs + feature.dubidasOcultas;
+                return (
+              <div 
+                key={feature.label} 
+                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+              >
+                <div className="flex-shrink-0 w-8 text-center">
+                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
+                </div>
+                <div className="flex-shrink-0 min-w-[200px]">
+                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{feature.label}</h4>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                       {feature.totalTasks} tarefa{feature.totalTasks !== 1 ? 's' : ''}
                     </span>
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                    <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
                       {formatHours(feature.totalHours)}
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tarefas</span>
-                    </div>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{feature.totalTarefas}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}% das tarefas
-                    </p>
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1.5">
+                    <CheckSquare className="w-3 h-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{feature.totalTarefas}</span>
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
+                      ({feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}%)
+                    </span>
                   </div>
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Bug className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Bugs Reais</span>
-                    </div>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{feature.realBugs}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}% das tarefas
-                    </p>
+                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-red-500/10 to-red-600/10 dark:from-red-400/20 dark:to-red-500/20 border border-red-200/50 dark:border-red-700/50 rounded-md px-2 py-1.5">
+                    <Bug className="w-3 h-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-red-600 dark:text-red-400">{feature.realBugs}</span>
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
+                      ({feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}%)
+                    </span>
                   </div>
-                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <HelpCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Dúvidas Ocultas</span>
-                    </div>
-                    <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{feature.dubidasOcultas}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}% das tarefas
-                    </p>
+                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 dark:from-yellow-400/20 dark:to-yellow-500/20 border border-yellow-200/50 dark:border-yellow-700/50 rounded-md px-2 py-1.5">
+                    <HelpCircle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400">{feature.dubidasOcultas}</span>
+                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
+                      ({feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}%)
+                    </span>
                   </div>
                 </div>
                 {feature.realBugs + feature.dubidasOcultas > 0 && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-orange-600 dark:text-orange-400">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span className="font-medium">
-                      Total de {feature.realBugs + feature.dubidasOcultas} problema{(feature.realBugs + feature.dubidasOcultas) !== 1 ? 's' : ''} registrado{(feature.realBugs + feature.dubidasOcultas) !== 1 ? 's' : ''}
-                    </span>
+                  <div className="flex-shrink-0">
+                    <div className="flex items-center gap-1.5 text-[10px] text-orange-600 dark:text-orange-400">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span className="font-medium whitespace-nowrap">
+                        {feature.realBugs + feature.dubidasOcultas} problema{(feature.realBugs + feature.dubidasOcultas) !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
-            ))
+              );
+              })
           )}
         </div>
       </div>
 
-      {/* Análise de Problemas por Cliente */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Problemas por Cliente</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <select
-              value={topClientLimit === null ? 'all' : topClientLimit.toString()}
-              onChange={(e) => setTopClientLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
-              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
-            >
-              {TOP_OPTIONS.map((option) => (
-                <option key={option ?? 'all'} value={option ?? 'all'}>
-                  Top {option ?? 'Todas'}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Identificando clientes com mais bugs reais e dúvidas ocultas para priorizar melhorias
-        </p>
-        <div className="space-y-4">
-          {filteredAnalytics.byClient.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum cliente com problemas registrado.</p>
-          ) : (
-            filteredAnalytics.byClient
-              .slice(0, topClientLimit ?? undefined)
-              .map((client) => (
-              <div key={client.label} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{client.label}</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                      {client.totalTasks} tarefa{client.totalTasks !== 1 ? 's' : ''}
-                    </span>
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
-                      {formatHours(client.totalHours)}
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tarefas</span>
-                    </div>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{client.totalTarefas}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {client.totalTasks > 0 ? Math.round((client.totalTarefas / client.totalTasks) * 100) : 0}% das tarefas
-                    </p>
-                  </div>
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Bug className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Bugs Reais</span>
-                    </div>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{client.realBugs}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {client.totalTasks > 0 ? Math.round((client.realBugs / client.totalTasks) * 100) : 0}% das tarefas
-                    </p>
-                  </div>
-                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <HelpCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Dúvidas Ocultas</span>
-                    </div>
-                    <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{client.dubidasOcultas}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {client.totalTasks > 0 ? Math.round((client.dubidasOcultas / client.totalTasks) * 100) : 0}% das tarefas
-                    </p>
-                  </div>
-                </div>
-                {client.realBugs + client.dubidasOcultas > 0 && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-pink-600 dark:text-pink-400">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span className="font-medium">
-                      Total de {client.realBugs + client.dubidasOcultas} problema{(client.realBugs + client.dubidasOcultas) !== 1 ? 's' : ''} registrado{(client.realBugs + client.dubidasOcultas) !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 };

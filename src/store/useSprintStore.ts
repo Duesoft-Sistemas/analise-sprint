@@ -278,7 +278,6 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     
     // Se não há mais arquivos, limpar todas as tarefas
     if (updatedFileNames.length === 0) {
-      const { selectedSprint } = get();
       set({
         tasks: [],
         sprints: [],
@@ -674,10 +673,10 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     });
   },
 
-  removeSprintMetadataByFileName: (fileName: string) => {
+  removeSprintMetadataByFileName: (_fileName: string) => {
     // Para sprint metadata, vamos simplesmente limpar tudo
     // pois não há uma forma fácil de saber quais metadados vieram de qual arquivo
-    const { tasks, worklogs, selectedSprint } = get();
+    const { tasks, worklogs } = get();
     
     // Limpar todos os metadados
     let processedTasks = tasks;
