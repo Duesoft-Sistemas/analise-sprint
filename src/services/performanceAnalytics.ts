@@ -26,28 +26,21 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   
   accuracyRate: {
     formula: '(Tarefas eficientes / Total) × 100. Limites dinâmicos por complexidade: Simples (±50%/-15%), Média (±50%/-20%), Complexa (±50%/-40%)',
-    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. IMPORTANTE: Executar mais rápido é POSITIVO! Tarefas complexas têm mais tolerância para atrasos. Representa 35% do seu Performance Score.',
+    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. IMPORTANTE: Executar mais rápido é POSITIVO! Tarefas complexas têm mais tolerância para atrasos. Representa 50% do seu Performance Score.',
     interpretation: 'Quanto maior, mais eficiente você é. Ser mais rápido (até 50% mais rápido) é excelente! Tarefas simples permitem até -15% de atraso, médias -20%, complexas até -40%. Isso reconhece que tarefas complexas têm mais imprevistos.',
     example: 'Tarefa complexa (nível 5) de 10h: gastou 7h (+30%) = ✅ eficiente! Gastou 13h (-30%) = ✅ ainda aceitável. Gastou 15h (-50%) = ❌ ineficiente',
   },
   
-  reworkRate: {
-    formula: '(Tarefas com Retrabalho=Sim / Total de Tarefas) × 100',
-    description: 'Percentual de tarefas que precisaram ser refeitas ou corrigidas',
-    interpretation: 'Quanto menor, melhor a qualidade. Taxa alta pode indicar problemas de entendimento, testes insuficientes ou código técnico.',
-    example: '2 de 10 tarefas foram retrabalho = 20% de retrabalho',
-  },
-  
   bugRate: {
     formula: '(Tarefas tipo Bug / Total de Tarefas) × 100',
-    description: 'Percentual de tarefas que são correções de bugs',
-    interpretation: 'Taxa alta pode indicar problemas de qualidade ou módulos legados. Compare com a média da equipe.',
-    example: '3 bugs de 10 tarefas = 30% de bugs',
+    description: '⚠️ MÉTRICA INFORMATIVA (não impacta o Performance Score): Percentual de tarefas que são correções de bugs. Bugs são apenas um tipo de tarefa como qualquer outro.',
+    interpretation: 'Esta métrica mostra apenas a distribuição de tipos de trabalho. Um dev que pega muitos bugs não está pior - está apenas trabalhando em correções ao invés de features. O Performance Score avalia qualidade via Nota de Teste, não pelo tipo de tarefa.',
+    example: '3 bugs de 10 tarefas = 30% de bugs. Isso não indica performance ruim - apenas mostra que 30% do trabalho foi em correções.',
   },
   
   qualityScore: {
     formula: 'Nota de Teste × 20 (nota 1–5 escalada para 0–100)',
-    description: 'Score de qualidade baseado exclusivamente na Nota de Teste informada em cada tarefa (1–5). Vazio = 5. Representa 40% do Performance Score.',
+    description: 'Score de qualidade baseado exclusivamente na Nota de Teste informada em cada tarefa (1–5). Vazio = 5. Representa 50% do Performance Score.',
     interpretation: 'Quanto maior, melhor a qualidade percebida nos testes. 80+ é excelente, 60-80 é bom, <60 precisa atenção.',
     example: 'Nota média 4 → 80 de quality score; Nota média 3 → 60',
   },
@@ -61,9 +54,9 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   
   completionRate: {
     formula: '(Tarefas Concluídas / Tarefas Iniciadas) × 100',
-    description: 'Percentual de tarefas que foram finalizadas em relação às iniciadas. Representa 25% do seu Performance Score.',
-    interpretation: 'Quanto maior, melhor. <80% pode indicar interrupções ou tarefas bloqueadas.',
-    example: '8 concluídas de 10 iniciadas = 80% de conclusão',
+    description: '⚠️ MÉTRICA INFORMATIVA (não impacta o Performance Score): Percentual de tarefas que foram finalizadas em relação às iniciadas. Esta métrica não faz parte do score pois pode ser afetada por interrupções e realocações que não são culpa do desenvolvedor.',
+    interpretation: 'Mostra apenas a distribuição de trabalho (concluído vs iniciado). Valores baixos podem indicar interrupções, mas não necessariamente performance ruim. O Performance Score foca em qualidade e eficiência - coisas que o dev controla diretamente.',
+    example: '8 concluídas de 10 iniciadas = 80% de conclusão. Isso não afeta seu score.',
   },
   
   consistencyScore: {
@@ -74,17 +67,17 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (40% × Qualidade) + (35% × Eficiência) + (25% × Conclusão) + Bonus Complexidade (0-10)',
-    description: 'Score geral ponderado combinando qualidade, eficiência de execução ajustada por complexidade, e taxa de conclusão. BONUS: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos! Score máximo: 110. Utilização NÃO faz parte do score pois todos registram ~40h.',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos! Score máximo: 110. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
     interpretation: '100+ = excepcional (com bonus), 90-100 = excelente, 75-90 = muito bom, 60-75 = bom, 45-60 = adequado, <45 = precisa melhorias. Bonus é proporcional ao % de tarefas complexas.',
-    example: 'Base: Qualidade 90 + Eficiência 75 + Conclusão 100 = 89. Se 50% das tarefas são complexas: 89 + 5 = 94 🏆',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 = 87.5 🏆',
   },
   
   bugsVsFeatures: {
     formula: 'Número de Bugs / Número de Features (Tarefas + Histórias)',
-    description: 'Razão entre trabalho corretivo (bugs) e trabalho novo (features)',
-    interpretation: '<0.3 = ótimo, 0.3-0.5 = aceitável, >0.5 = muitos bugs em relação a features',
-    example: '2 bugs e 8 features = 0.25 (para cada 4 features, 1 bug)',
+    description: '⚠️ MÉTRICA INFORMATIVA (não impacta o Performance Score): Razão entre trabalho corretivo (bugs) e trabalho novo (features). Mostra apenas a distribuição de tipos de trabalho.',
+    interpretation: 'Valores maiores indicam mais trabalho em correções, menores indicam mais trabalho em features. Isso NÃO avalia performance - um dev pode ter ratio alto simplesmente porque foi alocado para correções. O Performance Score não considera o tipo de tarefa.',
+    example: '2 bugs e 8 features = 0.25 (para cada 4 features, 1 bug). Isso mostra apenas a distribuição de trabalho, não qualidade.',
   },
 };
 
@@ -191,7 +184,6 @@ export function calculateTaskMetrics(task: TaskItem): TaskPerformanceMetrics {
     task,
     estimationAccuracy,
     isOnTime,
-    isRework: task.retrabalho,
     complexityScore: task.complexidade,
     hoursSpent,
     hoursEstimated,
@@ -268,11 +260,9 @@ export function calculateSprintPerformance(
   
   const tendsToOverestimate = estimationAccuracy > 10;
   const tendsToUnderestimate = estimationAccuracy < -10;
-  
-  // Quality metrics - only consider completed tasks
-  const reworkTasks = completedTasks.filter(t => t.retrabalho).length;
-  const reworkRate = tasksCompleted > 0 ? (reworkTasks / tasksCompleted) * 100 : 0;
-  
+
+  // Informative metrics (NOT used in performance scoring) - only consider completed tasks
+  // These metrics show work distribution, not performance quality
   const bugTasks = completedTasks.filter(t => t.tipo === 'Bug').length;
   const bugRate = tasksCompleted > 0 ? (bugTasks / tasksCompleted) * 100 : 0;
   
@@ -287,6 +277,9 @@ export function calculateSprintPerformance(
   
   // Efficiency metrics
   const utilizationRate = (totalHoursWorked / 40) * 100;
+  
+  // Completion rate: simple calculation (informative only - not used in scoring)
+  // Can be affected by interruptions/realocations, so doesn't reflect dev performance
   const completionRate = tasksStarted > 0 ? (tasksCompleted / tasksStarted) * 100 : 0;
   
   const avgTimeToComplete = tasksCompleted > 0
@@ -332,15 +325,15 @@ export function calculateSprintPerformance(
   });
   
   // Overall Performance Score
-  // Base Score: 40% quality, 35% execution efficiency, 25% completion
+  // Base Score: 50% quality, 50% execution efficiency
+  // Completion removed: can be affected by interruptions/realocations (not dev's fault)
   // Utilization removed: all devs work ~40h, so it doesn't differentiate performance
   // Execution efficiency is based on accuracy rate (ability to execute within estimated time)
   const executionEfficiency = accuracyRate; // % of tasks within complexity-adjusted thresholds
-  
+
   const baseScore = (
-    (qualityScore * 0.40) +
-    (executionEfficiency * 0.35) +
-    (completionRate * 0.25)
+    (qualityScore * 0.50) +
+    (executionEfficiency * 0.50)
   );
   
   // Complexity Bonus: 0-10 points based on % of complex tasks (level 4-5)
@@ -362,7 +355,6 @@ export function calculateSprintPerformance(
     accuracyRate,
     tendsToOverestimate,
     tendsToUnderestimate,
-    reworkRate,
     bugRate,
     bugsVsFeatures,
     qualityScore,
@@ -400,7 +392,6 @@ function createEmptySprintMetrics(
     accuracyRate: 0,
     tendsToOverestimate: false,
     tendsToUnderestimate: false,
-    reworkRate: 0,
     bugRate: 0,
     bugsVsFeatures: 0,
     qualityScore: 100,
@@ -449,7 +440,6 @@ export function calculateAllSprintsPerformance(
   // Average performance metrics
   const avgEstimationAccuracy = sprintMetrics.reduce((sum, m) => sum + m.estimationAccuracy, 0) / totalSprints;
   const avgAccuracyRate = sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / totalSprints;
-  const avgReworkRate = sprintMetrics.reduce((sum, m) => sum + m.reworkRate, 0) / totalSprints;
   const avgBugRate = sprintMetrics.reduce((sum, m) => sum + m.bugRate, 0) / totalSprints;
   const avgQualityScore = sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / totalSprints;
   const avgPerformanceScore = sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / totalSprints;
@@ -511,11 +501,8 @@ export function calculateAllSprintsPerformance(
     const accuracy = totalTasks > 0
       ? tasksAtLevel.reduce((sum, t) => sum + t.estimationAccuracy, 0) / totalTasks
       : 0;
-    const reworkRate = totalTasks > 0
-      ? (tasksAtLevel.filter(t => t.isRework).length / totalTasks) * 100
-      : 0;
     
-    return { level, totalTasks, avgHours, accuracy, reworkRate };
+    return { level, totalTasks, avgHours, accuracy };
   });
   
   // Performance by type
@@ -528,11 +515,8 @@ export function calculateAllSprintsPerformance(
     const accuracy = count > 0
       ? tasksOfType.reduce((sum, t) => sum + t.estimationAccuracy, 0) / count
       : 0;
-    const reworkRate = count > 0
-      ? (tasksOfType.filter(t => t.isRework).length / count) * 100
-      : 0;
     
-    return { type, count, avgHours, accuracy, reworkRate };
+    return { type, count, avgHours, accuracy };
   });
   
   return {
@@ -547,7 +531,6 @@ export function calculateAllSprintsPerformance(
     averageTasksPerSprint,
     avgEstimationAccuracy,
     avgAccuracyRate,
-    avgReworkRate,
     avgBugRate,
     avgQualityScore,
     avgPerformanceScore,
@@ -585,7 +568,6 @@ function createEmptyAllSprintsMetrics(
     averageTasksPerSprint: 0,
     avgEstimationAccuracy: 0,
     avgAccuracyRate: 0,
-    avgReworkRate: 0,
     avgBugRate: 0,
     avgQualityScore: 100,
     avgPerformanceScore: 0,
@@ -606,14 +588,12 @@ function createEmptyAllSprintsMetrics(
       totalTasks: 0,
       avgHours: 0,
       accuracy: 0,
-      reworkRate: 0,
     })),
     performanceByType: (['Bug', 'Tarefa', 'História', 'Outro'] as const).map(type => ({
       type,
       count: 0,
       avgHours: 0,
       accuracy: 0,
-      reworkRate: 0,
     })),
     sprints: [],
   };
@@ -746,37 +726,7 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Quality insights
-  if (metrics.reworkRate === 0) {
-    insights.push({
-      type: 'positive',
-      title: 'Zero Retrabalho',
-      description: 'Nenhuma tarefa precisou ser refeita neste sprint',
-      metric: 'reworkRate',
-      value: '0%',
-    });
-  } else if (metrics.reworkRate > 20) {
-    insights.push({
-      type: 'negative',
-      title: 'Alta Taxa de Retrabalho',
-      description: `${metrics.reworkRate.toFixed(0)}% das tarefas precisaram ser refeitas`,
-      metric: 'reworkRate',
-      value: `${metrics.reworkRate.toFixed(0)}%`,
-      recommendation: 'Revisar processo de qualidade, testes e entendimento dos requisitos.',
-    });
-  }
-  
-  // Bug ratio insights
-  if (metrics.bugsVsFeatures > 0.5) {
-    insights.push({
-      type: 'warning',
-      title: 'Muitos Bugs Relativamente a Features',
-      description: `Ratio de ${metrics.bugsVsFeatures.toFixed(2)} bugs por feature`,
-      metric: 'bugsVsFeatures',
-      value: metrics.bugsVsFeatures.toFixed(2),
-      recommendation: 'Pode indicar código legado ou necessidade de refatoração.',
-    });
-  }
+  // Bug ratio insights - REMOVED: Bugs não indicam performance ruim, são apenas um tipo de tarefa
   
   // Utilization insights
   if (metrics.utilizationRate > 100) {
@@ -798,17 +748,8 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Completion rate insights
-  if (metrics.completionRate < 80 && metrics.tasksStarted > 0) {
-    insights.push({
-      type: 'warning',
-      title: 'Baixa Taxa de Conclusão',
-      description: `Apenas ${metrics.completionRate.toFixed(0)}% das tarefas foram concluídas`,
-      metric: 'completionRate',
-      value: `${metrics.completionRate.toFixed(0)}%`,
-      recommendation: 'Verificar se há bloqueios ou interrupções frequentes.',
-    });
-  }
+  // Completion rate insights - REMOVED: Completion is now informative only
+  // Low completion doesn't necessarily mean bad performance (can be interrupted/realocated)
   
   // Complexity insights
   const highComplexityTasks = metrics.tasks.filter(t => t.complexityScore >= 4).length;
@@ -838,7 +779,7 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
       description: 'Score geral abaixo de 60 - necessita atenção',
       metric: 'performanceScore',
       value: metrics.performanceScore.toFixed(0),
-      recommendation: 'Focar em melhorar estimativas e reduzir retrabalho.',
+      recommendation: 'Focar em melhorar estimativas e qualidade.',
     });
   }
   
@@ -960,7 +901,7 @@ export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics
     insights.push({
       type: 'positive',
       title: 'Qualidade em Melhoria',
-      description: 'Taxa de retrabalho está diminuindo',
+      description: 'Nota de teste está melhorando ao longo do tempo',
       metric: 'qualityTrend',
       value: 'Melhorando',
     });
@@ -968,7 +909,7 @@ export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics
     insights.push({
       type: 'negative',
       title: 'Qualidade em Declínio',
-      description: 'Taxa de retrabalho está aumentando',
+      description: 'Nota de teste está diminuindo',
       metric: 'qualityTrend',
       value: 'Piorando',
       recommendation: 'Reforçar testes e code reviews.',
@@ -976,15 +917,6 @@ export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics
   }
   
   // Overall metrics insights
-  if (metrics.avgReworkRate < 10) {
-    insights.push({
-      type: 'positive',
-      title: 'Baixa Taxa de Retrabalho Geral',
-      description: `Média de ${metrics.avgReworkRate.toFixed(1)}% de retrabalho ao longo de todos os sprints`,
-      metric: 'avgReworkRate',
-      value: `${metrics.avgReworkRate.toFixed(1)}%`,
-    });
-  }
   
   // Consistency insights
   if (metrics.totalSprints >= 3) {
@@ -1042,7 +974,6 @@ export function calculateCustomPeriodPerformance(
       averageTasksPerSprint: 0,
       avgEstimationAccuracy: 0,
       avgAccuracyRate: 0,
-      avgReworkRate: 0,
       avgBugRate: 0,
       avgQualityScore: 0,
       avgPerformanceScore: 0,
@@ -1083,10 +1014,6 @@ export function calculateCustomPeriodPerformance(
   
   const avgAccuracyRate = sprintMetrics.length > 0
     ? sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length
-    : 0;
-  
-  const avgReworkRate = sprintMetrics.length > 0
-    ? sprintMetrics.reduce((sum, m) => sum + m.reworkRate, 0) / sprintMetrics.length
     : 0;
   
   const avgBugRate = sprintMetrics.length > 0
@@ -1151,38 +1078,36 @@ export function calculateCustomPeriodPerformance(
   }));
   
   // Performance by complexity (aggregate across sprints)
-  const complexityMap = new Map<number, { totalTasks: number; totalHours: number; totalAccuracy: number; totalRework: number }>();
-  
+  const complexityMap = new Map<number, { totalTasks: number; totalHours: number; totalAccuracy: number }>();
+
   sprintMetrics.forEach(sprint => {
     sprint.performanceByComplexity.forEach(perf => {
-      const existing = complexityMap.get(perf.level) || { totalTasks: 0, totalHours: 0, totalAccuracy: 0, totalRework: 0 };
+      const existing = complexityMap.get(perf.level) || { totalTasks: 0, totalHours: 0, totalAccuracy: 0 };
       const taskCount = sprint.complexityDistribution.find(c => c.level === perf.level)?.count || 0;
       
       complexityMap.set(perf.level, {
         totalTasks: existing.totalTasks + taskCount,
         totalHours: existing.totalHours + (perf.avgHours * taskCount),
         totalAccuracy: existing.totalAccuracy + (perf.accuracy * taskCount),
-        totalRework: existing.totalRework, // Will be calculated separately
       });
     });
   });
-  
+
   const performanceByComplexity = Array.from(complexityMap.entries())
     .map(([level, data]) => ({
       level,
       totalTasks: data.totalTasks,
       avgHours: data.totalTasks > 0 ? data.totalHours / data.totalTasks : 0,
       accuracy: data.totalTasks > 0 ? data.totalAccuracy / data.totalTasks : 0,
-      reworkRate: 0, // Calculate from raw tasks if needed
     }))
     .sort((a, b) => a.level - b.level);
-  
+
   // Performance by type
-  const typeMap = new Map<string, { count: number; totalHours: number; totalAccuracy: number; rework: number }>();
-  
+  const typeMap = new Map<string, { count: number; totalHours: number; totalAccuracy: number }>();
+
   periodTasks.forEach(task => {
     const type = task.tipo;
-    const existing = typeMap.get(type) || { count: 0, totalHours: 0, totalAccuracy: 0, rework: 0 };
+    const existing = typeMap.get(type) || { count: 0, totalHours: 0, totalAccuracy: 0 };
     
     const hoursSpent = task.tempoGastoTotal ?? 0;
     const hoursEstimated = task.estimativa || 0;
@@ -1194,17 +1119,15 @@ export function calculateCustomPeriodPerformance(
       count: existing.count + 1,
       totalHours: existing.totalHours + hoursSpent,
       totalAccuracy: existing.totalAccuracy + Math.abs(accuracy),
-      rework: existing.rework + (task.retrabalho ? 1 : 0),
     });
   });
-  
+
   const performanceByType = Array.from(typeMap.entries())
     .map(([type, data]) => ({
       type: type as 'Bug' | 'Tarefa' | 'História' | 'Outro',
       count: data.count,
       avgHours: data.count > 0 ? data.totalHours / data.count : 0,
       accuracy: data.count > 0 ? data.totalAccuracy / data.count : 0,
-      reworkRate: data.count > 0 ? (data.rework / data.count) * 100 : 0,
     }));
   
   return {
@@ -1221,7 +1144,6 @@ export function calculateCustomPeriodPerformance(
     averageTasksPerSprint: sprintMetrics.length > 0 ? totalTasksCompleted / sprintMetrics.length : 0,
     avgEstimationAccuracy,
     avgAccuracyRate,
-    avgReworkRate,
     avgBugRate,
     avgQualityScore,
     avgTestScore,

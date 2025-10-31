@@ -17,9 +17,9 @@ export interface TaskItem {
   categorias: string[];
   detalhesOcultos: string;
   tipo: 'Bug' | 'Tarefa' | 'História' | 'Outro';
-  retrabalho: boolean; // Sim = true, Não = false
   complexidade: number; // 1 to 5
   notaTeste?: number; // 1-5 (default 5 if missing)
+  qualidadeChamado?: string; // Campo personalizado (Qualidade do Chamado)
   
   // Hybrid approach fields (calculated from worklog) - ALWAYS USE THESE FOR CALCULATIONS
   estimativaRestante?: number; // in hours - remaining work for current sprint
@@ -76,6 +76,16 @@ export interface SprintAnalytics {
   byClient: Totalizer[];
 }
 
+// Problem analysis (bugs reais e dúvidas ocultas)
+export interface ProblemAnalysis {
+  label: string;
+  totalTasks: number;
+  totalTarefas: number;
+  realBugs: number;
+  dubidasOcultas: number;
+  totalHours: number;
+}
+
 // Cross-sprint analytics
 export interface CrossSprintAnalytics {
   backlogTasks: number;
@@ -104,6 +114,9 @@ export interface CrossSprintAnalytics {
     }[];
     totalHours: number;
   }[];
+  // Análise de problemas (bugs reais e dúvidas ocultas)
+  byFeature: ProblemAnalysis[];
+  byClient: ProblemAnalysis[];
 }
 
 // Alert/Risk items
@@ -141,7 +154,6 @@ export interface TaskPerformanceMetrics {
   task: TaskItem;
   estimationAccuracy: number; // -100 to +100 (% deviation from estimate)
   isOnTime: boolean; // spent <= estimated
-  isRework: boolean;
   complexityScore: number; // 1-5
   hoursSpent: number;
   hoursEstimated: number;
@@ -167,10 +179,11 @@ export interface SprintPerformanceMetrics {
   tendsToUnderestimate: boolean;
   
   // Quality
-  reworkRate: number; // % of tasks that are rework
-  bugRate: number; // % of tasks that are bugs
-  bugsVsFeatures: number; // ratio bugs/features
   qualityScore: number; // Derived from Nota de Teste (scaled 0-100)
+  
+  // Informative metrics (NOT used in scoring - just show work distribution)
+  bugRate: number; // % of tasks that are bugs (informative only)
+  bugsVsFeatures: number; // ratio bugs/features (informative only)
   testScore?: number; // 0-100 (avgTestNote × 20)
   avgTestNote?: number; // 1-5
   
@@ -211,7 +224,6 @@ export interface AllSprintsPerformanceMetrics {
   // Average performance
   avgEstimationAccuracy: number;
   avgAccuracyRate: number;
-  avgReworkRate: number;
   avgBugRate: number;
   avgQualityScore: number;
   avgTestScore?: number; // 0-100
@@ -253,7 +265,6 @@ export interface AllSprintsPerformanceMetrics {
     totalTasks: number;
     avgHours: number;
     accuracy: number;
-    reworkRate: number;
   }[];
   
   // By type
@@ -262,7 +273,6 @@ export interface AllSprintsPerformanceMetrics {
     count: number;
     avgHours: number;
     accuracy: number;
-    reworkRate: number;
   }[];
   
   // Sprint performance details
@@ -355,7 +365,6 @@ export interface CustomPeriodMetrics {
   
   avgEstimationAccuracy: number;
   avgAccuracyRate: number;
-  avgReworkRate: number;
   avgBugRate: number;
   avgQualityScore: number;
   avgPerformanceScore: number;
@@ -385,7 +394,6 @@ export interface CustomPeriodMetrics {
     totalTasks: number;
     avgHours: number;
     accuracy: number;
-    reworkRate: number;
   }[];
   
   performanceByType: {
@@ -393,7 +401,6 @@ export interface CustomPeriodMetrics {
     count: number;
     avgHours: number;
     accuracy: number;
-    reworkRate: number;
   }[];
   
   // Reference to original sprint metrics
@@ -424,7 +431,6 @@ export interface TemporalPeriodMetrics {
   avgCompletionRate: number;
   
   // Quality metrics
-  avgReworkRate: number;
   avgBugRate: number;
   
   // Efficiency

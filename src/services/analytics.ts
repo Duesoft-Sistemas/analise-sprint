@@ -5,6 +5,7 @@ import {
   Totalizer,
   CrossSprintAnalytics,
   RiskAlert,
+  ProblemAnalysis,
 } from '../types';
 import {
   isCompletedStatus,
@@ -298,6 +299,8 @@ export function calculateCrossSprintAnalytics(
     sprintDistribution,
     developerAllocation,
     clientAllocation,
+    byFeature: calculateProblemAnalysisByFeature(tasksWithSprint),
+    byClient: calculateProblemAnalysisByClient(tasksWithSprint),
   };
 }
 
@@ -373,5 +376,100 @@ export function getAllSprints(tasks: TaskItem[]): string[] {
   }
   
   return Array.from(sprints).sort();
+}
+
+// Calculate problem analysis by feature (bugs reais e dúvidas ocultas)
+export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAnalysis[] {
+  const featureMap = new Map<string, TaskItem[]>();
+
+  // Agrupar tarefas por feature
+  for (const task of tasks) {
+    const feature = task.feature || '(Sem Feature)';
+    if (!featureMap.has(feature)) {
+      featureMap.set(feature, []);
+    }
+    featureMap.get(feature)!.push(task);
+  }
+
+  const analyses: ProblemAnalysis[] = [];
+  
+  for (const [feature, featureTasks] of featureMap.entries()) {
+    // Separar bugs reais e dúvidas ocultas
+    const realBugs = featureTasks.filter(
+      (t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta'
+    );
+    const dubidasOcultas = featureTasks.filter(
+      (t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta'
+    );
+    const tarefas = featureTasks.filter(
+      (t) => t.tipo === 'Tarefa'
+    );
+    
+    // Calcular horas totais (usando tempoGastoTotal de todos os sprints)
+    const totalHours = featureTasks.reduce(
+      (sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0),
+      0
+    );
+
+    analyses.push({
+      label: feature,
+      totalTasks: featureTasks.length,
+      totalTarefas: tarefas.length,
+      realBugs: realBugs.length,
+      dubidasOcultas: dubidasOcultas.length,
+      totalHours,
+    });
+  }
+
+  return analyses.sort((a, b) => b.totalTasks - a.totalTasks);
+}
+
+// Calculate problem analysis by client (bugs reais e dúvidas ocultas)
+export function calculateProblemAnalysisByClient(tasks: TaskItem[]): ProblemAnalysis[] {
+  const clientMap = new Map<string, TaskItem[]>();
+
+  // Agrupar tarefas por cliente (categoria)
+  for (const task of tasks) {
+    const clients = task.categorias.length > 0 ? task.categorias : ['(Sem Cliente)'];
+    
+    for (const client of clients) {
+      if (!clientMap.has(client)) {
+        clientMap.set(client, []);
+      }
+      clientMap.get(client)!.push(task);
+    }
+  }
+
+  const analyses: ProblemAnalysis[] = [];
+  
+  for (const [client, clientTasks] of clientMap.entries()) {
+    // Separar bugs reais e dúvidas ocultas
+    const realBugs = clientTasks.filter(
+      (t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta'
+    );
+    const dubidasOcultas = clientTasks.filter(
+      (t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta'
+    );
+    const tarefas = clientTasks.filter(
+      (t) => t.tipo === 'Tarefa'
+    );
+    
+    // Calcular horas totais (usando tempoGastoTotal de todos os sprints)
+    const totalHours = clientTasks.reduce(
+      (sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0),
+      0
+    );
+
+    analyses.push({
+      label: client,
+      totalTasks: clientTasks.length,
+      totalTarefas: tarefas.length,
+      realBugs: realBugs.length,
+      dubidasOcultas: dubidasOcultas.length,
+      totalHours,
+    });
+  }
+
+  return analyses.sort((a, b) => b.totalTasks - a.totalTasks);
 }
 

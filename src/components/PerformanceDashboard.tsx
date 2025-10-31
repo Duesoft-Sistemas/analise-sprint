@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -11,10 +11,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
-import { calculatePerformanceAnalytics, generateComparativeInsights } from '../services/performanceAnalytics';
+import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
 import { PerformanceMetricsModal } from './PerformanceMetricsModal';
-import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics } from '../types';
+import { DeveloperDetailedAnalysisModal } from './DeveloperDetailedAnalysisModal';
+import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics, CustomPeriodMetrics } from '../types';
+import { calculateDetailedDeveloperAnalytics } from '../services/detailedDeveloperAnalytics';
 
 type ViewMode = 'sprint' | 'allSprints';
 type SortBy = 'overall' | 'accuracy' | 'quality' | 'productivity';
@@ -23,12 +25,42 @@ export const PerformanceDashboard: React.FC = () => {
   const tasks = useSprintStore((state) => state.tasks);
   const sprints = useSprintStore((state) => state.sprints);
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
+  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
 
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
-  const [selectedSprintView, setSelectedSprintView] = useState<string>(selectedSprint || sprints[0] || '');
+  const [selectedSprintView, setSelectedSprintView] = useState<string[]>(selectedSprint ? [selectedSprint] : sprints.length > 0 ? [sprints[0]] : []);
   const [sortBy, setSortBy] = useState<SortBy>('overall');
   const [showMetricsModal, setShowMetricsModal] = useState(false);
-  const [_selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
+  const [showSprintSelector, setShowSprintSelector] = useState(false);
+  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
+  const [selectedDeveloperForAnalysis, setSelectedDeveloperForAnalysis] = useState<string | null>(null);
+  const sprintSelectorRef = useRef<HTMLDivElement>(null);
+
+  // Close sprint selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sprintSelectorRef.current && !sprintSelectorRef.current.contains(event.target as Node)) {
+        setShowSprintSelector(false);
+      }
+    };
+
+    if (showSprintSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSprintSelector]);
+
+  // Reset selected sprints when view mode changes or when sprints list updates
+  useEffect(() => {
+    if (viewMode === 'allSprints') {
+      setShowSprintSelector(false);
+    } else if (viewMode === 'sprint' && selectedSprintView.length === 0 && sprints.length > 0) {
+      setSelectedSprintView([sprints[0]]);
+    }
+  }, [viewMode, sprints.length]); // Only depend on sprints.length to avoid loops
 
   // Calculate all performance analytics
   const analytics = useMemo(() => {
@@ -40,37 +72,138 @@ export const PerformanceDashboard: React.FC = () => {
   const currentMetrics = useMemo(() => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView) {
-      const sprintMetrics = analytics.developerMetrics.bySprint.get(selectedSprintView);
-      if (!sprintMetrics) return [];
-      return Array.from(sprintMetrics.values());
+    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
+      // Single sprint selected
+      if (selectedSprintView.length === 1) {
+        const sprintName = selectedSprintView[0];
+        const sprintMetrics = analytics.developerMetrics.bySprint.get(sprintName);
+        if (!sprintMetrics) return [];
+        return Array.from(sprintMetrics.values());
+      } 
+      // Multiple sprints selected - calculate aggregated metrics
+      else {
+        const developerIds = new Set<string>();
+        tasks.forEach(task => {
+          if (selectedSprintView.includes(task.sprint)) {
+            developerIds.add(task.idResponsavel);
+          }
+        });
+
+        const aggregatedMetrics: (SprintPerformanceMetrics | CustomPeriodMetrics)[] = [];
+        developerIds.forEach(developerId => {
+          const developerTasks = tasks.filter(t => t.idResponsavel === developerId);
+          const developerName = developerTasks[0]?.responsavel || developerId;
+          const customMetrics = calculateCustomPeriodPerformance(
+            tasks,
+            developerId,
+            developerName,
+            selectedSprintView,
+            `${selectedSprintView.length} Sprints Selecionados`
+          );
+          
+          // Calculate bugsVsFeatures for the period
+          const periodTasks = tasks.filter(t => 
+            t.idResponsavel === developerId && 
+            selectedSprintView.includes(t.sprint) &&
+            t.status === 'Concluída'
+          );
+          const bugTasks = periodTasks.filter(t => t.tipo === 'Bug').length;
+          const featureTasks = periodTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
+          const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
+          
+          // Convert CustomPeriodMetrics to SprintPerformanceMetrics format for compatibility
+          const sprintMetrics: SprintPerformanceMetrics = {
+            developerId: customMetrics.developerId,
+            developerName: customMetrics.developerName,
+            sprintName: customMetrics.periodName,
+            totalHoursWorked: customMetrics.totalHoursWorked,
+            totalHoursEstimated: customMetrics.totalHoursEstimated,
+            tasksCompleted: customMetrics.totalTasksCompleted,
+            tasksStarted: customMetrics.totalTasksStarted,
+            averageHoursPerTask: customMetrics.totalHoursWorked / customMetrics.totalTasksCompleted || 0,
+            estimationAccuracy: customMetrics.avgEstimationAccuracy,
+            accuracyRate: customMetrics.avgAccuracyRate,
+            tendsToOverestimate: customMetrics.tendsToOverestimate,
+            tendsToUnderestimate: customMetrics.tendsToUnderestimate,
+            bugRate: customMetrics.avgBugRate,
+            bugsVsFeatures,
+            qualityScore: customMetrics.avgQualityScore,
+            utilizationRate: customMetrics.utilizationRate,
+            completionRate: customMetrics.completionRate,
+            avgTimeToComplete: customMetrics.avgTimeToComplete,
+            consistencyScore: customMetrics.consistencyScore,
+            avgComplexity: customMetrics.avgComplexity,
+            complexityDistribution: customMetrics.complexityDistribution,
+            performanceByComplexity: customMetrics.performanceByComplexity.map(
+              c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
+            ),
+            performanceScore: customMetrics.avgPerformanceScore,
+            baseScore: customMetrics.avgPerformanceScore,
+            complexityBonus: 0,
+            tasks: [],
+          };
+          
+          aggregatedMetrics.push(sprintMetrics);
+        });
+
+        return aggregatedMetrics;
+      }
     } else if (viewMode === 'allSprints') {
       return Array.from(analytics.developerMetrics.allSprints.values());
     }
 
     return [];
-  }, [analytics, viewMode, selectedSprintView]);
+  }, [analytics, viewMode, selectedSprintView, tasks]);
 
   // Get comparisons for current view
   const currentComparisons = useMemo(() => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView) {
-      return analytics.comparisons.bySprint.get(selectedSprintView) || [];
+    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
+      // For single sprint, use existing comparisons
+      if (selectedSprintView.length === 1) {
+        return analytics.comparisons.bySprint.get(selectedSprintView[0]) || [];
+      }
+      // For multiple sprints, calculate new comparisons based on aggregated metrics
+      else {
+        // Recalculate comparisons from currentMetrics
+        const metrics = currentMetrics as SprintPerformanceMetrics[];
+        if (metrics.length === 0) return [];
+        
+        // Sort by performance score
+        const sorted = [...metrics].sort((a, b) => b.performanceScore - a.performanceScore);
+        
+        return sorted.map((m, index) => ({
+          developerId: m.developerId,
+          overallRank: index + 1,
+          accuracyRank: [...metrics].sort((a, b) => b.accuracyRate - a.accuracyRate).findIndex(m2 => m2.developerId === m.developerId) + 1,
+          qualityRank: [...metrics].sort((a, b) => b.qualityScore - a.qualityScore).findIndex(m2 => m2.developerId === m.developerId) + 1,
+          productivityRank: [...metrics].sort((a, b) => b.totalHoursWorked - a.totalHoursWorked).findIndex(m2 => m2.developerId === m.developerId) + 1,
+          totalDevelopers: metrics.length,
+        }));
+      }
     } else if (viewMode === 'allSprints') {
       return analytics.comparisons.allSprints;
     }
 
     return [];
-  }, [analytics, viewMode, selectedSprintView]);
+  }, [analytics, viewMode, selectedSprintView, currentMetrics]);
 
   // Get insights for current view
   const getInsightsForDeveloper = (developerId: string) => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView) {
-      const sprintInsights = analytics.insights.bySprint.get(selectedSprintView);
-      return sprintInsights?.get(developerId) || [];
+    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
+      // For single sprint, use existing insights
+      if (selectedSprintView.length === 1) {
+        const sprintInsights = analytics.insights.bySprint.get(selectedSprintView[0]);
+        return sprintInsights?.get(developerId) || [];
+      }
+      // For multiple sprints, generate insights from aggregated metrics
+      else {
+        // Return empty insights for now - could be enhanced later
+        return [];
+      }
     } else if (viewMode === 'allSprints') {
       return analytics.insights.allSprints.get(developerId) || [];
     }
@@ -216,17 +349,62 @@ export const PerformanceDashboard: React.FC = () => {
 
         {/* Sprint Selector (only in sprint mode) */}
         {viewMode === 'sprint' && sprints.length > 0 && (
-          <select
-            value={selectedSprintView}
-            onChange={(e) => setSelectedSprintView(e.target.value)}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm font-medium"
-          >
-            {sprints.map((sprint) => (
-              <option key={sprint} value={sprint}>
-                {sprint}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={sprintSelectorRef}>
+            <button
+              onClick={() => setShowSprintSelector(!showSprintSelector)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <Calendar className="w-4 h-4" />
+              {selectedSprintView.length === 0
+                ? 'Selecionar Sprints'
+                : selectedSprintView.length === 1
+                ? selectedSprintView[0]
+                : `${selectedSprintView.length} sprints selecionados`}
+            </button>
+            
+            {showSprintSelector && (
+              <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[250px] max-h-96 overflow-y-auto">
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedSprintView([...sprints])}
+                      className="flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    >
+                      Selecionar Todos
+                    </button>
+                    <button
+                      onClick={() => setSelectedSprintView([])}
+                      className="flex-1 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="p-2">
+                  {sprints.map((sprint) => (
+                    <label
+                      key={sprint}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSprintView.includes(sprint)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSprintView([...selectedSprintView, sprint]);
+                          } else {
+                            setSelectedSprintView(selectedSprintView.filter(s => s !== sprint));
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <span className="text-sm text-gray-900 dark:text-white">{sprint}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Sort By */}
@@ -296,9 +474,9 @@ export const PerformanceDashboard: React.FC = () => {
               {summaryStats.avgQualityScore.toFixed(0)}
               <span className="text-lg text-gray-500 dark:text-gray-400">/100</span>
             </p>
-            {summaryStats.avgTestNote !== undefined && (
+            {'avgTestNote' in summaryStats && summaryStats.avgTestNote !== undefined && summaryStats.avgTestNote !== null && (
               <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Nota média {summaryStats.avgTestNote.toFixed(1)}/5
+                Nota média {(summaryStats.avgTestNote as number).toFixed(1)}/5
               </div>
             )}
           </div>
@@ -350,7 +528,6 @@ export const PerformanceDashboard: React.FC = () => {
                 accuracyRate: allSprintsMetrics.avgAccuracyRate,
                 tendsToOverestimate: allSprintsMetrics.tendsToOverestimate,
                 tendsToUnderestimate: allSprintsMetrics.tendsToUnderestimate,
-                reworkRate: allSprintsMetrics.avgReworkRate,
                 bugRate: allSprintsMetrics.avgBugRate,
                 bugsVsFeatures: 0,
                 qualityScore: allSprintsMetrics.avgQualityScore,
@@ -371,30 +548,40 @@ export const PerformanceDashboard: React.FC = () => {
             }
 
             return (
-              <DeveloperPerformanceCard
-                key={metrics.developerId}
-                metrics={sprintMetrics}
-                insights={insights}
-                rank={
-                  comparison
-                    ? {
-                        overall: comparison.overallRank,
-                        total: comparison.totalDevelopers,
-                      }
-                    : undefined
-                }
-                teamAverage={
-                  summaryStats && viewMode === 'sprint'
-                    ? {
-                        accuracyRate: summaryStats.avgAccuracyRate,
-                        totalHoursWorked: summaryStats.totalHoursWorked || 0,
-                        totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
-                        performanceScore: summaryStats.avgPerformanceScore,
-                      }
-                    : undefined
-                }
-                onShowDetails={() => setSelectedDeveloper(metrics.developerId)}
-              />
+              <div key={metrics.developerId} className="relative">
+                <DeveloperPerformanceCard
+                  metrics={sprintMetrics}
+                  insights={insights}
+                  rank={
+                    comparison
+                      ? {
+                          overall: comparison.overallRank,
+                          total: comparison.totalDevelopers,
+                        }
+                      : undefined
+                  }
+                  teamAverage={
+                    summaryStats && viewMode === 'sprint'
+                      ? {
+                          accuracyRate: summaryStats.avgAccuracyRate,
+                          totalHoursWorked: summaryStats.totalHoursWorked || 0,
+                          totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
+                          performanceScore: summaryStats.avgPerformanceScore,
+                        }
+                      : undefined
+                  }
+                />
+                <button
+                  onClick={() => {
+                    setSelectedDeveloperForAnalysis(metrics.developerId);
+                    setShowDetailedAnalysis(true);
+                  }}
+                  className="mt-2 w-full px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors flex items-center justify-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Ver Análise Detalhada
+                </button>
+              </div>
             );
           })}
         </div>
@@ -404,6 +591,30 @@ export const PerformanceDashboard: React.FC = () => {
       <PerformanceMetricsModal
         isOpen={showMetricsModal}
         onClose={() => setShowMetricsModal(false)}
+      />
+
+      {/* Detailed Analysis Modal */}
+      <DeveloperDetailedAnalysisModal
+        isOpen={showDetailedAnalysis}
+        onClose={() => {
+          setShowDetailedAnalysis(false);
+          setSelectedDeveloperForAnalysis(null);
+        }}
+        analytics={
+          selectedDeveloperForAnalysis && sprintMetadata.length > 0
+            ? (() => {
+                const selectedMetrics = sortedMetrics.find(m => m.developerId === selectedDeveloperForAnalysis);
+                if (!selectedMetrics) return null;
+                
+                return calculateDetailedDeveloperAnalytics(
+                  tasks,
+                  sprintMetadata,
+                  selectedMetrics.developerId,
+                  selectedMetrics.developerName
+                );
+              })()
+            : null
+        }
       />
     </div>
   );

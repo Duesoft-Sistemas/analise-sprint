@@ -269,9 +269,6 @@ export const TaskList: React.FC = () => {
                     Complexidade
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Retrabalho
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Nota Teste
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -370,15 +367,6 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
         >
           {task.complexidade}
         </span>
-      </td>
-      <td className="px-4 py-3 text-center">
-        {task.retrabalho ? (
-          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-lg bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300">
-            Sim
-          </span>
-        ) : (
-          <span className="text-gray-400 dark:text-gray-500">-</span>
-        )}
       </td>
       <td className="px-4 py-3 text-center">
         {(() => {

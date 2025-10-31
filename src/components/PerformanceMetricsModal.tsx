@@ -11,7 +11,6 @@ interface PerformanceMetricsModalProps {
 const METRIC_ICONS: Record<string, React.ReactNode> = {
   estimationAccuracy: <Target className="w-5 h-5" />,
   accuracyRate: <CheckCircle className="w-5 h-5" />,
-  reworkRate: <TrendingUp className="w-5 h-5" />,
   bugRate: <Award className="w-5 h-5" />,
   qualityScore: <Award className="w-5 h-5" />,
   utilizationRate: <Zap className="w-5 h-5" />,
@@ -23,7 +22,7 @@ const METRIC_ICONS: Record<string, React.ReactNode> = {
 
 const METRIC_CATEGORIES = {
   'Eficiência de Execução': ['accuracyRate', 'estimationAccuracy', 'consistencyScore'],
-  'Qualidade': ['reworkRate', 'bugRate', 'qualityScore', 'bugsVsFeatures'],
+  'Qualidade': ['bugRate', 'qualityScore', 'bugsVsFeatures'],
   'Conclusão': ['completionRate'],
   'Contexto (não pontua)': ['utilizationRate'],
   'Score Geral': ['performanceScore'],
@@ -39,7 +38,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
     const titles: Record<string, string> = {
       estimationAccuracy: 'Desvio de Estimativa (por tarefa)',
       accuracyRate: 'Eficiência de Execução ⭐',
-      reworkRate: 'Taxa de Retrabalho',
       bugRate: 'Taxa de Bugs',
       qualityScore: 'Score de Qualidade (Nota de Teste)',
       utilizationRate: 'Taxa de Utilização ⚠️ (Contexto)',
@@ -135,127 +133,309 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {Object.entries(METRIC_CATEGORIES).map(([category, metricKeys]) => (
-            <div key={category} className="mb-8">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <div className="h-1 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
-                {category}
+          {/* ============================================ */}
+          {/* SEÇÃO 1: O QUE IMPACTA NO SCORE */}
+          {/* ============================================ */}
+          <div className="mb-10">
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg">
+              <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                <Award className="w-7 h-7" />
+                O Que Impacta no Performance Score
               </h3>
-              <div className="grid gap-4">
-                {metricKeys.map(key => {
-                  const explanation = METRIC_EXPLANATIONS[key];
-                  return explanation ? renderMetric(key, explanation) : null;
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Additional Info */}
-          <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-              💡 Dica: Como Usar Essas Métricas
-            </h4>
-            <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-              <li>• <strong>Qualidade (40% do score):</strong> Agora baseada na <strong>Nota de Teste (1–5)</strong> por tarefa, escalada para 0–100. Vazio conta como 5.</li>
-              <li>• <strong>Eficiência de Execução (35% do score):</strong> Capacidade de executar dentro do estimado ajustado por complexidade. Tarefas complexas têm mais tolerância</li>
-              <li>• <strong>Conclusão (25% do score):</strong> Foque em finalizar tarefas iniciadas antes de começar novas</li>
-              <li>• <strong>Utilização (não pontua):</strong> Métrica de contexto para identificar sobrecarga. Todos registram ~40h, então não diferencia performance</li>
-              <li>• <strong>Bonus de Complexidade (+10 pontos):</strong> Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos ao score final</li>
-              <li>• <strong>Score Total:</strong> Base (0-100) + Bonus de Complexidade (0-10) = Máximo 110 pontos 🏆</li>
-            </ul>
-          </div>
-          
-          {/* New Features Notice */}
-          <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-            <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">
-              🆕 Novidades (v1.3 - Atual)
-            </h4>
-            <ul className="space-y-1 text-sm text-purple-800 dark:text-purple-200">
-              <li>• 🎯 <strong>Score mais justo:</strong> Utilização removida (não diferencia quem registra ~40h)</li>
-              <li>• 📊 <strong>Nova distribuição:</strong> 40% Qualidade + 35% Eficiência + 25% Conclusão</li>
-              <li>• 🏆 Qualidade agora vale mais (35% → 40%)</li>
-              <li>• ⚡ Eficiência ganha peso (25% → 35%)</li>
-            </ul>
-            
-            <h4 className="font-semibold text-purple-900 dark:text-purple-100 mt-3 mb-2">
-              Recursos (v1.2)
-            </h4>
-            <ul className="space-y-1 text-sm text-purple-800 dark:text-purple-200">
-              <li>• 🏆 <strong>Bonus de Complexidade:</strong> Até +10 pontos por trabalhar em tarefas complexas!</li>
-              <li>• 🎯 <strong>Limites dinâmicos:</strong> Tarefas complexas têm mais tolerância para atrasos (-40% vs -15%)</li>
-              <li>• ⚡ <strong>Executar mais rápido não penaliza!</strong> Até +50% mais rápido é excelente</li>
-              <li>• 📊 Gráfico visual de Estimado vs Gasto + Perfil de Complexidade</li>
-              <li>• 👥 Comparação com média da equipe (modo "Por Sprint")</li>
-              <li>• 📈 Gráficos de evolução histórica de eficiência e score</li>
-            </ul>
-          </div>
-          
-          {/* Efficiency Logic Explanation */}
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">
-              ⚡ Como a Eficiência é Calculada (Ajustada por Complexidade)
-            </h4>
-            <div className="space-y-3 text-sm text-green-800 dark:text-green-200">
-              <div>
-                <p className="font-medium">📘 Tarefa Simples (nível 1-2) estimada em 10h:</p>
-                <ul className="ml-4 space-y-1 mt-1">
-                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
-                  <li>✅ 11h-11.5h (até -15% de atraso) → <strong>Aceitável</strong></li>
-                  <li>❌ 12h+ → <strong>Ineficiente</strong></li>
-                </ul>
-              </div>
-              
-              <div>
-                <p className="font-medium">📗 Tarefa Média (nível 3) estimada em 10h:</p>
-                <ul className="ml-4 space-y-1 mt-1">
-                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
-                  <li>✅ 11h-12h (até -20% de atraso) → <strong>Aceitável</strong></li>
-                  <li>❌ 13h+ → <strong>Ineficiente</strong></li>
-                </ul>
-              </div>
-              
-              <div>
-                <p className="font-medium">📕 Tarefa Complexa (nível 4-5) estimada em 10h:</p>
-                <ul className="ml-4 space-y-1 mt-1">
-                  <li>✅ 5h-10h → <strong>EFICIENTE!</strong></li>
-                  <li>✅ 11h-14h (até -30% a -40% de atraso) → <strong>Aceitável</strong> 🏆</li>
-                  <li>❌ 15h+ → <strong>Ineficiente</strong></li>
-                </ul>
-                <p className="mt-1 text-xs italic">+ Ganhe até +10 pontos de bonus no score final!</p>
-              </div>
-              
-              <p className="mt-2 font-medium bg-green-100 dark:bg-green-800/30 p-2 rounded">
-                💡 Ser rápido é sempre valorizado! Tarefas complexas têm mais tolerância para imprevistos 🚀
+              <p className="text-blue-100 text-sm">
+                Estas são as métricas que determinam seu score final. Tudo que não está aqui é apenas informativo.
               </p>
             </div>
+
+            {/* Performance Score Geral */}
+            {METRIC_EXPLANATIONS.performanceScore && (
+              <div className="mb-6 p-5 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 rounded-xl border-2 border-purple-300 dark:border-purple-700">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="p-3 bg-purple-500 rounded-lg text-white">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                      Score de Performance (Score Final)
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
+                        <p className="text-gray-700 dark:text-gray-300 mb-2">
+                          <strong>Base Score</strong> = (50% × Qualidade) + (50% × Eficiência)
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300">
+                          <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos)
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Exemplo Simples:</p>
+                        <p className="text-gray-700 dark:text-gray-300 mb-2">
+                          • Qualidade: 80 pontos (nota média 4/5)
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 mb-2">
+                          • Eficiência: 70 pontos (executou bem dentro do estimado)
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 mb-2">
+                          • Base Score = (80 × 0.5) + (70 × 0.5) = <strong>75 pontos</strong>
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300">
+                          • Se trabalhou em tarefas complexas: +5 pontos de bonus
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 font-bold mt-2">
+                          • Score Final = <strong>80 pontos</strong> 🏆
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="font-semibold text-gray-900 dark:text-white mb-2">🎯 Interpretação:</p>
+                        <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+                          <li>• <strong>100+ pontos</strong> = Excepcional (com bonus) ⭐⭐⭐</li>
+                          <li>• <strong>90-100 pontos</strong> = Excelente ⭐⭐</li>
+                          <li>• <strong>75-90 pontos</strong> = Muito Bom ⭐</li>
+                          <li>• <strong>60-75 pontos</strong> = Bom</li>
+                          <li>• <strong>45-60 pontos</strong> = Adequado</li>
+                          <li>• <strong>&lt;45 pontos</strong> = Precisa Melhorias</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quality Score - 50% do Score */}
+            {METRIC_EXPLANATIONS.qualityScore && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-1 w-12 bg-green-500 rounded-full" />
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                    1. Qualidade (50% do Score)
+                  </h4>
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 rounded-full text-sm font-semibold">
+                    50% do Score
+                  </span>
+                </div>
+                {renderMetric('qualityScore', METRIC_EXPLANATIONS.qualityScore)}
+                
+                {/* Exemplo Prático Qualidade */}
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="font-semibold text-green-900 dark:text-green-100 mb-2">
+                    📊 Exemplo Prático:
+                  </p>
+                  <div className="space-y-2 text-sm text-green-800 dark:text-green-200">
+                    <p>Você fez 10 tarefas com as seguintes notas:</p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• 5 tarefas com nota 5 → (5 × 20) = 100 pontos cada</li>
+                      <li>• 3 tarefas com nota 4 → (4 × 20) = 80 pontos cada</li>
+                      <li>• 2 tarefas com nota 3 → (3 × 20) = 60 pontos cada</li>
+                    </ul>
+                    <p className="mt-2 font-medium">
+                      Média: ((5×100) + (3×80) + (2×60)) / 10 = <strong>86 pontos de Qualidade</strong>
+                    </p>
+                    <p className="text-xs italic mt-2">
+                      💡 Lembre-se: Se a nota estiver vazia, conta como 5 (100 pontos)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Accuracy Rate - 50% do Score */}
+            {METRIC_EXPLANATIONS.accuracyRate && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-1 w-12 bg-blue-500 rounded-full" />
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                    2. Eficiência de Execução (50% do Score)
+                  </h4>
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full text-sm font-semibold">
+                    50% do Score
+                  </span>
+                </div>
+                {renderMetric('accuracyRate', METRIC_EXPLANATIONS.accuracyRate)}
+                
+                {/* Exemplo Prático Eficiência */}
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                    📊 Exemplo Prático:
+                  </p>
+                  <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+                    <p>Você fez 10 tarefas. Vejamos quais foram eficientes:</p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• 7 tarefas dentro do estimado (ou até 50% mais rápido) → ✅ Eficientes</li>
+                      <li>• 2 tarefas com atraso aceitável (dentro da tolerância por complexidade) → ✅ Eficientes</li>
+                      <li>• 1 tarefa com muito atraso → ❌ Ineficiente</li>
+                    </ul>
+                    <p className="mt-2 font-medium">
+                      Eficiência: 9 tarefas eficientes de 10 = <strong>90% de Eficiência</strong>
+                    </p>
+                    <p className="text-xs italic mt-2">
+                      💡 Tarefas complexas têm mais tolerância: até -40% de atraso ainda é aceitável!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bonus de Complexidade */}
+            <div className="mb-6 p-5 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 rounded-xl border-2 border-orange-300 dark:border-orange-700">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-orange-500 rounded-lg text-white">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                    Bonus de Complexidade (+10 pontos)
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        Trabalhar em tarefas complexas (nível 4-5) te dá um bonus!
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mt-2">
+                        <strong>Bonus</strong> = (% de tarefas complexas) × 10 pontos
+                      </p>
+                    </div>
+                    
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Exemplo Simples:</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • Você fez 10 tarefas no sprint
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • 5 tarefas foram complexas (nível 4-5) = 50% complexas
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 font-bold">
+                        • Bonus = 50% × 10 = <strong>+5 pontos</strong> 🏆
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">🎯 Tabela de Bonus:</p>
+                      <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+                        <li>• 0% de tarefas complexas → +0 pontos</li>
+                        <li>• 25% de tarefas complexas → +2.5 pontos</li>
+                        <li>• 50% de tarefas complexas → +5 pontos</li>
+                        <li>• 75% de tarefas complexas → +7.5 pontos</li>
+                        <li>• 100% de tarefas complexas → +10 pontos (máximo)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Exemplo Completo do Cálculo */}
+            <div className="mb-8 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl border-2 border-indigo-300 dark:border-indigo-700">
+              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <BarChart3 className="w-6 h-6" />
+                Exemplo Completo: Como Seu Score é Calculado
+              </h4>
+              <div className="space-y-4 text-sm">
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="font-semibold text-gray-900 dark:text-white mb-3">📊 Cenário Real:</p>
+                  <div className="space-y-2 text-gray-700 dark:text-gray-300">
+                    <p><strong>1. Qualidade:</strong> Você teve nota média de 4.2 → <strong>84 pontos</strong></p>
+                    <p><strong>2. Eficiência:</strong> 8 de 10 tarefas foram eficientes → <strong>80 pontos</strong></p>
+                    <p><strong>3. Bonus:</strong> 60% das tarefas foram complexas → <strong>+6 pontos</strong></p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="font-semibold text-gray-900 dark:text-white mb-3">🧮 Cálculo:</p>
+                  <div className="space-y-2 text-gray-700 dark:text-gray-300 font-mono">
+                    <p>Base Score = (84 × 0.5) + (80 × 0.5)</p>
+                    <p>Base Score = 42 + 40</p>
+                    <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                      Base Score = 82 pontos
+                    </p>
+                    <p className="mt-3">Score Final = 82 + 6 (bonus)</p>
+                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      Score Final = 88 pontos 🏆
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Legend for Score Interpretation */}
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
-              📊 Interpretação de Scores (0-100)
+          {/* ============================================ */}
+          {/* SEÇÃO 2: MÉTRICAS INFORMATIVAS */}
+          {/* ============================================ */}
+          <div className="mb-8">
+            <div className="mb-6 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+                <BarChart3 className="w-6 h-6" />
+                Métricas Informativas (Não Impactam o Score)
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Estas métricas são apenas para contexto e informação. Elas não fazem parte do cálculo do Performance Score.
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              {/* Desvio de Estimativa */}
+              {METRIC_EXPLANATIONS.estimationAccuracy && renderMetric('estimationAccuracy', METRIC_EXPLANATIONS.estimationAccuracy)}
+              
+              {/* Score de Consistência */}
+              {METRIC_EXPLANATIONS.consistencyScore && renderMetric('consistencyScore', METRIC_EXPLANATIONS.consistencyScore)}
+              
+              {/* Taxa de Bugs */}
+              {METRIC_EXPLANATIONS.bugRate && renderMetric('bugRate', METRIC_EXPLANATIONS.bugRate)}
+              
+              {/* Bugs vs Features */}
+              {METRIC_EXPLANATIONS.bugsVsFeatures && renderMetric('bugsVsFeatures', METRIC_EXPLANATIONS.bugsVsFeatures)}
+              
+              {/* Taxa de Conclusão */}
+              {METRIC_EXPLANATIONS.completionRate && renderMetric('completionRate', METRIC_EXPLANATIONS.completionRate)}
+              
+              {/* Taxa de Utilização */}
+              {METRIC_EXPLANATIONS.utilizationRate && renderMetric('utilizationRate', METRIC_EXPLANATIONS.utilizationRate)}
+            </div>
+          </div>
+
+          {/* Detalhamento da Eficiência por Complexidade */}
+          <div className="mt-6 p-5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 text-lg">
+              ⚡ Detalhes: Como a Eficiência é Ajustada por Complexidade
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">90+: Excelente</span>
+            <div className="space-y-4 text-sm text-blue-800 dark:text-blue-200">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                <p className="font-medium mb-2">📘 Tarefa Simples (nível 1-2) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>✅ Gastou 5h-10h → <strong>EFICIENTE!</strong> (até 50% mais rápido é excelente)</li>
+                  <li>✅ Gastou 11h-11.5h (até -15% de atraso) → <strong>Aceitável</strong></li>
+                  <li>❌ Gastou 12h+ → <strong>Ineficiente</strong></li>
+                </ul>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">75-90: Muito Bom</span>
+              
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                <p className="font-medium mb-2">📗 Tarefa Média (nível 3) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>✅ Gastou 5h-10h → <strong>EFICIENTE!</strong> (até 50% mais rápido é excelente)</li>
+                  <li>✅ Gastou 11h-12h (até -20% de atraso) → <strong>Aceitável</strong></li>
+                  <li>❌ Gastou 13h+ → <strong>Ineficiente</strong></li>
+                </ul>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">60-75: Bom</span>
+              
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                <p className="font-medium mb-2">📕 Tarefa Complexa (nível 4-5) estimada em 10h:</p>
+                <ul className="ml-4 space-y-1">
+                  <li>✅ Gastou 5h-10h → <strong>EFICIENTE!</strong> (até 50% mais rápido é excelente)</li>
+                  <li>✅ Gastou 11h-14h (até -40% de atraso) → <strong>Aceitável</strong> 🏆</li>
+                  <li>❌ Gastou 15h+ → <strong>Ineficiente</strong></li>
+                </ul>
+                <p className="mt-2 text-xs italic text-blue-700 dark:text-blue-300">
+                  💡 Tarefas complexas têm mais tolerância porque imprevistos são mais comuns!
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-orange-500 rounded-full" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">45-60: Adequado</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">&lt;45: Atenção</span>
-              </div>
+              
+              <p className="mt-3 font-medium bg-blue-100 dark:bg-blue-800/30 p-3 rounded-lg">
+                💡 <strong>Importante:</strong> Ser rápido é sempre valorizado! Até 50% mais rápido que o estimado é considerado excelente. Tarefas complexas têm mais tolerância para atrasos porque reconhecemos que imprevistos são mais comuns. 🚀
+              </p>
             </div>
           </div>
         </div>

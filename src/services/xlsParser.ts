@@ -34,9 +34,9 @@ const COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'Campo personalizado (Feature)': ['Campo personalizado (Feature)'],
   'Categorias': ['Categorias'],
   'Campo personalizado (Detalhes Ocultos)': ['Campo personalizado (Detalhes Ocultos)'],
-  'Campo personalizado (Retrabalho)': ['Campo personalizado (Retrabalho)'],
   'Campo personalizado (Complexidade)': ['Campo personalizado (Complexidade)'],
   'Campo personalizado (Nota Teste)': ['Campo personalizado (Nota Teste)', 'Campo personalizado (Nota de Teste)'],
+  'Campo personalizado (Qualidade do Chamado)': ['Campo personalizado (Qualidade do Chamado)'],
 };
 
 /**
@@ -133,16 +133,6 @@ function normalizeTaskType(tipo: string): 'Bug' | 'Tarefa' | 'História' | 'Outr
 }
 
 /**
- * Converte o valor de Retrabalho para boolean
- */
-function parseRetrabalho(value: string): boolean {
-  if (!value) return false;
-  
-  const normalized = normalizeText(value.trim().toLowerCase());
-  return normalized === 'sim' || normalized === 'yes' || normalized === 's' || normalized === 'y' || normalized === 'true';
-}
-
-/**
  * Converte o valor de Complexidade para número (1-5)
  */
 function parseComplexidade(value: any): number {
@@ -232,9 +222,9 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
       const feature = normalizeText(getColumnValue(row, 'Campo personalizado (Feature)'));
       const categorias = normalizeText(getColumnValue(row, 'Categorias'));
       const detalhesOcultos = normalizeText(getColumnValue(row, 'Campo personalizado (Detalhes Ocultos)'));
-      const retrabalhoRaw = getColumnValue(row, 'Campo personalizado (Retrabalho)');
       const complexidadeRaw = getRawColumnValue(row, 'Campo personalizado (Complexidade)');
       const notaTesteRaw = getRawColumnValue(row, 'Campo personalizado (Nota Teste)');
+      const qualidadeChamado = normalizeText(getColumnValue(row, 'Campo personalizado (Qualidade do Chamado)'));
       
       // Ler o tipo diretamente da coluna, se existir
       const tipoRaw = getColumnValue(row, 'Tipo de item');
@@ -264,9 +254,9 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
         categorias: parseCategories(categorias),
         detalhesOcultos,
         tipo,
-        retrabalho: parseRetrabalho(retrabalhoRaw),
         complexidade: parseComplexidade(complexidadeRaw),
         notaTeste: parseNotaTeste(notaTesteRaw),
+        qualidadeChamado: qualidadeChamado || undefined,
       };
 
       tasks.push(task);

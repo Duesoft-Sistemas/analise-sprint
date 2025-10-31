@@ -144,7 +144,6 @@ function calculatePeriodMetrics(
     avgAccuracyRate: sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length,
     avgQualityScore: sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / sprintMetrics.length,
     avgCompletionRate: sprintMetrics.reduce((sum, m) => sum + m.completionRate, 0) / sprintMetrics.length,
-    avgReworkRate: sprintMetrics.reduce((sum, m) => sum + m.reworkRate, 0) / sprintMetrics.length,
     avgBugRate: sprintMetrics.reduce((sum, m) => sum + m.bugRate, 0) / sprintMetrics.length,
     avgEstimationAccuracy: sprintMetrics.reduce((sum, m) => sum + m.estimationAccuracy, 0) / sprintMetrics.length,
     avgUtilizationRate: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
@@ -232,7 +231,7 @@ function generateCareerInsights(evolution: Omit<DeveloperTemporalEvolution, 'car
     insights.push({
       type: 'negative',
       title: 'Qualidade Precisa Atenção',
-      description: `Taxa de retrabalho aumentou ao longo do período.`,
+      description: `Qualidade (nota de teste) diminuiu ao longo do período.`,
       metric: 'Qualidade',
       recommendation: 'Considere revisar processos de code review e aumentar cobertura de testes.'
     });

@@ -9,7 +9,20 @@ import {
   Zap,
   BarChart3,
   Info,
+  LineChart,
 } from 'lucide-react';
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateTemporalEvolution } from '../services/temporalAnalytics';
 import {
@@ -96,8 +109,49 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     return 'text-gray-600 dark:text-gray-400';
   };
 
-  const renderDeveloperEvolution = (dev: DeveloperTemporalEvolution) => {
+  // Prepare chart data for recharts
+  const prepareChartData = (dev: DeveloperTemporalEvolution) => {
     const teamAvgMap = new Map(temporalAnalytics.teamAverages.map(t => [t.periodId, t]));
+    
+    return dev.periods.map(period => {
+      const teamAvg = teamAvgMap.get(period.periodId);
+      return {
+        period: period.periodLabel,
+        periodId: period.periodId,
+        performance: Math.round(period.avgPerformanceScore),
+        teamPerformance: teamAvg ? Math.round(teamAvg.avgPerformanceScore) : null,
+        quality: Math.round(period.avgQualityScore),
+        teamQuality: teamAvg ? Math.round(teamAvg.avgQualityScore) : null,
+        accuracy: Math.round(period.avgAccuracyRate),
+        teamAccuracy: teamAvg ? Math.round(teamAvg.avgAccuracyRate) : null,
+        complexity: parseFloat(period.avgComplexity.toFixed(1)),
+        tasks: period.totalTasksCompleted,
+        sprints: period.totalSprints,
+      };
+    });
+  };
+
+  // Custom tooltip for charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 shadow-lg">
+          <p className="font-semibold text-gray-900 dark:text-white mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: <span className="font-bold">{entry.value}</span>
+              {(entry.dataKey === 'performance' || entry.dataKey === 'quality' || entry.dataKey === 'accuracy' || entry.dataKey === 'teamPerformance' || entry.dataKey === 'teamQuality' || entry.dataKey === 'teamAccuracy') ? '' : 
+               entry.dataKey === 'complexity' ? ' (média)' : ''}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderDeveloperEvolution = (dev: DeveloperTemporalEvolution) => {
+    const chartData = prepareChartData(dev);
 
     return (
       <div className="space-y-6">
@@ -175,144 +229,299 @@ export const TemporalEvolutionDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Performance Chart */}
+        {/* Main Performance Chart with Team Comparison */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
+            <LineChart className="w-5 h-5" />
             Evolução do Performance Score
           </h3>
           
-          <div className="space-y-3">
-            {dev.periods.map((period) => {
-              const teamAvg = teamAvgMap.get(period.periodId);
-              const barWidth = (period.avgPerformanceScore / 110) * 100;
-              const teamBarWidth = teamAvg ? (teamAvg.avgPerformanceScore / 110) * 100 : 0;
-              
-              return (
-                <div key={period.periodId} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {period.periodLabel}
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {period.avgPerformanceScore.toFixed(0)}/100
-                      {teamAvg && (
-                        <span className="text-xs ml-2">
-                          (Equipe: {teamAvg.avgPerformanceScore.toFixed(0)})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  
-                  <div className="relative h-8 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                    {/* Team average bar (background) */}
-                    {teamAvg && (
-                      <div
-                        className="absolute h-full bg-gray-300 dark:bg-gray-600 opacity-50"
-                        style={{ width: `${teamBarWidth}%` }}
-                      />
-                    )}
-                    
-                    {/* Developer bar */}
-                    <div
-                      className={`absolute h-full transition-all duration-500 ${
-                        period.avgPerformanceScore >= 90 ? 'bg-gradient-to-r from-green-500 to-green-600' :
-                        period.avgPerformanceScore >= 75 ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-                        period.avgPerformanceScore >= 60 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
-                        'bg-gradient-to-r from-orange-500 to-orange-600'
-                      }`}
-                      style={{ width: `${barWidth}%` }}
-                    />
-                    
-                    {/* Score label */}
-                    <div className="absolute inset-0 flex items-center justify-start pl-3">
-                      <span className="text-sm font-semibold text-white drop-shadow-md">
-                        {period.avgPerformanceScore.toFixed(0)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>{period.totalTasksCompleted} tarefas • {period.totalSprints} sprint(s)</span>
-                    <span>Acurácia: {period.avgAccuracyRate.toFixed(0)}%</span>
-                  </div>
-                </div>
-              );
-            })}
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsLineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+              <XAxis 
+                dataKey="period" 
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+              />
+              <YAxis 
+                domain={[0, 100]}
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+                label={{ value: 'Score', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'currentColor' } }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="performance" 
+                name="Desenvolvedor"
+                stroke="#3b82f6" 
+                strokeWidth={3}
+                dot={{ fill: '#3b82f6', r: 5 }}
+                activeDot={{ r: 7 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="teamPerformance" 
+                name="Média da Equipe"
+                stroke="#9ca3af" 
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={{ fill: '#9ca3af', r: 4 }}
+              />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Combined Metrics Chart */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Evolução de Métricas Principais
+          </h3>
+          
+          <ResponsiveContainer width="100%" height={350}>
+            <RechartsLineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+              <XAxis 
+                dataKey="period" 
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+              />
+              <YAxis 
+                domain={[0, 100]}
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+                label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'currentColor' } }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="performance" 
+                name="Performance"
+                stroke="#3b82f6" 
+                strokeWidth={2.5}
+                dot={{ fill: '#3b82f6', r: 4 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="quality" 
+                name="Qualidade"
+                stroke="#10b981" 
+                strokeWidth={2.5}
+                dot={{ fill: '#10b981', r: 4 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="accuracy" 
+                name="Acurácia"
+                stroke="#f59e0b" 
+                strokeWidth={2.5}
+                dot={{ fill: '#f59e0b', r: 4 }}
+              />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Quality and Accuracy Charts Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Quality Evolution */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Evolução da Qualidade
+            </h3>
+            
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorQuality" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+                <XAxis 
+                  dataKey="period" 
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                  style={{ fill: 'currentColor' }}
+                />
+                <YAxis 
+                  domain={[0, 100]}
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                  style={{ fill: 'currentColor' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="quality" 
+                  name="Qualidade"
+                  stroke="#10b981" 
+                  fill="url(#colorQuality)"
+                  strokeWidth={2}
+                />
+                {chartData.some(d => d.teamQuality !== null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="teamQuality" 
+                    name="Média da Equipe"
+                    stroke="#9ca3af" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={{ fill: '#9ca3af', r: 3 }}
+                  />
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+            
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                {getTrendIcon(dev.overallTrend.quality)}
+                <span className="text-gray-700 dark:text-gray-300">
+                  {getTrendLabel(dev.overallTrend.quality)}
+                </span>
+              </div>
+              <span className={`font-medium ${getGrowthColor(dev.growthMetrics.qualityGrowth)}`}>
+                {dev.growthMetrics.qualityGrowth > 0 ? '+' : ''}
+                {dev.growthMetrics.qualityGrowth.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Accuracy Evolution */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Evolução da Acurácia
+            </h3>
+            
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+                <XAxis 
+                  dataKey="period" 
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                  style={{ fill: 'currentColor' }}
+                />
+                <YAxis 
+                  domain={[0, 100]}
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                  style={{ fill: 'currentColor' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="accuracy" 
+                  name="Acurácia"
+                  stroke="#f59e0b" 
+                  fill="url(#colorAccuracy)"
+                  strokeWidth={2}
+                />
+                {chartData.some(d => d.teamAccuracy !== null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="teamAccuracy" 
+                    name="Média da Equipe"
+                    stroke="#9ca3af" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={{ fill: '#9ca3af', r: 3 }}
+                  />
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+            
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                {getTrendIcon(dev.overallTrend.accuracy)}
+                <span className="text-gray-700 dark:text-gray-300">
+                  {getTrendLabel(dev.overallTrend.accuracy)}
+                </span>
+              </div>
+              <span className={`font-medium ${getGrowthColor(dev.growthMetrics.accuracyGrowth)}`}>
+                {dev.growthMetrics.accuracyGrowth > 0 ? '+' : ''}
+                {dev.growthMetrics.accuracyGrowth.toFixed(1)}%
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Metrics Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quality & Accuracy Evolution */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Qualidade & Acurácia
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tendência de Qualidade
-                  </span>
-                  {getTrendIcon(dev.overallTrend.quality)}
-                </div>
-                <p className={`text-sm ${getGrowthColor(dev.growthMetrics.qualityGrowth)}`}>
-                  {dev.growthMetrics.qualityGrowth > 0 ? '+' : ''}
-                  {dev.growthMetrics.qualityGrowth.toFixed(1)}% no período
-                </p>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tendência de Acurácia
-                  </span>
-                  {getTrendIcon(dev.overallTrend.accuracy)}
-                </div>
-                <p className={`text-sm ${getGrowthColor(dev.growthMetrics.accuracyGrowth)}`}>
-                  {dev.growthMetrics.accuracyGrowth > 0 ? '+' : ''}
-                  {dev.growthMetrics.accuracyGrowth.toFixed(1)}% no período
-                </p>
-              </div>
+        {/* Complexity Evolution */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Evolução de Complexidade das Tarefas
+          </h3>
+          
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorComplexity" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
+              <XAxis 
+                dataKey="period" 
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+              />
+              <YAxis 
+                className="text-xs"
+                tick={{ fill: 'currentColor' }}
+                style={{ fill: 'currentColor' }}
+                label={{ value: 'Complexidade', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'currentColor' } }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area 
+                type="monotone" 
+                dataKey="complexity" 
+                name="Complexidade Média"
+                stroke="#8b5cf6" 
+                fill="url(#colorComplexity)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              {getTrendIcon(
+                dev.overallTrend.complexity === 'increasing' ? 'improving' :
+                dev.overallTrend.complexity === 'decreasing' ? 'declining' : 'stable'
+              )}
+              <span className="text-gray-700 dark:text-gray-300">
+                {getTrendLabel(dev.overallTrend.complexity)}
+              </span>
             </div>
-          </div>
-
-          {/* Complexity Evolution */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Evolução de Complexidade
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tendência
-                  </span>
-                  {getTrendIcon(
-                    dev.overallTrend.complexity === 'increasing' ? 'improving' :
-                    dev.overallTrend.complexity === 'decreasing' ? 'declining' : 'stable'
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {getTrendLabel(dev.overallTrend.complexity)}
-                </p>
-              </div>
-              
-              <div>
-                <p className={`text-sm ${getGrowthColor(dev.growthMetrics.complexityGrowth)}`}>
-                  {dev.growthMetrics.complexityGrowth > 0 ? '+' : ''}
-                  {dev.growthMetrics.complexityGrowth.toFixed(1)}% de aumento na complexidade média
-                </p>
-                {dev.growthMetrics.complexityGrowth > 10 && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    ✨ Assumindo tarefas mais desafiadoras!
-                  </p>
-                )}
-              </div>
-            </div>
+            <span className="text-gray-600 dark:text-gray-400">
+              {dev.growthMetrics.complexityGrowth > 0 ? '+' : ''}
+              {dev.growthMetrics.complexityGrowth.toFixed(1)}% 
+              {dev.growthMetrics.complexityGrowth > 10 && (
+                <span className="text-green-600 dark:text-green-400 ml-2">✨ Desafiador!</span>
+              )}
+            </span>
           </div>
         </div>
 

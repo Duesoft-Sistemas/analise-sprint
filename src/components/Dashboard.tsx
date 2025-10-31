@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -9,8 +9,9 @@ import { TaskList } from './TaskList';
 import { CrossSprintAnalysis } from './CrossSprintAnalysis';
 import { PerformanceDashboard } from './PerformanceDashboard';
 import { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
+import { QualityDashboard } from './QualityDashboard';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality';
 
 export const Dashboard: React.FC = () => {
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
@@ -24,6 +25,8 @@ export const Dashboard: React.FC = () => {
   const layoutFileName = useSprintStore((state) => state.layoutFileName);
   const worklogFileName = useSprintStore((state) => state.worklogFileName);
   const worklogs = useSprintStore((state) => state.worklogs);
+  const sprints = useSprintStore((state) => state.sprints);
+  const tasks = useSprintStore((state) => state.tasks);
   
   // Get current sprint period from metadata
   const currentSprintPeriod = selectedSprint ? getSprintPeriod(selectedSprint) : null;
@@ -116,7 +119,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Header with Sprint Selector and View Toggles */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        {viewMode !== 'performance' && viewMode !== 'evolution' && <SprintSelector />}
+        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'multiSprint' && <SprintSelector />}
         
         <div className="flex flex-wrap gap-3">
           <button
@@ -166,6 +169,18 @@ export const Dashboard: React.FC = () => {
             <TrendingUp className="w-4 h-4" />
             Evolução Temporal
           </button>
+          
+          <button
+            onClick={() => setViewMode('quality')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'quality'
+                ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Qualidade dos Chamados
+          </button>
         </div>
       </div>
 
@@ -174,8 +189,10 @@ export const Dashboard: React.FC = () => {
         <TemporalEvolutionDashboard />
       ) : viewMode === 'performance' ? (
         <PerformanceDashboard />
+      ) : viewMode === 'quality' ? (
+        <QualityDashboard />
       ) : viewMode === 'multiSprint' ? (
-        <CrossSprintAnalysis analytics={crossSprintAnalytics} />
+        <CrossSprintAnalysis analytics={crossSprintAnalytics} sprints={sprints} tasks={tasks} />
       ) : (
         <>
           {/* Alerts */}

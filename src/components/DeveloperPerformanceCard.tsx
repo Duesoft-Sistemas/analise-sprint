@@ -34,7 +34,6 @@ interface DeveloperPerformanceCardProps {
     accuracyRate: number;
     performanceScore: number;
   }>;
-  onShowDetails?: () => void;
 }
 
 export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> = ({
@@ -43,7 +42,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
   rank,
   teamAverage,
   sprintHistory,
-  onShowDetails,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -500,7 +498,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
         {insights.length > 2 && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
           >
             {isExpanded ? (
               <>
@@ -513,14 +511,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                 Ver Mais ({insights.length - 2} insights)
               </>
             )}
-          </button>
-        )}
-        {onShowDetails && (
-          <button
-            onClick={onShowDetails}
-            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-          >
-            Ver Detalhes
           </button>
         )}
       </div>
