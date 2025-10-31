@@ -25,14 +25,17 @@ A **Análise de Performance** é um módulo completo que avalia desenvolvedores 
 
 ## 📈 O Que Você Vai Ver?
 
-### Performance Score (0-100)
+### Performance Score (0-125)
 
 Um score geral que combina:
-- 40% Qualidade (Nota de Teste × 20)
-- 35% Eficiência de Execução (acurácia ajustada por complexidade)
-- 25% Taxa de conclusão
+- **Base Score (0-100):**
+  - 50% Qualidade (Nota de Teste × 20)
+  - 50% Eficiência de Execução (acurácia ajustada por complexidade)
+- **Bonuses:**
+  - Bonus de Complexidade: até +10 pontos (por trabalhar em tarefas nível 4-5)
+  - Bonus de Senioridade: até +15 pontos (por executar tarefas complexas com alta eficiência)
 
-**Nota:** A acurácia de estimativa alimenta a Eficiência de Execução (35%) com limites por complexidade.
+**Nota:** A Taxa de Conclusão foi removida do score porque pode ser afetada por interrupções/realocações (não é responsabilidade só do dev). Ainda é exibida como métrica informativa.
 
 **Interpretação:**
 - 🟢 90-100 = Excelente

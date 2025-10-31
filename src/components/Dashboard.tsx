@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -10,10 +10,12 @@ import { CrossSprintAnalysis } from './CrossSprintAnalysis';
 import { PerformanceDashboard } from './PerformanceDashboard';
 import { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
 import { QualityDashboard } from './QualityDashboard';
+import { SettingsPanel } from './SettingsPanel';
 
 type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality';
 
 export const Dashboard: React.FC = () => {
+  const [showSettings, setShowSettings] = useState(false);
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
   const crossSprintAnalytics = useSprintStore((state) => state.crossSprintAnalytics);
   const riskAlerts = useSprintStore((state) => state.riskAlerts);
@@ -181,8 +183,20 @@ export const Dashboard: React.FC = () => {
             <CheckCircle2 className="w-4 h-4" />
             Qualidade dos Chamados
           </button>
+          
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+            title="Configurações de Métricas"
+          >
+            <Settings className="w-4 h-4" />
+            Configurações
+          </button>
         </div>
       </div>
+
+      {/* Settings Panel */}
+      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Content based on view mode */}
       {viewMode === 'evolution' ? (

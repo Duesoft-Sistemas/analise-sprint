@@ -12,9 +12,11 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Calculator,
 } from 'lucide-react';
 import { SprintPerformanceMetrics, PerformanceInsight } from '../types';
 import { formatHours } from '../utils/calculations';
+import { CalculationBreakdownModal } from './CalculationBreakdownModal';
 
 interface DeveloperPerformanceCardProps {
   metrics: SprintPerformanceMetrics;
@@ -44,6 +46,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
   sprintHistory,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Determine card color based on performance score
   const getScoreColor = (score: number) => {
@@ -105,19 +108,29 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               </p>
             </div>
           </div>
-          {rank && (
-            <div className="text-right">
-              <div className="flex items-center gap-2 justify-end">
-                <Award className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  #{rank.overall}
-                </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowBreakdown(true)}
+              className="px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2 border border-blue-200 dark:border-blue-800"
+              title="Ver breakdown detalhado dos cálculos"
+            >
+              <Calculator className="w-4 h-4" />
+              Ver Cálculos
+            </button>
+            {rank && (
+              <div className="text-right">
+                <div className="flex items-center gap-2 justify-end">
+                  <Award className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                    #{rank.overall}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  de {rank.total} devs
+                </p>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                de {rank.total} devs
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Performance Score */}
@@ -130,10 +143,19 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {metrics.performanceScore.toFixed(0)}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 110</span>
-              {metrics.complexityBonus > 0 && (
-                <div className="text-xs text-green-600 dark:text-green-400 font-medium">
-                  +{metrics.complexityBonus} bonus complexidade 🏆
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 125</span>
+              {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0) && (
+                <div className="text-xs space-y-0.5">
+                  {metrics.complexityBonus > 0 && (
+                    <div className="text-green-600 dark:text-green-400 font-medium">
+                      +{metrics.complexityBonus} bonus complexidade 🏆
+                    </div>
+                  )}
+                  {metrics.seniorityEfficiencyBonus > 0 && (
+                    <div className="text-purple-600 dark:text-purple-400 font-medium">
+                      +{metrics.seniorityEfficiencyBonus} bonus senioridade ⭐
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -149,7 +171,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                   ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
                   : 'bg-gradient-to-r from-red-500 to-red-600'
               }`}
-              style={{ width: `${Math.min(100, (metrics.performanceScore / 110) * 100)}%` }}
+              style={{ width: `${Math.min(100, (metrics.performanceScore / 125) * 100)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-right">
@@ -165,6 +187,14 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <Target className="w-3 h-3" />
             <span>Eficiência</span>
+            {metrics.tasksImpactedByComplexityZone && metrics.tasksImpactedByComplexityZone > 0 && (
+              <span
+                className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded border border-yellow-300 dark:border-yellow-700"
+                title={metrics.complexityZoneImpactDetails}
+              >
+                ⚠️ {metrics.tasksImpactedByComplexityZone}
+              </span>
+            )}
           </div>
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {metrics.accuracyRate.toFixed(0)}%
@@ -190,6 +220,12 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1">
             {formatHours(metrics.totalHoursEstimated)} est. | {formatHours(metrics.totalHoursWorked)} gasto
           </div>
+          {metrics.tasksImpactedByComplexityZone && metrics.tasksImpactedByComplexityZone > 0 && (
+            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-[10px] text-yellow-800 dark:text-yellow-200">
+              <Info className="w-3 h-3 inline mr-1" />
+              {metrics.complexityZoneImpactDetails}
+            </div>
+          )}
         </div>
 
         {/* Quality */}
@@ -346,32 +382,56 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
             })}
           </div>
 
-          {/* Complexity Impact */}
-          {metrics.complexityBonus > 0 && (
-            <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-purple-300/50 dark:border-purple-600/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">🏆</span>
-                  <div>
-                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                      Bonus de Complexidade
+          {/* Complexity and Seniority Bonuses */}
+          {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0) && (
+            <div className="space-y-2">
+              {metrics.complexityBonus > 0 && (
+                <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-purple-300/50 dark:border-purple-600/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🏆</span>
+                      <div>
+                        <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                          Bonus de Complexidade
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {(() => {
+                            const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
+                            const complex = metrics.complexityDistribution
+                              .filter(d => d.level >= 4)
+                              .reduce((sum, d) => sum + d.count, 0);
+                            const pct = total > 0 ? ((complex / total) * 100).toFixed(0) : '0';
+                            return `${pct}% tarefas complexas`;
+                          })()}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {(() => {
-                        const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
-                        const complex = metrics.complexityDistribution
-                          .filter(d => d.level >= 4)
-                          .reduce((sum, d) => sum + d.count, 0);
-                        const pct = total > 0 ? ((complex / total) * 100).toFixed(0) : '0';
-                        return `${pct}% tarefas complexas`;
-                      })()}
+                    <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                      +{metrics.complexityBonus}
                     </div>
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                  +{metrics.complexityBonus}
+              )}
+              {metrics.seniorityEfficiencyBonus > 0 && (
+                <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-indigo-300/50 dark:border-indigo-600/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">⭐</span>
+                      <div>
+                        <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                          Bonus de Senioridade
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          Executou tarefas complexas com alta eficiência
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      +{metrics.seniorityEfficiencyBonus}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -651,6 +711,13 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           </div>
         </div>
       )}
+
+      {/* Calculation Breakdown Modal */}
+      <CalculationBreakdownModal
+        metrics={metrics}
+        isOpen={showBreakdown}
+        onClose={() => setShowBreakdown(false)}
+      />
     </div>
   );
 };

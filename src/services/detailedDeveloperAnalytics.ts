@@ -1,4 +1,5 @@
 import { TaskItem, SprintMetadata } from '../types';
+import { isCompletedStatus } from '../utils/calculations';
 
 // =============================================================================
 // TYPES
@@ -136,9 +137,8 @@ function calculateFeatureModulePerformance(
     
     const avgComplexity = taskList.reduce((sum, t) => sum + t.complexidade, 0) / taskList.length;
     
-    const completed = taskList.filter(t => 
-      t.status === 'Resolvido' || t.status === 'Concluído' || t.status === 'Fechado'
-    ).length;
+    // IMPORTANT: Only completed tasks are considered for performance calculations
+    const completed = taskList.filter(t => isCompletedStatus(t.status)).length;
     const completionRate = taskList.length > 0 ? (completed / taskList.length) * 100 : 0;
     
     results.push({

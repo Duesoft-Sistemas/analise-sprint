@@ -157,6 +157,14 @@ export interface TaskPerformanceMetrics {
   complexityScore: number; // 1-5
   hoursSpent: number;
   hoursEstimated: number;
+  // Information about efficiency impact (complexity zone evaluation)
+  efficiencyImpact?: {
+    type: 'normal' | 'complexity_zone';
+    description: string;
+    isEfficient: boolean;
+    zone?: 'efficient' | 'acceptable' | 'inefficient';
+    expectedMaxHours?: number;
+  };
 }
 
 // Developer performance in a single sprint
@@ -174,9 +182,12 @@ export interface SprintPerformanceMetrics {
   
   // Accuracy
   estimationAccuracy: number; // Average % deviation
-  accuracyRate: number; // % of tasks within ±20% of estimate
+  accuracyRate: number; // % of tasks executed efficiently (complexities 1-4: by hours spent zone, complexity 5: by deviation percentage)
   tendsToOverestimate: boolean;
   tendsToUnderestimate: boolean;
+  // Information about tasks impacted by complexity zone rule (hours exceeding complexity limits)
+  tasksImpactedByComplexityZone?: number; // Count of tasks impacted
+  complexityZoneImpactDetails?: string; // Description of the impact
   
   // Quality
   qualityScore: number; // Derived from Nota de Teste (scaled 0-100)
@@ -199,9 +210,10 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-110 weighted score (base + complexity bonus)
-  baseScore: number; // 0-100 base score without complexity bonus
-  complexityBonus: number; // 0-10 bonus for working on complex tasks
+  performanceScore: number; // 0-125 weighted score (base + complexity bonus + seniority bonus)
+  baseScore: number; // 0-100 base score without bonuses
+  complexityBonus: number; // 0-10 bonus for working on complex tasks (level 4-5)
+  seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
   
   // Raw data
   tasks: TaskPerformanceMetrics[];
@@ -367,6 +379,8 @@ export interface CustomPeriodMetrics {
   avgAccuracyRate: number;
   avgBugRate: number;
   avgQualityScore: number;
+  avgTestScore?: number; // 0-100
+  avgTestNote?: number; // 1-5
   avgPerformanceScore: number;
   
   // ADDED for component compatibility

@@ -122,6 +122,47 @@ export const TaskList: React.FC = () => {
     setFilterNoEstimate(false);
   };
 
+  // Calculate totals and averages for filtered tasks
+  const totals = useMemo(() => {
+    if (filteredTasks.length === 0) {
+      return {
+        count: 0,
+        totalEstimated: 0,
+        totalSpent: 0,
+        avgComplexity: 0,
+        avgTestNote: 0,
+      };
+    }
+
+    let totalEstimated = 0;
+    let totalSpent = 0;
+    let totalComplexity = 0;
+    let totalTestNote = 0;
+    let testNoteCount = 0;
+
+    filteredTasks.forEach((task) => {
+      // Use hybrid fields for calculations
+      const estimativaRestante = task.estimativaRestante ?? task.estimativa ?? 0;
+      const tempoGasto = task.tempoGastoNoSprint ?? 0;
+
+      totalEstimated += estimativaRestante;
+      totalSpent += tempoGasto;
+      totalComplexity += task.complexidade ?? 0;
+
+      const notaTeste = task.notaTeste ?? 5; // Default to 5 if missing
+      totalTestNote += notaTeste;
+      testNoteCount++;
+    });
+
+    return {
+      count: filteredTasks.length,
+      totalEstimated,
+      totalSpent,
+      avgComplexity: totalComplexity / filteredTasks.length,
+      avgTestNote: totalTestNote / testNoteCount,
+    };
+  }, [filteredTasks]);
+
   if (!selectedSprint) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-8 text-center">
@@ -287,6 +328,76 @@ export const TaskList: React.FC = () => {
                   <TaskRow key={task.chave} task={task} />
                 ))}
               </tbody>
+              <tfoot className="bg-gray-100 dark:bg-gray-900/70 border-t-2 border-gray-300 dark:border-gray-600">
+                <tr className="font-semibold">
+                  <td colSpan={6} className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                    Total ({totals.count} tarefa{totals.count !== 1 ? 's' : ''})
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`inline-flex items-center justify-center w-10 h-8 rounded-full text-sm font-bold ${
+                        totals.avgComplexity <= 2
+                          ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300'
+                          : totals.avgComplexity === 3
+                          ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
+                      }`}
+                      title={`Média de Complexidade: ${totals.avgComplexity.toFixed(2)}/5`}
+                    >
+                      {totals.avgComplexity.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${
+                        totals.avgTestNote >= 4.5
+                          ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300'
+                          : totals.avgTestNote >= 3.5
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
+                          : totals.avgTestNote >= 2.5
+                          ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
+                      }`}
+                      title={`Média de Nota de Teste: ${totals.avgTestNote.toFixed(2)}/5`}
+                    >
+                      {totals.avgTestNote.toFixed(1)}/5
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right font-semibold">
+                    {formatHours(totals.totalEstimated)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right font-semibold">
+                    {formatHours(totals.totalSpent)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right">
+                    {totals.totalEstimated > 0 ? (
+                      <span
+                        className={`font-semibold ${
+                          totals.totalSpent > totals.totalEstimated
+                            ? 'text-red-600 dark:text-red-400'
+                            : totals.totalSpent < totals.totalEstimated
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        {(() => {
+                          const variance = totals.totalSpent - totals.totalEstimated;
+                          const variancePercent = Math.round((variance / totals.totalEstimated) * 100);
+                          return (
+                            <>
+                              {variance > 0 ? '+' : ''}
+                              {formatHours(Math.abs(variance))} ({variancePercent > 0 ? '+' : ''}
+                              {variancePercent}%)
+                            </>
+                          );
+                        })()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">-</span>
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

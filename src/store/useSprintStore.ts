@@ -36,7 +36,9 @@ interface SprintStore {
   
   // File metadata
   layoutFileName: string | null;
+  layoutFileNames: string[]; // Array para múltiplos arquivos
   worklogFileName: string | null;
+  worklogFileNames: string[]; // Array para múltiplos arquivos
   
   // Filters
   taskFilters: TaskFilters;
@@ -46,9 +48,15 @@ interface SprintStore {
   
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => void;
+  addTasks: (tasks: TaskItem[], fileName?: string) => void; // Adiciona tarefas sem substituir
+  removeTasksByFileName: (fileName: string) => void; // Remove tarefas de um arquivo específico
   setWorklogs: (worklogs: WorklogEntry[], fileName?: string) => void;
+  addWorklogs: (worklogs: WorklogEntry[], fileName?: string) => void; // Adiciona worklogs sem substituir
+  removeWorklogsByFileName: (fileName: string) => void; // Remove worklogs de um arquivo específico
   setSprintPeriod: (period: SprintPeriod | null) => void;
   setSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => void;
+  addSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => void; // Adiciona metadados sem substituir
+  removeSprintMetadataByFileName: (fileName: string) => void; // Remove metadados de um arquivo específico
   setSelectedSprint: (sprint: string) => void;
   setTaskFilters: (filters: TaskFilters) => void;
   setSelectedDeveloper: (developer: string | null) => void;
@@ -72,7 +80,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   sprintMetadata: [],
   sprintsFileName: null,
   layoutFileName: null,
+  layoutFileNames: [],
   worklogFileName: null,
+  worklogFileNames: [],
   taskFilters: {},
   selectedDeveloper: null,
 
@@ -83,6 +93,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     // Calculate hybrid metrics if worklogs are available
     // Use sprint-specific periods from metadata
     let processedTasks = tasks;
+    
+    // Reset file names array
+    const layoutFileNames = fileName ? [fileName] : [];
     if (worklogs.length > 0 && sprintMetadata.length > 0) {
       // Process each sprint separately with its correct period
       const tasksBySprint = new Map<string, TaskItem[]>();
@@ -159,6 +172,185 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       taskFilters: {},
       selectedDeveloper: null,
       layoutFileName: fileName || null,
+      layoutFileNames,
+    });
+  },
+
+  addTasks: (newTasks: TaskItem[], fileName?: string) => {
+    const { tasks, worklogs, sprintMetadata, layoutFileNames } = get();
+    
+    // Concatenar novas tarefas com as existentes
+    const allTasks = [...tasks, ...newTasks];
+    
+    // Adicionar nome do arquivo se fornecido e ainda não estiver na lista
+    const updatedFileNames = fileName && !layoutFileNames.includes(fileName)
+      ? [...layoutFileNames, fileName]
+      : layoutFileNames;
+    
+    // Processar todas as tarefas
+    let processedTasks = allTasks;
+    if (worklogs.length > 0 && sprintMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      allTasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        if (!metadata) {
+          return;
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else if (worklogs.length > 0) {
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(allTasks, worklogs, sprintPeriod);
+    }
+    
+    // Recalcular sprints
+    let sprints: string[];
+    if (sprintMetadata.length > 0) {
+      const ordered = [...sprintMetadata].sort(
+        (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+      );
+      sprints = ordered.map((m) => m.sprint);
+    } else {
+      sprints = getAllSprints(processedTasks);
+    }
+    
+    // Manter sprint selecionado se ainda existir, senão escolher o primeiro
+    let selectedSprint: string | null = null;
+    const { selectedSprint: currentSelected } = get();
+    if (sprintMetadata.length > 0) {
+      const today = new Date().getTime();
+      const active = sprintMetadata.find(
+        (m) => today >= m.dataInicio.getTime() && today <= m.dataFim.getTime()
+      );
+      selectedSprint = active ? active.sprint 
+        : (currentSelected && sprints.includes(currentSelected) ? currentSelected : sprints[0] || null);
+    } else {
+      selectedSprint = currentSelected && sprints.includes(currentSelected) 
+        ? currentSelected 
+        : sprints[0] || null;
+    }
+    
+    const sprintAnalytics = selectedSprint
+      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      : null;
+    
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
+    const riskAlerts = selectedSprint
+      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      : [];
+
+    set({
+      tasks: processedTasks,
+      sprints,
+      selectedSprint,
+      sprintAnalytics,
+      crossSprintAnalytics,
+      riskAlerts,
+      layoutFileNames: updatedFileNames,
+      layoutFileName: updatedFileNames.length > 0 ? updatedFileNames[updatedFileNames.length - 1] : null,
+    });
+  },
+
+  removeTasksByFileName: (fileName: string) => {
+    const { tasks, worklogs, sprintMetadata, layoutFileNames } = get();
+    
+    // Remover tarefas que foram importadas do arquivo específico
+    // Como não temos uma referência direta, precisamos armazenar o nome do arquivo de origem
+    // Por enquanto, vamos assumir que o usuário quer limpar todas as tarefas se remover o arquivo
+    // Uma solução melhor seria adicionar um campo fileName em TaskItem
+    // Por ora, vamos simplesmente remover o nome do arquivo da lista
+    const updatedFileNames = layoutFileNames.filter(fn => fn !== fileName);
+    
+    // Se não há mais arquivos, limpar todas as tarefas
+    if (updatedFileNames.length === 0) {
+      const { selectedSprint } = get();
+      set({
+        tasks: [],
+        sprints: [],
+        selectedSprint: null,
+        sprintAnalytics: null,
+        crossSprintAnalytics: null,
+        riskAlerts: [],
+        layoutFileNames: [],
+        layoutFileName: null,
+      });
+      return;
+    }
+    
+    // Recalcular tudo com as tarefas restantes
+    let processedTasks = tasks;
+    if (worklogs.length > 0 && sprintMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        if (!metadata) {
+          return;
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else if (worklogs.length > 0) {
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+    }
+    
+    let sprints: string[];
+    if (sprintMetadata.length > 0) {
+      const ordered = [...sprintMetadata].sort(
+        (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+      );
+      sprints = ordered.map((m) => m.sprint);
+    } else {
+      sprints = getAllSprints(processedTasks);
+    }
+    
+    const { selectedSprint } = get();
+    const sprintAnalytics = selectedSprint
+      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      : null;
+    
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
+    const riskAlerts = selectedSprint
+      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      : [];
+
+    set({
+      tasks: processedTasks,
+      sprints,
+      sprintAnalytics,
+      crossSprintAnalytics,
+      riskAlerts,
+      layoutFileNames: updatedFileNames,
+      layoutFileName: updatedFileNames.length > 0 ? updatedFileNames[updatedFileNames.length - 1] : null,
     });
   },
 
@@ -206,6 +398,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       ? calculateRiskAlerts(processedTasks, selectedSprint)
       : [];
 
+    const worklogFileNames = fileName ? [fileName] : [];
     set({
       worklogs,
       tasks: processedTasks,
@@ -213,6 +406,135 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       crossSprintAnalytics,
       riskAlerts,
       worklogFileName: fileName || null,
+      worklogFileNames,
+    });
+  },
+
+  addWorklogs: (newWorklogs: WorklogEntry[], fileName?: string) => {
+    const { worklogs, tasks, sprintMetadata, selectedSprint, worklogFileNames } = get();
+    
+    // Concatenar novos worklogs com os existentes
+    const allWorklogs = [...worklogs, ...newWorklogs];
+    
+    // Adicionar nome do arquivo se fornecido e ainda não estiver na lista
+    const updatedFileNames = fileName && !worklogFileNames.includes(fileName)
+      ? [...worklogFileNames, fileName]
+      : worklogFileNames;
+    
+    // Recalcular métricas híbridas com todos os worklogs
+    let processedTasks = tasks;
+    if (sprintMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        if (!metadata) {
+          return;
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, allWorklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else {
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, allWorklogs, sprintPeriod);
+    }
+    
+    const sprintAnalytics = selectedSprint
+      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      : null;
+    
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
+    const riskAlerts = selectedSprint
+      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      : [];
+
+    set({
+      worklogs: allWorklogs,
+      tasks: processedTasks,
+      sprintAnalytics,
+      crossSprintAnalytics,
+      riskAlerts,
+      worklogFileNames: updatedFileNames,
+      worklogFileName: updatedFileNames.length > 0 ? updatedFileNames[updatedFileNames.length - 1] : null,
+    });
+  },
+
+  removeWorklogsByFileName: (fileName: string) => {
+    const { worklogs, tasks, sprintMetadata, selectedSprint, worklogFileNames } = get();
+    
+    // Remover worklogs do arquivo específico
+    // Por enquanto, vamos assumir que não há referência direta
+    // Uma solução melhor seria adicionar um campo fileName em WorklogEntry
+    // Por ora, vamos simplesmente remover o nome do arquivo da lista
+    const updatedFileNames = worklogFileNames.filter(fn => fn !== fileName);
+    
+    // Se não há mais arquivos, limpar todos os worklogs
+    let allWorklogs = worklogs;
+    if (updatedFileNames.length === 0) {
+      allWorklogs = [];
+    }
+    
+    // Recalcular métricas
+    let processedTasks = tasks;
+    if (allWorklogs.length > 0 && sprintMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+        if (!metadata) {
+          return;
+        }
+        const period = {
+          sprintName,
+          startDate: metadata.dataInicio,
+          endDate: metadata.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, allWorklogs, period);
+        processedTasks.push(...processed);
+      });
+    } else if (allWorklogs.length > 0) {
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, allWorklogs, sprintPeriod);
+    }
+    
+    const sprintAnalytics = selectedSprint
+      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      : null;
+    
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
+    const riskAlerts = selectedSprint
+      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      : [];
+
+    set({
+      worklogs: allWorklogs,
+      tasks: processedTasks,
+      sprintAnalytics,
+      crossSprintAnalytics,
+      riskAlerts,
+      worklogFileNames: updatedFileNames,
+      worklogFileName: updatedFileNames.length > 0 ? updatedFileNames[updatedFileNames.length - 1] : null,
     });
   },
 
@@ -282,6 +604,110 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     });
   },
 
+  addSprintMetadata: (newMetadata: SprintMetadata[], fileName?: string) => {
+    const { sprintMetadata, tasks, worklogs, selectedSprint } = get();
+    
+    // Combinar metadados, evitando duplicatas por nome de sprint
+    const existingSprintNames = new Set(sprintMetadata.map(m => m.sprint));
+    const uniqueNewMetadata = newMetadata.filter(m => !existingSprintNames.has(m.sprint));
+    const combinedMetadata = [...sprintMetadata, ...uniqueNewMetadata];
+    
+    // Recalcular métricas híbridas com os novos metadados
+    let processedTasks = tasks;
+    if (worklogs.length > 0 && combinedMetadata.length > 0) {
+      const tasksBySprint = new Map<string, TaskItem[]>();
+      tasks.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) {
+          tasksBySprint.set(task.sprint, []);
+        }
+        tasksBySprint.get(task.sprint)!.push(task);
+      });
+      
+      processedTasks = [];
+      tasksBySprint.forEach((sprintTasks, sprintName) => {
+        const sprintMeta = combinedMetadata.find(m => m.sprint === sprintName);
+        if (!sprintMeta) {
+          return;
+        }
+        const period = {
+          sprintName,
+          startDate: sprintMeta.dataInicio,
+          endDate: sprintMeta.dataFim,
+        };
+        const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
+        processedTasks.push(...processed);
+      });
+    }
+    
+    // Recalcular sprints ordenados por data
+    const ordered = [...combinedMetadata].sort(
+      (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+    );
+    const sprints = ordered.map((m) => m.sprint);
+
+    const today = new Date().getTime();
+    const active = ordered.find(
+      (m) => today >= m.dataInicio.getTime() && today <= m.dataFim.getTime()
+    );
+    const newSelected = active
+      ? active.sprint
+      : (selectedSprint && sprints.includes(selectedSprint))
+        ? selectedSprint
+        : sprints[0] || null;
+
+    const sprintAnalytics = newSelected
+      ? calculateSprintAnalytics(processedTasks, newSelected)
+      : null;
+    
+    const riskAlerts = newSelected
+      ? calculateRiskAlerts(processedTasks, newSelected)
+      : [];
+
+    set({
+      sprintMetadata: combinedMetadata,
+      sprintsFileName: fileName || null,
+      tasks: processedTasks,
+      sprints,
+      selectedSprint: newSelected,
+      sprintAnalytics,
+      riskAlerts,
+    });
+  },
+
+  removeSprintMetadataByFileName: (fileName: string) => {
+    // Para sprint metadata, vamos simplesmente limpar tudo
+    // pois não há uma forma fácil de saber quais metadados vieram de qual arquivo
+    const { tasks, worklogs, selectedSprint } = get();
+    
+    // Limpar todos os metadados
+    let processedTasks = tasks;
+    if (worklogs.length > 0) {
+      const { sprintPeriod } = get();
+      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+    }
+    
+    const sprints = getAllSprints(processedTasks);
+    const newSelected = sprints.length > 0 ? sprints[0] : null;
+    
+    const sprintAnalytics = newSelected
+      ? calculateSprintAnalytics(processedTasks, newSelected)
+      : null;
+    
+    const riskAlerts = newSelected
+      ? calculateRiskAlerts(processedTasks, newSelected)
+      : [];
+
+    set({
+      sprintMetadata: [],
+      sprintsFileName: null,
+      tasks: processedTasks,
+      sprints,
+      selectedSprint: newSelected,
+      sprintAnalytics,
+      riskAlerts,
+    });
+  },
+
   setSprintPeriod: (period: SprintPeriod | null) => {
     const { tasks, worklogs, selectedSprint } = get();
     
@@ -340,7 +766,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       sprintMetadata: [],
       sprintsFileName: null,
       layoutFileName: null,
+      layoutFileNames: [],
       worklogFileName: null,
+      worklogFileNames: [],
       taskFilters: {},
       selectedDeveloper: null,
     });

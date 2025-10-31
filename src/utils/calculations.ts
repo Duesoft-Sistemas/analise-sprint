@@ -110,6 +110,16 @@ export function parseDate(dateString: string): Date {
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
     const parts = str.split(/[\s T]/);
     const [year, month, day] = parts[0].split('-').map(Number);
+    
+    // If time component exists, parse it (format: HH:mm or HH:mm:ss)
+    if (parts[1]) {
+      const timeParts = parts[1].split(':').map(Number);
+      const hours = timeParts[0] || 0;
+      const minutes = timeParts[1] || 0;
+      const seconds = timeParts[2] || 0;
+      return new Date(year, month - 1, day, hours, minutes, seconds, 0);
+    }
+    
     return new Date(year, month - 1, day, 0, 0, 0, 0);
   }
   
@@ -117,6 +127,16 @@ export function parseDate(dateString: string): Date {
   if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
     const parts = str.split(/[\s T]/);
     const [day, month, year] = parts[0].split('/').map(Number);
+    
+    // If time component exists, parse it (format: HH:mm or HH:mm:ss)
+    if (parts[1]) {
+      const timeParts = parts[1].split(':').map(Number);
+      const hours = timeParts[0] || 0;
+      const minutes = timeParts[1] || 0;
+      const seconds = timeParts[2] || 0;
+      return new Date(year, month - 1, day, hours, minutes, seconds, 0);
+    }
+    
     return new Date(year, month - 1, day, 0, 0, 0, 0);
   }
   

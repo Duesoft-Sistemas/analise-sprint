@@ -39,6 +39,8 @@ Para calcular as métricas de performance, são utilizados os seguintes dados do
 - ✅ **Status** - Estado atual da tarefa
 - ✅ **Responsável** - Desenvolvedor alocado
 
+**⚠️ IMPORTANTE:** Apenas tarefas com status **concluído** são consideradas nos cálculos de performance. Tarefas pendentes, em progresso ou bloqueadas **não entram** nas métricas de acurácia, qualidade ou score de performance, pois não há dados completos para avaliação justa.
+
 ---
 
 ## 🎯 Métricas de Acurácia
@@ -83,29 +85,47 @@ Interpretação: Subestimou em 20%
 
 **Fórmula:**
 ```
-(Tarefas com boa eficiência / Total de Tarefas) × 100
+(Tarefas eficientes / Total de Tarefas) × 100
 
-Onde "boa eficiência" é AJUSTADA POR COMPLEXIDADE:
-- Executou mais rápido: até +50% (sempre ótimo) ✅
-- Tarefas Simples (nível 1-2): até -15% de atraso ✅
-- Tarefas Médias (nível 3): até -20% de atraso ✅
-- Tarefas Complexas (nível 4-5): até -30% a -40% de atraso ✅
+Onde "eficiente" é determinado por SISTEMA UNIFICADO:
+
+1. ZONA DE EFICIÊNCIA POR COMPLEXIDADE (Complexidades 1-4):
+   - **IMPORTANTE: Usa APENAS horas gastas, NÃO usa a estimativa original**
+   - A estimativa não é responsabilidade só do dev, então não é considerada aqui
+   - Verifica se horas gastas excedem limites esperados para a complexidade:
+     - Complexidade 1: máximo 2h eficiente, 4h aceitável
+     - Complexidade 2: máximo 4h eficiente, 8h aceitável
+     - Complexidade 3: máximo 8h eficiente, 16h aceitável
+     - Complexidade 4: máximo 16h eficiente, 32h aceitável
+   - **Resultado:** Se horas gastas ≤ limite aceitável → eficiente, senão → ineficiente
+
+2. DESVIO PERCENTUAL (Complexidade 5 apenas):
+   - **Complexidade 5 não tem limites de horas absolutos** (só recebe bonus de complexidade)
+   - **Usa desvio percentual:** compara estimativa original vs horas gastas
+   - Limites de tolerância:
+     - Executou mais rápido: até +50% (sempre ótimo) ✅
+     - Pode atrasar até: -40% de atraso ✅
 ```
 
 **Descrição:**
-Percentual de tarefas executadas de forma eficiente. **Importante:** Executar mais rápido que o estimado é POSITIVO! Os limites de tolerância são dinâmicos - tarefas complexas têm mais margem para imprevistos.
+Percentual de tarefas executadas de forma eficiente. **SISTEMA:** 
+- **Complexidades 1-4:** Avaliadas por zona de eficiência (APENAS horas gastas, não usa estimativa original)
+- **Complexidade 5:** Avaliada por desvio percentual (compara estimativa vs horas gastas)
+
+**IMPORTANTE:** Para complexidades 1-4, a estimativa original não é usada porque não é responsabilidade só do dev. Apenas as horas gastas são consideradas na avaliação de eficiência.
 
 **Interpretação:**
-Quanto maior, mais eficiente o desenvolvedor é na execução. A métrica favorece quem entrega mais rápido que o previsto.
+Quanto maior, mais eficiente o desenvolvedor é na execução. Para complexidades 1-4, avalia apenas se o tempo gasto está dentro dos limites esperados para aquela complexidade (sem considerar a estimativa original).
 
 **Exemplo:**
 ```
 10 tarefas no sprint:
-- 3 executadas mais rápido (7h gastadas vs 10h estimadas) = +30% → ✅ CONTA
-- 5 dentro do prazo (-20% a +20%) → ✅ CONTA
-- 2 com atraso significativo (15h gastadas vs 10h estimadas) = -50% → ❌ NÃO CONTA
+- Tarefa complexidade 1: gastou 3h → ✅ EFICIENTE (dentro de 4h aceitável)
+- Tarefa complexidade 1: gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
+- Tarefa complexidade 2: gastou 5h → ✅ EFICIENTE (≤8h aceitável) - estimativa não é considerada
+- Tarefa complexidade 5: estimou 20h, gastou 25h = -25% → ✅ EFICIENTE (dentro de -40%, sem limite de horas)
 
-Taxa de Eficiência: (8 / 10) × 100 = 80%
+Taxa de Eficiência: (3 / 4) × 100 = 75%
 ```
 
 **Faixas de Avaliação:**
@@ -115,49 +135,50 @@ Taxa de Eficiência: (8 / 10) × 100 = 80%
 - `50-59%` - Adequado
 - `<50%` - Precisa Atenção
 
-**⚡ Nota sobre Eficiência (Ajustada por Complexidade):**
-- Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
-- **Tarefa Simples** (nível 1-2): até -15% de atraso ✅
-- **Tarefa Média** (nível 3): até -20% de atraso ✅
-- **Tarefa Complexa** (nível 4-5): até -30% a -40% de atraso ✅
-- Atrasos **além dos limites** = ❌ Precisa atenção
+**⚡ SISTEMA UNIFICADO DE AVALIAÇÃO:**
 
-**🎯 Por que limites dinâmicos por complexidade?**
+O sistema usa duas camadas de verificação:
 
-Os limites são **ajustados por complexidade** porque:
+1. **ZONA DE EFICIÊNCIA POR COMPLEXIDADE (Complexidades 1-4):**
+   - **IMPORTANTE: Usa APENAS horas gastas, NÃO usa a estimativa original**
+   - A estimativa não é responsabilidade só do dev, então não é considerada
+   - Detecta tarefas simples com tempo excessivo baseado apenas nas horas gastas
+   - Exemplo: Complexidade 1 gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
+   - Exemplo: Complexidade 1 gastou 3h → ✅ EFICIENTE (dentro de 4h aceitável)
+   - Aplica para TODAS as tarefas complexidades 1-4 (bugs e não-bugs)
+   - **A estimativa original NÃO é usada nesta avaliação**
 
-1. **Executar mais rápido é SEMPRE bom:**
-   - Mostra eficiência e domínio técnico
-   - Libera tempo para outras tarefas
-   - Aumenta previsibilidade do time
-   - Limite de +50% evita que estimativas irrealistas sejam aceitas
+2. **DESVIO PERCENTUAL (Complexidade 5 apenas):**
+   - **Complexidade 5 não tem limites de horas absolutos** (só recebe bonus de complexidade)
+   - **Usa desvio percentual:** compara estimativa original vs horas gastas
+   - Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
+   - Pode atrasar até: -40% de atraso ✅
+   - Atrasos **além dos limites** = ❌ Precisa atenção
+   - **Esta é a ÚNICA complexidade onde a estimativa é considerada na avaliação de eficiência**
 
-2. **Tarefas complexas têm mais imprevistos:**
-   - Mais pontos de integração e dependências
-   - Maior incerteza técnica
-   - Mais tempo de debugging
-   - Limites maiores reconhecem essa realidade
+**🎯 Por que sistema unificado?**
 
-3. **Tarefas simples devem ser mais previsíveis:**
-   - Escopo bem definido, menos surpresas
-   - Limites mais restritos incentivam precisão
+1. **Detecta estimativas ruins desde o início:**
+   - Tarefa simples com estimativa de 20h já é sinalizada
+   - Não depende de desvio percentual (que pode ser 0% mesmo com estimativa ruim)
 
-4. **Comparação com a equipe identifica o problema real:**
-   - Se todos atrasam → problema de estimativa inicial
-   - Se só você atrasa → pode precisar de suporte técnico
+2. **Justo para bugs e tarefas normais:**
+   - Mesma regra aplica para todos
+   - Não penaliza devs que trabalham em bugs
+
+3. **Reconhece imprevisibilidade de tarefas complexas:**
+   - Complexidade 5 não tem limite de horas
+   - Apenas avalia por desvio percentual (mais tolerante)
 
 **Exemplo Real:**
 ```
-Dev A (tarefa simples nível 1): Estimou 10h, gastou 7h → +30% ✅ EFICIENTE
-Dev B (tarefa simples nível 1): Estimou 10h, gastou 11h → -10% ✅ EFICIENTE
-Dev C (tarefa simples nível 1): Estimou 10h, gastou 12h → -20% ❌ INEFICIENTE (>-15%)
+Dev A (complexidade 1): Estimou 10h, gastou 7h = +30% → ✅ EFICIENTE (dentro de limites)
 
-Dev D (tarefa complexa nível 5): Estimou 10h, gastou 7h → +30% ✅ EFICIENTE
-Dev E (tarefa complexa nível 5): Estimou 10h, gastou 13h → -30% ✅ EFICIENTE
-Dev F (tarefa complexa nível 5): Estimou 10h, gastou 15h → -50% ❌ INEFICIENTE (>-40%)
+Dev B (complexidade 1): Estimou 20h, gastou 20h = 0% → ❌ INEFICIENTE (20h > 4h aceitável!)
 
-Taxa de eficiência da equipe: 67% (4 de 6 devs)
-Devs com bonus: D, E (tarefas complexas) ganham até +10 pontos no score final 🏆
+Dev C (complexidade 3): Estimou 8h, gastou 9h = -12.5% → ✅ EFICIENTE (dentro de limites de horas E percentuais)
+
+Dev D (complexidade 5): Estimou 30h, gastou 35h = -16.6% → ✅ EFICIENTE (sem limite de horas, -16.6% < -40%)
 ```
 
 ---
@@ -407,24 +428,24 @@ Como todos os desenvolvedores registram aproximadamente 40 horas (incluindo reun
 
 **⚠️ IMPORTANTE:** Este score é uma ferramenta de **autoconhecimento e coaching**, não de avaliação de desempenho isolada. Use com contexto e empatia.
 
-**Fórmula Ponderada (com Bonus de Complexidade):**
+**Fórmula Ponderada (com Bonuses de Complexidade e Senioridade):**
 ```
 Score Base = 
-  (40% × Score de Qualidade) +
-  (35% × Eficiência de Execução) +
-  (25% × Taxa de Conclusão)
+  (50% × Score de Qualidade) +
+  (50% × Eficiência de Execução)
 
 Bonus de Complexidade = (% de tarefas nível 4-5) × 10
+Bonus de Senioridade = (% de eficiência em tarefas complexas) × 15
 
-Performance Score Final = Score Base + Bonus de Complexidade
-Máximo: 110 pontos 🏆
+Performance Score Final = Score Base + Bonus de Complexidade + Bonus de Senioridade
+Máximo: 125 pontos 🏆⭐
 ```
 
 **Componentes:**
-1. **Score de Qualidade** (40%) = `100 - Taxa de Retrabalho`
-2. **Eficiência de Execução** (35%) = % de tarefas dentro dos limites ajustados por complexidade
-3. **Taxa de Conclusão** (25%) = `(Tarefas Concluídas / Tarefas Iniciadas) × 100`
-4. **Bonus de Complexidade** = Recompensa por trabalhar em tarefas complexas (0-10 pontos)
+1. **Score de Qualidade** (50%) = `Nota de Teste Média × 20`
+2. **Eficiência de Execução** (50%) = % de tarefas dentro dos limites ajustados por complexidade
+3. **Bonus de Complexidade** (0-10 pontos) = Recompensa por trabalhar em tarefas complexas (níveis 4-5)
+4. **Bonus de Senioridade** (0-15 pontos) = 🎯 **Indicador principal de senioridade!** Recompensa executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados)
 
 **📊 Nota sobre Utilização:**
 A Taxa de Utilização **NÃO faz mais parte do score** (anteriormente era 25%). Como todos os desenvolvedores registram ~40h, ela não diferencia performance e foi removida para tornar o score mais justo e acionável.
@@ -436,45 +457,59 @@ A Taxa de Utilização **NÃO faz mais parte do score** (anteriormente era 25%).
 - Baixa eficiência: frequentemente ultrapassa limites (pode indicar necessidade de suporte)
 - Considera contexto: juniores esperado ter mais variação
 
-**Sobre Bonus de Complexidade:**
+**Sobre Bonus de Complexidade (0-10 pontos):**
 - Reconhece que trabalhar em tarefas complexas tem mais valor
 - 0% de tarefas complexas = 0 pontos de bonus
 - 50% de tarefas complexas = +5 pontos de bonus
 - 100% de tarefas complexas = +10 pontos de bonus
-- Incentiva seniors a pegarem tarefas desafiadoras
+- Incentiva desenvolvedores a pegarem tarefas desafiadoras
+
+**Sobre Bonus de Senioridade (0-15 pontos): 🎯**
+- **Este é o indicador principal de senioridade!** 
+- Recompensa não apenas pegar tarefas complexas, mas **executá-las com alta eficiência**
+- Calculado baseado na eficiência em tarefas complexas:
+  - Tarefas na zona **eficiente** (ex: Complexidade 4 gastou ≤16h) = peso 1.0
+  - Tarefas na zona **aceitável** (ex: Complexidade 4 gastou ≤32h) = peso 0.5
+  - Tarefas **ineficientes** (ex: Complexidade 4 gastou >32h) = não contam
+- 100% de eficiência alta em tarefas complexas = +15 pontos (máximo)
+- Por que vale mais que o bonus de complexidade?
+  - **Executar bem** é mais difícil que apenas **pegar** tarefas complexas
+  - Indica **senioridade real**: não só aceita desafios, mas os resolve com maestria
+  - Recompensa a **eficiência na execução**, não apenas a disponibilidade
+  - Este é o indicador de que o dev está **atingindo o ápice** 🏆
 
 **Exemplo:**
 ```
-Desenvolvedor trabalhando em mix de tarefas (40% complexas):
+Desenvolvedor trabalhando em mix de tarefas (60% complexas):
 
-Qualidade: 90 (10% de retrabalho)
-Eficiência: 75 (75% das tarefas dentro dos limites ajustados)
-Conclusão: 100 (todas concluídas)
+Qualidade: 84 (nota média 4.2)
+Eficiência: 80 (80% das tarefas dentro dos limites ajustados)
 
-Score Base = (0.40 × 90) + (0.35 × 75) + (0.25 × 100)
-Score Base = 36 + 26.25 + 25 = 87.25
+Score Base = (0.50 × 84) + (0.50 × 80)
+Score Base = 42 + 40 = 82
 
-Bonus Complexidade = 0.40 × 10 = 4 pontos
+Bonus Complexidade = 0.60 × 10 = 6 pontos
+Bonus Senioridade = 0.80 × 15 = 12 pontos ⭐
 
-Score Final = 87.25 + 4 = 91.25 🏆
+Score Final = 82 + 6 + 12 = 100 pontos 🏆⭐
 ```
 
 ### Interpretação dos Scores
 
 | Range | Classificação | Descrição |
 |-------|--------------|-----------|
-| 100-110 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas |
-| 90-99 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
+| 115-125 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas + execução eficiente (senioridade) ⭐ |
+| 90-114 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
 | 75-89 | ⭐⭐⭐⭐ Muito Bom | Performance acima da média, consistente |
 | 60-74 | ⭐⭐⭐ Bom | Performance adequada, algumas áreas para melhorar |
 | 45-59 | ⭐⭐ Adequado | Performance aceitável, precisa atenção em algumas áreas |
 | <45 | ⭐ Precisa Atenção | Performance abaixo do esperado, necessita melhorias |
 
-**Nota:** Scores acima de 100 indicam excelente performance base (90+) combinada com trabalho significativo em tarefas complexas (nível 4-5).
+**Nota:** Scores acima de 100 indicam excelente performance base (80+) combinada com trabalho significativo em tarefas complexas e execução eficiente das mesmas (bonus de senioridade).
 
 ### Coloração Visual
 
-- 🏆 **Excepcional** (100+) - Performance base excelente + bonus de complexidade
+- 🏆 **Excepcional** (115+) - Performance base excelente + bonus de complexidade + bonus de senioridade ⭐
 - 🟢 **Verde** (90-99) - Excelente
 - 🔵 **Azul** (75-89) - Muito Bom
 - 🟡 **Amarelo** (60-74) - Bom
@@ -615,14 +650,16 @@ Usa **regressão linear** nos valores dos últimos sprints:
 - Qualidade: 85
 - Conclusão: 100%
 
-**Cálculo do Score:**
+**Cálculo do Score Base:**
 ```
-Score = (0.40 × 85) + (0.35 × 45) + (0.25 × 100)
-Score = 34 + 15.75 + 25 = 74.75
+Score Base = (0.50 × 85) + (0.50 × 45)
+Score Base = 42.5 + 22.5 = 65
+
+Com bonus de complexidade e senioridade, pode chegar até 125.
 ```
 
 **Diagnóstico:**
-Subestima consistentemente, mas entrega com qualidade. Score impactado pela baixa eficiência de execução (35% do score).
+Subestima consistentemente, mas entrega com qualidade. Score impactado pela baixa eficiência de execução (50% do score base).
 
 **Ações:**
 1. Adicionar buffer de 30% nas estimativas iniciais
@@ -640,14 +677,16 @@ Subestima consistentemente, mas entrega com qualidade. Score impactado pela baix
 - Qualidade Score: 65 (35% de retrabalho)
 - Conclusão: 85%
 
-**Cálculo do Score:**
+**Cálculo do Score Base:**
 ```
-Score = (0.40 × 65) + (0.35 × 75) + (0.25 × 85)
-Score = 26 + 26.25 + 21.25 = 73.5
+Score Base = (0.50 × 65) + (0.50 × 75)
+Score Base = 32.5 + 37.5 = 70
+
+Com bonus de complexidade e senioridade, pode chegar até 125.
 ```
 
 **Diagnóstico:**
-Executa dentro do estimado, mas qualidade inicial baixa prejudica score. Alto retrabalho (35%) é o principal problema (representa 40% do score!).
+Executa dentro do estimado, mas qualidade inicial baixa prejudica score. Alto retrabalho (35%) é o principal problema (representa 50% do score base!).
 
 **Ações:**
 1. Reforçar testes unitários e integração antes de entregar
@@ -666,14 +705,18 @@ Executa dentro do estimado, mas qualidade inicial baixa prejudica score. Alto re
 - Taxa de Conclusão: 65%
 - Utilização: 135% (contexto: sobrecarga!)
 
-**Cálculo do Score:**
+**Cálculo do Score Base:**
 ```
-Score = (0.40 × 90) + (0.35 × 60) + (0.25 × 65)
-Score = 36 + 21 + 16.25 = 73.25
+Score Base = (0.50 × 90) + (0.50 × 60)
+Score Base = 45 + 30 = 75
+
+Com bonus de complexidade e senioridade, pode chegar até 125.
 ```
 
 **Diagnóstico:**
-Alta qualidade (90), mas baixa conclusão (65%) e eficiência média (60%). A utilização de 135% indica **sobrecarga crítica** - desenvolvedor está trabalhando muito mas não consegue finalizar tarefas. Situação insustentável!
+Alta qualidade (90), mas eficiência média (60%). A utilização de 135% indica **sobrecarga crítica** - desenvolvedor está trabalhando muito mas não consegue manter eficiência. Situação insustentável! 
+
+**Nota:** Taxa de Conclusão (65%) foi removida do score porque pode ser afetada por interrupções/realocações (não é responsabilidade só do dev). Ainda é exibida como métrica informativa.
 
 **Ações:**
 1. **URGENTE:** Reduzir carga de trabalho para evitar burnout
@@ -689,9 +732,10 @@ Alta qualidade (90), mas baixa conclusão (65%) e eficiência média (60%). A ut
 ### 1. Por que meu score caiu mesmo entregando tudo?
 
 **R:** O score considera qualidade e eficiência, não apenas quantidade. Verifique:
-- **Taxa de retrabalho aumentou?** (40% do score - Qualidade)
-- **Eficiência de execução piorou?** (35% do score - Tarefas dentro do prazo)
-- **Taxa de conclusão diminuiu?** (25% do score - Tarefas finalizadas)
+- **Taxa de retrabalho aumentou?** (50% do score base - Qualidade)
+- **Eficiência de execução piorou?** (50% do score base - Tarefas dentro do prazo/complexidade)
+
+**Nota:** Taxa de Conclusão foi removida do score porque pode ser afetada por interrupções/realocações (não é responsabilidade só do dev). Ainda é exibida como métrica informativa.
 
 ---
 
@@ -860,11 +904,13 @@ As métricas de performance são ferramentas para:
 
 ## 🆕 Novidades (v1.2)
 
-### Mudanças na Fórmula do Score (v1.3 - Atual)
+### Mudanças na Fórmula do Score (v1.4 - Atual)
 - **Utilização removida do score** (todos registram ~40h, não diferencia performance)
-- **Nova distribuição**: 40% Qualidade + 35% Eficiência + 25% Conclusão
-- Eficiência de Execução ganha mais peso (25% → 35%)
-- Qualidade permanece fundamental (35% → 40%)
+- **Taxa de Conclusão removida do score** (pode ser afetada por interrupções/realocações, não é responsabilidade só do dev)
+- **Nova distribuição**: 50% Qualidade + 50% Eficiência (Base Score: 0-100)
+- **Bonus de Complexidade**: até +10 pontos (por trabalhar em tarefas nível 4-5)
+- **Bonus de Senioridade**: até +15 pontos (por executar tarefas complexas com alta eficiência)
+- **Score máximo**: 125 pontos (100 base + 10 complexidade + 15 senioridade)
 
 ### Histórico (v1.2)
 - Acurácia passou a contar 25% do score (antes era apenas informativa)

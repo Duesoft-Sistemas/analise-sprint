@@ -112,10 +112,18 @@ export function parseSprintPeriod(
     return new Date(year, month - 1, day, 0, 0, 0, 0);
   };
   
+  // Parse start date at beginning of day (00:00:00)
+  const parsedStartDate = typeof startDate === 'string' ? parseLocalDate(startDate) : startDate;
+  parsedStartDate.setHours(0, 0, 0, 0);
+  
+  // Parse end date at end of day (23:59:59.999) to include the entire last day
+  const parsedEndDate = typeof endDate === 'string' ? parseLocalDate(endDate) : endDate;
+  parsedEndDate.setHours(23, 59, 59, 999);
+  
   return {
     sprintName,
-    startDate: typeof startDate === 'string' ? parseLocalDate(startDate) : startDate,
-    endDate: typeof endDate === 'string' ? parseLocalDate(endDate) : endDate,
+    startDate: parsedStartDate,
+    endDate: parsedEndDate,
   };
 }
 

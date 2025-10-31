@@ -11,6 +11,12 @@ import {
 } from '../types';
 import { formatHours } from '../utils/calculations';
 import { isCompletedStatus } from '../utils/calculations';
+import {
+  getEfficiencyThreshold as getThresholdFromConfig,
+  checkComplexityZoneEfficiency,
+  getEfficiencyZone,
+  MAX_SENIORITY_EFFICIENCY_BONUS,
+} from '../config/performanceConfig';
 
 // =============================================================================
 // METRIC EXPLANATIONS - Como cada métrica é calculada
@@ -25,10 +31,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   accuracyRate: {
-    formula: '(Tarefas eficientes / Total) × 100. Limites dinâmicos por complexidade: Simples (±50%/-15%), Média (±50%/-20%), Complexa (±50%/-40%)',
-    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. IMPORTANTE: Executar mais rápido é POSITIVO! Tarefas complexas têm mais tolerância para atrasos. Representa 50% do seu Performance Score.',
-    interpretation: 'Quanto maior, mais eficiente você é. Ser mais rápido (até 50% mais rápido) é excelente! Tarefas simples permitem até -15% de atraso, médias -20%, complexas até -40%. Isso reconhece que tarefas complexas têm mais imprevistos.',
-    example: 'Tarefa complexa (nível 5) de 10h: gastou 7h (+30%) = ✅ eficiente! Gastou 13h (-30%) = ✅ ainda aceitável. Gastou 15h (-50%) = ❌ ineficiente',
+    formula: '(Tarefas eficientes / Total) × 100. Avaliação unificada: Zona de Complexidade (horas absolutas) + Limites de Tolerância (desvio percentual)',
+    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA: Complexidades 1-4 usam zona de eficiência (APENAS horas gastas, não usa estimativa). Complexidade 5 usa desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
+    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: Para complexidades 1-4, o sistema usa APENAS horas gastas (não considera a estimativa original, que não é responsabilidade só do dev). Para complexidade 5, usa desvio percentual. O sistema detecta: 1) Tarefas simples com tempo excessivo (ex: complexidade 1 gastou 20h = ineficiente), 2) Para complexidade 5: desvios além dos limites ajustados. Executar tarefas complexas com alta eficiência gera bonus de senioridade adicional.',
+    example: 'Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). Complexidade 1 gastou 20h = ❌ ineficiente (>4h aceitável). Complexidade 4 gastou 12h (≤16h eficiente) = ✅ eficiente + bonus senioridade. Complexidade 5: estimou 10h, gastou 14h (-40%) = ✅ eficiente (dentro do limite).',
   },
   
   bugRate: {
@@ -67,10 +73,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos! Score máximo: 110. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '100+ = excepcional (com bonus), 90-100 = excelente, 75-90 = muito bom, 60-75 = bom, 45-60 = adequado, <45 = precisa melhorias. Bonus é proporcional ao % de tarefas complexas.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 = 87.5 🏆',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Score máximo: 125. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas dentro dos limites de horas esperados - este é o indicador principal de senioridade.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -129,16 +135,11 @@ function determineTrend(values: number[]): 'improving' | 'declining' | 'stable' 
 /**
  * Get efficiency thresholds based on task complexity
  * More complex tasks get more tolerance for delays
+ * Now uses centralized configuration
  */
 function getEfficiencyThreshold(complexity: number): { faster: number; slower: number } {
-  const thresholds: Record<number, { faster: number; slower: number }> = {
-    1: { faster: 50, slower: -15 },  // Simple tasks: stricter
-    2: { faster: 50, slower: -18 },
-    3: { faster: 50, slower: -20 },  // Medium (default)
-    4: { faster: 50, slower: -30 },  // Complex: more tolerant
-    5: { faster: 50, slower: -40 },  // Very complex: much more tolerant
-  };
-  return thresholds[complexity] || thresholds[3];
+  const threshold = getThresholdFromConfig(complexity);
+  return { faster: threshold.faster, slower: threshold.slower };
 }
 
 /**
@@ -162,6 +163,72 @@ function calculateComplexityBonus(
   return Math.round(complexPercentage * 10);
 }
 
+/**
+ * Calculate seniority efficiency bonus for performance score
+ * Rewards developers who execute complex tasks (level 4-5) with high efficiency
+ * This indicates seniority: not just taking complex tasks, but executing them well
+ */
+function calculateSeniorityEfficiencyBonus(
+  taskMetrics: TaskPerformanceMetrics[]
+): number {
+  // Filter complex tasks (level 4-5) that were completed
+  const complexTasks = taskMetrics.filter(t => 
+    t.complexityScore >= 4 && t.hoursEstimated > 0
+  );
+  
+  if (complexTasks.length === 0) return 0;
+  
+  // Count tasks executed with high efficiency
+  let highlyEfficientComplex = 0;
+  let moderatelyEfficientComplex = 0;
+  
+  for (const task of complexTasks) {
+    // Check if task was evaluated by complexity zone
+    if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+      if (task.efficiencyImpact.zone === 'efficient') {
+        highlyEfficientComplex++;
+      } else if (task.efficiencyImpact.zone === 'acceptable') {
+        moderatelyEfficientComplex++;
+      }
+      // 'inefficient' doesn't count
+    } else {
+      // Se não tem efficiencyImpact, avaliar usando checkComplexityZoneEfficiency diretamente
+      // Para garantir consistência na lógica de avaliação
+      if (task.complexityScore === 5) {
+        // Complexidade 5: avaliar apenas por desvio percentual (não tem limites de zona)
+        // Executar dentro dos limites de tolerância conta como eficiente
+        const deviation = task.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(task.complexityScore);
+        if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
+          highlyEfficientComplex++;
+        }
+      } else if (task.complexityScore === 4) {
+        // Complexidade 4: usar checkComplexityZoneEfficiency para manter consistência
+        // Esta função já avalia corretamente usando apenas hoursSpent
+        const efficiencyResult = checkComplexityZoneEfficiency(
+          task.complexityScore,
+          task.hoursSpent,
+          task.hoursEstimated
+        );
+        if (efficiencyResult.zone === 'efficient') {
+          highlyEfficientComplex++;
+        } else if (efficiencyResult.zone === 'acceptable') {
+          moderatelyEfficientComplex++;
+        }
+        // 'inefficient' doesn't count
+      }
+    }
+  }
+  
+  // Calculate bonus based on efficiency rate in complex tasks
+  // Highly efficient tasks count more than moderately efficient
+  const totalComplexTasks = complexTasks.length;
+  const efficiencyScore = (highlyEfficientComplex * 1.0 + moderatelyEfficientComplex * 0.5) / totalComplexTasks;
+  
+  // Bonus: 0% efficiency = 0 points, 100% high efficiency = +15 points
+  return Math.round(efficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS);
+}
+
 // =============================================================================
 // TASK-LEVEL METRICS
 // =============================================================================
@@ -180,6 +247,16 @@ export function calculateTaskMetrics(task: TaskItem): TaskPerformanceMetrics {
   
   const isOnTime = hoursSpent <= hoursEstimated;
   
+  // SISTEMA UNIFICADO: Verificar zona de eficiência por complexidade para TODAS as tarefas
+  // Verifica se horas gastas excedem o limite esperado para aquela complexidade
+  // IMPORTANTE: Usa apenas horas gastas, não a estimativa original (que não é responsabilidade só do dev)
+  // A estimativa original ainda é usada no cálculo do desvio percentual (fallback)
+  let efficiencyImpact = checkComplexityZoneEfficiency(
+    task.complexidade,
+    hoursSpent,
+    hoursEstimated
+  );
+  
   return {
     task,
     estimationAccuracy,
@@ -187,6 +264,7 @@ export function calculateTaskMetrics(task: TaskItem): TaskPerformanceMetrics {
     complexityScore: task.complexidade,
     hoursSpent,
     hoursEstimated,
+    efficiencyImpact,
   };
 }
 
@@ -218,8 +296,10 @@ export function calculateSprintPerformance(
   const completedMetrics = completedTasks.map(calculateTaskMetrics);
   
   // Productivity metrics - use tempoGastoTotal for complete historical analysis - ALWAYS from worklog
+  // IMPORTANT: For performance calculations, only completed tasks are considered
   const totalHoursWorked = devTasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? 0), 0);
-  const totalHoursEstimated = devTasks.reduce((sum, t) => {
+  // Total estimated hours for comparison - only from completed tasks (for performance analysis)
+  const totalHoursEstimated = completedTasks.reduce((sum, t) => {
     const estimate = Number(t.estimativa) || 0;
     return sum + estimate;
   }, 0);
@@ -235,6 +315,7 @@ export function calculateSprintPerformance(
   const completedWithEstimates = completedMetrics.filter(t => t.hoursEstimated > 0);
   let estimationAccuracy = 0;
   let accuracyRate = 0;
+  let tasksImpactedByComplexityZone = 0;
   
   if (completedWithEstimates.length > 0) {
     // Average deviation percentage
@@ -242,8 +323,18 @@ export function calculateSprintPerformance(
     estimationAccuracy = deviations.reduce((sum, d) => sum + d, 0) / deviations.length;
     
     // Tasks with good execution efficiency
-    // Uses complexity-adjusted thresholds: more complex tasks get more tolerance
+    // SISTEMA UNIFICADO: Prioriza zona de eficiência por complexidade
+    // Se a tarefa foi avaliada pela zona de complexidade, usa esse resultado
+    // Caso contrário, usa desvio percentual (limites de tolerância)
     const tasksWithinRange = completedWithEstimates.filter(t => {
+      // Check if this task was evaluated by complexity zone
+      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+        tasksImpactedByComplexityZone++;
+        // Use complexity zone evaluation result
+        return t.efficiencyImpact.isEfficient;
+      }
+      
+      // Normal evaluation: use deviation from estimate (limites de tolerância)
       const deviation = t.estimationAccuracy;
       const threshold = getEfficiencyThreshold(t.complexityScore);
       
@@ -339,8 +430,12 @@ export function calculateSprintPerformance(
   // Complexity Bonus: 0-10 points based on % of complex tasks (level 4-5)
   const complexityBonus = calculateComplexityBonus(complexityDistribution);
   
-  // Final score: base (0-100) + bonus (0-10) = max 110
-  const performanceScore = Math.min(110, baseScore + complexityBonus);
+  // Seniority Efficiency Bonus: 0-15 points based on efficiency in complex tasks
+  // Rewards not just taking complex tasks, but executing them well
+  const seniorityEfficiencyBonus = calculateSeniorityEfficiencyBonus(completedMetrics);
+  
+  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) = max 125
+  const performanceScore = Math.min(125, baseScore + complexityBonus + seniorityEfficiencyBonus);
   
   return {
     developerId,
@@ -370,6 +465,11 @@ export function calculateSprintPerformance(
     performanceScore,
     baseScore,
     complexityBonus,
+    seniorityEfficiencyBonus,
+    tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
+    complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
+      ? `${tasksImpactedByComplexityZone} tarefa(s) ${tasksImpactedByComplexityZone === 1 ? 'foi' : 'foram'} avaliada(s) pela zona de eficiência por complexidade (horas excessivas para a complexidade)`
+      : undefined,
     tasks: taskMetrics,
   };
 }
@@ -405,6 +505,7 @@ function createEmptySprintMetrics(
     performanceScore: 0,
     baseScore: 0,
     complexityBonus: 0,
+    seniorityEfficiencyBonus: 0,
     tasks: [],
   };
 }
@@ -687,6 +788,9 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
       value: `${metrics.accuracyRate.toFixed(0)}%`,
     });
   } else if (metrics.accuracyRate < 50) {
+    // NOTE: totalHoursWorked includes all tasks (pending + completed)
+    // totalHoursEstimated includes only completed tasks (for performance calculations)
+    // This comparison is informational only - actual performance metrics use only completed tasks
     const variance = metrics.totalHoursWorked - metrics.totalHoursEstimated;
     const variancePercent = metrics.totalHoursEstimated > 0 
       ? ((variance / metrics.totalHoursEstimated) * 100).toFixed(0)
@@ -696,7 +800,7 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     insights.push({
       type: 'negative',
       title: 'Baixa Eficiência de Execução',
-      description: `Apenas ${metrics.accuracyRate.toFixed(0)}% das tarefas ficaram dentro de ±20% da estimativa. Estimado: ${formatHours(metrics.totalHoursEstimated)} | Gasto: ${formatHours(metrics.totalHoursWorked)} (${varianceSign}${variancePercent}%). Compare com a média da equipe para identificar se é um problema geral de estimativa ou individual.`,
+      description: `Apenas ${metrics.accuracyRate.toFixed(0)}% das tarefas ficaram dentro de ±20% da estimativa. Estimado (concluídas): ${formatHours(metrics.totalHoursEstimated)} | Gasto (todas): ${formatHours(metrics.totalHoursWorked)} (${varianceSign}${variancePercent}%). Compare com a média da equipe para identificar se é um problema geral de estimativa ou individual.`,
       metric: 'accuracyRate',
       value: `${metrics.accuracyRate.toFixed(0)}%`,
       recommendation: 'Revisar processo de estimativa ou identificar se há necessidade de suporte técnico adicional.',

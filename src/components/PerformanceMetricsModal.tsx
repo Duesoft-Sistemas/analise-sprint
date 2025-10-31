@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, HelpCircle, TrendingUp, Target, Award, Zap, CheckCircle, BarChart3 } from 'lucide-react';
+import { X, HelpCircle, Target, Award, Zap, CheckCircle, BarChart3 } from 'lucide-react';
 import { MetricExplanation } from '../types';
 import { METRIC_EXPLANATIONS } from '../services/performanceAnalytics';
 
@@ -20,13 +20,6 @@ const METRIC_ICONS: Record<string, React.ReactNode> = {
   bugsVsFeatures: <BarChart3 className="w-5 h-5" />,
 };
 
-const METRIC_CATEGORIES = {
-  'Eficiência de Execução': ['accuracyRate', 'estimationAccuracy', 'consistencyScore'],
-  'Qualidade': ['bugRate', 'qualityScore', 'bugsVsFeatures'],
-  'Conclusão': ['completionRate'],
-  'Contexto (não pontua)': ['utilizationRate'],
-  'Score Geral': ['performanceScore'],
-};
 
 export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = ({
   isOpen,
@@ -165,7 +158,10 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           <strong>Base Score</strong> = (50% × Qualidade) + (50% × Eficiência)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300">
-                          <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos)
+                          <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos) + Bonus de Senioridade (0-15 pontos)
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
+                          💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados).
                         </p>
                       </div>
                       
@@ -181,21 +177,24 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           • Base Score = (80 × 0.5) + (70 × 0.5) = <strong>75 pontos</strong>
                         </p>
                         <p className="text-gray-700 dark:text-gray-300">
-                          • Se trabalhou em tarefas complexas: +5 pontos de bonus
+                          • Se trabalhou em tarefas complexas: +5 pontos de bonus (complexidade)
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300">
+                          • Se executou complexas com alta eficiência: +10 pontos de bonus (senioridade) ⭐
                         </p>
                         <p className="text-gray-700 dark:text-gray-300 font-bold mt-2">
-                          • Score Final = <strong>80 pontos</strong> 🏆
+                          • Score Final = <strong>90 pontos</strong> 🏆⭐
                         </p>
                       </div>
 
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                         <p className="font-semibold text-gray-900 dark:text-white mb-2">🎯 Interpretação:</p>
                         <ul className="space-y-1 text-gray-700 dark:text-gray-300">
-                          <li>• <strong>100+ pontos</strong> = Excepcional (com bonus) ⭐⭐⭐</li>
-                          <li>• <strong>90-100 pontos</strong> = Excelente ⭐⭐</li>
-                          <li>• <strong>75-90 pontos</strong> = Muito Bom ⭐</li>
-                          <li>• <strong>60-75 pontos</strong> = Bom</li>
-                          <li>• <strong>45-60 pontos</strong> = Adequado</li>
+                          <li>• <strong>115+ pontos</strong> = Excepcional (com bonuses) ⭐⭐⭐</li>
+                          <li>• <strong>90-114 pontos</strong> = Excelente ⭐⭐</li>
+                          <li>• <strong>75-89 pontos</strong> = Muito Bom ⭐</li>
+                          <li>• <strong>60-74 pontos</strong> = Bom</li>
+                          <li>• <strong>45-59 pontos</strong> = Adequado</li>
                           <li>• <strong>&lt;45 pontos</strong> = Precisa Melhorias</li>
                         </ul>
                       </div>
@@ -264,15 +263,17 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
                     <p>Você fez 10 tarefas. Vejamos quais foram eficientes:</p>
                     <ul className="ml-4 space-y-1">
-                      <li>• 7 tarefas dentro do estimado (ou até 50% mais rápido) → ✅ Eficientes</li>
-                      <li>• 2 tarefas com atraso aceitável (dentro da tolerância por complexidade) → ✅ Eficientes</li>
-                      <li>• 1 tarefa com muito atraso → ❌ Ineficiente</li>
+                      <li>• <strong>Complexidades 1-4:</strong> Avaliadas por zona de eficiência (APENAS horas gastas, não usa estimativa)</li>
+                      <li>• 5 tarefas complexidade 1-4 com horas gastas ≤ limite aceitável → ✅ Eficientes</li>
+                      <li>• 3 tarefas complexidade 1-4 com horas gastas {'>'} limite aceitável → ❌ Ineficientes</li>
+                      <li>• <strong>Complexidade 5:</strong> Avaliada por desvio percentual (usa estimativa vs horas gastas)</li>
+                      <li>• 2 tarefas complexidade 5 dentro dos limites de desvio → ✅ Eficientes</li>
                     </ul>
                     <p className="mt-2 font-medium">
-                      Eficiência: 9 tarefas eficientes de 10 = <strong>90% de Eficiência</strong>
+                      Eficiência: 7 tarefas eficientes de 10 = <strong>70% de Eficiência</strong>
                     </p>
-                    <p className="text-xs italic mt-2">
-                      💡 Tarefas complexas têm mais tolerância: até -40% de atraso ainda é aceitável!
+                    <p className="text-xs italic mt-2 font-semibold text-blue-600 dark:text-blue-400">
+                      💡 IMPORTANTE: Complexidades 1-4 usam APENAS horas gastas (estimativa não é considerada). Complexidade 5 usa desvio percentual (usa estimativa).
                     </p>
                   </div>
                 </div>
@@ -287,7 +288,7 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 </div>
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                    Bonus de Complexidade (+10 pontos)
+                    Bonus de Complexidade (+10 pontos) 🏆
                   </h4>
                   <div className="space-y-3 text-sm">
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -328,6 +329,69 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </div>
             </div>
 
+            {/* Bonus de Senioridade */}
+            <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl border-2 border-indigo-300 dark:border-indigo-700">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-indigo-500 rounded-lg text-white">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    Bonus de Senioridade (+15 pontos) ⭐
+                  </h4>
+                  <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-3 font-semibold">
+                    🎯 Este é o indicador principal de senioridade!
+                  </p>
+                  <div className="space-y-3 text-sm">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        Executar tarefas complexas (nível 4-5) <strong>com alta eficiência</strong> te dá um bonus ainda maior!
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mt-2">
+                        <strong>Bonus</strong> = (% de eficiência em tarefas complexas) × 15 pontos
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
+                        • Tarefas na zona <strong>eficiente</strong> (ex: Complexidade 4 gastou ≤16h) = peso 1.0
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 text-xs italic">
+                        • Tarefas na zona <strong>aceitável</strong> (ex: Complexidade 4 gastou ≤32h) = peso 0.5
+                      </p>
+                    </div>
+                    
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Exemplo Simples:</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • Você fez 3 tarefas complexas (nível 4)
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • 2 tarefas executadas com alta eficiência (≤16h cada) = 2 × 1.0 = 2.0
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • 1 tarefa executada com eficiência moderada (≤32h) = 1 × 0.5 = 0.5
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        • Eficiência: (2.0 + 0.5) / 3 tarefas = 83% de eficiência
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 font-bold">
+                        • Bonus = 83% × 15 = <strong>+12 pontos</strong> ⭐
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">🎯 Por que este bonus é maior?</p>
+                      <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+                        <li>• <strong>Executar bem</strong> é mais difícil que apenas <strong>pegar</strong> tarefas complexas</li>
+                        <li>• Indica <strong>senioridade real</strong>: não só aceita desafios, mas os resolve com maestria</li>
+                        <li>• Recompensa a <strong>eficiência na execução</strong>, não apenas a disponibilidade</li>
+                        <li>• Este é o indicador de que o dev está <strong>atingindo o ápice</strong> 🏆</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Exemplo Completo do Cálculo */}
             <div className="mb-8 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl border-2 border-indigo-300 dark:border-indigo-700">
               <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -340,7 +404,8 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   <div className="space-y-2 text-gray-700 dark:text-gray-300">
                     <p><strong>1. Qualidade:</strong> Você teve nota média de 4.2 → <strong>84 pontos</strong></p>
                     <p><strong>2. Eficiência:</strong> 8 de 10 tarefas foram eficientes → <strong>80 pontos</strong></p>
-                    <p><strong>3. Bonus:</strong> 60% das tarefas foram complexas → <strong>+6 pontos</strong></p>
+                    <p><strong>3. Bonus Complexidade:</strong> 60% das tarefas foram complexas → <strong>+6 pontos</strong></p>
+                    <p><strong>4. Bonus Senioridade:</strong> Executou complexas com 80% eficiência → <strong>+12 pontos</strong> ⭐</p>
                   </div>
                 </div>
                 
@@ -352,9 +417,9 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                     <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
                       Base Score = 82 pontos
                     </p>
-                    <p className="mt-3">Score Final = 82 + 6 (bonus)</p>
+                    <p className="mt-3">Score Final = 82 + 6 (complexidade) + 12 (senioridade)</p>
                     <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      Score Final = 88 pontos 🏆
+                      Score Final = 100 pontos 🏆⭐
                     </p>
                   </div>
                 </div>

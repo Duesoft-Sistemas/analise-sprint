@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, Clock, Calendar, X } from 'lucide-react';
 import { parseXLSFile, validateXLSStructure } from '../services/xlsParser';
 import { parseWorklogFile, validateWorklogStructure } from '../services/worklogParser';
 import { parseSprintsFile, validateSprintsStructure } from '../services/sprintsParser';
@@ -18,8 +18,19 @@ export const XlsUploader: React.FC = () => {
   const [sprintsFileName, setSprintsFileName] = useState<string | null>(null);
   
   const setTasks = useSprintStore((state) => state.setTasks);
+  const addTasks = useSprintStore((state) => state.addTasks);
+  const removeTasksByFileName = useSprintStore((state) => state.removeTasksByFileName);
   const setWorklogs = useSprintStore((state) => state.setWorklogs);
+  const addWorklogs = useSprintStore((state) => state.addWorklogs);
+  const removeWorklogsByFileName = useSprintStore((state) => state.removeWorklogsByFileName);
   const setSprintMetadata = useSprintStore((state) => state.setSprintMetadata);
+  const addSprintMetadata = useSprintStore((state) => state.addSprintMetadata);
+  const removeSprintMetadataByFileName = useSprintStore((state) => state.removeSprintMetadataByFileName);
+  // Usar os nomes dos arquivos do store quando disponível - FONTE ÚNICA DE VERDADE
+  const storeLayoutFileNames = useSprintStore((state) => state.layoutFileNames);
+  const storeWorklogFileNames = useSprintStore((state) => state.worklogFileNames);
+  const storeTasks = useSprintStore((state) => state.tasks);
+  const storeWorklogs = useSprintStore((state) => state.worklogs);
 
   const handleSprintsFile = useCallback(
     async (file: File) => {
@@ -47,7 +58,9 @@ export const XlsUploader: React.FC = () => {
 
       if (result.success && result.data) {
         console.log(`✅ Sprints carregados com sucesso: ${result.data.length} sprints`);
-        setSprintMetadata(result.data, file.name);
+        // Sempre adicionar, pois addSprintMetadata evita duplicatas por nome de sprint
+        // setSprintMetadata só deve ser usado para limpar e substituir tudo
+        addSprintMetadata(result.data, file.name);
         setSprintsFileName(file.name);
         setError(null);
       } else {
@@ -82,7 +95,14 @@ export const XlsUploader: React.FC = () => {
       const result = await parseXLSFile(file);
 
       if (result.success && result.data) {
-        setTasks(result.data, file.name);
+        // Verificar diretamente no store se já existem tarefas ou arquivos carregados
+        // Isso evita problemas de sincronização com estado local
+        const hasExisting = storeTasks.length > 0 || storeLayoutFileNames.length > 0;
+        if (hasExisting) {
+          addTasks(result.data, file.name);
+        } else {
+          setTasks(result.data, file.name);
+        }
         setLayoutFileName(file.name);
         setError(null);
       } else {
@@ -91,7 +111,7 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingLayout(false);
     },
-    [setTasks]
+    [setTasks, addTasks, storeTasks, storeLayoutFileNames]
   );
 
   const handleWorklogFile = useCallback(
@@ -109,14 +129,21 @@ export const XlsUploader: React.FC = () => {
       const isValidStructure = await validateWorklogStructure(file);
       if (!isValidStructure) {
         setIsLoadingWorklog(false);
-        setError('Estrutura inválida no arquivo de worklog. Verifique as colunas obrigatórias: ID da tarefa, Responsável, Tempo gasto, Data.');
+        setError('Estrutura inválida no arquivo de worklog. Verifique as colunas obrigatórias: ID da tarefa, Tempo gasto, Data.');
         return;
       }
 
       const result = await parseWorklogFile(file);
 
       if (result.success && result.data) {
-        setWorklogs(result.data, file.name);
+        // Verificar diretamente no store se já existem worklogs ou arquivos carregados
+        // Isso evita problemas de sincronização com estado local
+        const hasExisting = storeWorklogs.length > 0 || storeWorklogFileNames.length > 0;
+        if (hasExisting) {
+          addWorklogs(result.data, file.name);
+        } else {
+          setWorklogs(result.data, file.name);
+        }
         setWorklogFileName(file.name);
         setError(null);
       } else {
@@ -125,18 +152,21 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingWorklog(false);
     },
-    [setWorklogs]
+    [setWorklogs, addWorklogs, storeWorklogs, storeWorklogFileNames]
   );
 
   // Sprints file handlers
   const handleSprintsDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDraggingSprints(false);
 
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleSprintsFile(file);
+      const files = e.dataTransfer.files;
+      if (files) {
+        // Processar arquivos sequencialmente para evitar race condition
+        for (const file of Array.from(files)) {
+          await handleSprintsFile(file);
+        }
       }
     },
     [handleSprintsFile]
@@ -153,23 +183,30 @@ export const XlsUploader: React.FC = () => {
 
   const handleSprintsFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleSprintsFile(file);
+      const files = e.target.files;
+      if (files) {
+        Array.from(files).forEach(file => {
+          handleSprintsFile(file);
+        });
       }
+      // Reset input para permitir selecionar o mesmo arquivo novamente
+      e.target.value = '';
     },
     [handleSprintsFile]
   );
 
   // Layout file handlers
   const handleLayoutDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDraggingLayout(false);
 
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleLayoutFile(file);
+      const files = e.dataTransfer.files;
+      if (files) {
+        // Processar arquivos sequencialmente para evitar race condition
+        for (const file of Array.from(files)) {
+          await handleLayoutFile(file);
+        }
       }
     },
     [handleLayoutFile]
@@ -185,24 +222,32 @@ export const XlsUploader: React.FC = () => {
   }, []);
 
   const handleLayoutFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleLayoutFile(file);
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files) {
+        // Processar arquivos sequencialmente para evitar race condition
+        for (const file of Array.from(files)) {
+          await handleLayoutFile(file);
+        }
       }
+      // Reset input para permitir selecionar o mesmo arquivo novamente
+      e.target.value = '';
     },
     [handleLayoutFile]
   );
 
   // Worklog file handlers
   const handleWorklogDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDraggingWorklog(false);
 
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleWorklogFile(file);
+      const files = e.dataTransfer.files;
+      if (files) {
+        // Processar arquivos sequencialmente para evitar race condition
+        for (const file of Array.from(files)) {
+          await handleWorklogFile(file);
+        }
       }
     },
     [handleWorklogFile]
@@ -218,11 +263,16 @@ export const XlsUploader: React.FC = () => {
   }, []);
 
   const handleWorklogFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleWorklogFile(file);
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files) {
+        // Processar arquivos sequencialmente para evitar race condition
+        for (const file of Array.from(files)) {
+          await handleWorklogFile(file);
+        }
       }
+      // Reset input para permitir selecionar o mesmo arquivo novamente
+      e.target.value = '';
     },
     [handleWorklogFile]
   );
@@ -258,6 +308,7 @@ export const XlsUploader: React.FC = () => {
             type="file"
             accept=".xlsx,.xls"
             onChange={handleSprintsFileInput}
+            multiple
             className="hidden"
           />
 
@@ -272,9 +323,29 @@ export const XlsUploader: React.FC = () => {
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
                   <Calendar className="w-8 h-8 text-green-600 dark:text-green-400" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">✓ {sprintsFileName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Clique para substituir</p>
+                <div className="w-full">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">✓ Arquivo(s) carregado(s):</p>
+                  <div className="space-y-1">
+                    {(sprintsFileName ? [sprintsFileName] : []).map((fileName) => (
+                      <div key={fileName} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{fileName}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSprintMetadataByFileName(fileName);
+                            if (fileName === sprintsFileName) {
+                              setSprintsFileName(null);
+                            }
+                          }}
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                          title="Remover arquivo"
+                        >
+                          <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Clique para adicionar mais arquivos</p>
                 </div>
               </>
             ) : (
@@ -326,6 +397,7 @@ export const XlsUploader: React.FC = () => {
             type="file"
             accept=".xlsx,.xls"
             onChange={handleWorklogFileInput}
+            multiple
             className="hidden"
           />
 
@@ -335,14 +407,34 @@ export const XlsUploader: React.FC = () => {
                 <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-500 border-t-transparent"></div>
                 <p className="text-gray-600 dark:text-gray-400">Processando worklog...</p>
               </>
-            ) : worklogFileName ? (
+            ) : (worklogFileName || storeWorklogFileNames.length > 0) ? (
               <>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
                   <Clock className="w-8 h-8 text-green-600 dark:text-green-400" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">✓ {worklogFileName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Clique para substituir</p>
+                <div className="w-full">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">✓ Arquivo(s) carregado(s):</p>
+                  <div className="space-y-1">
+                    {[...(worklogFileName ? [worklogFileName] : []), ...storeWorklogFileNames].filter((v, i, a) => a.indexOf(v) === i).map((fileName) => (
+                      <div key={fileName} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{fileName}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeWorklogsByFileName(fileName);
+                            if (fileName === worklogFileName) {
+                              setWorklogFileName(null);
+                            }
+                          }}
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                          title="Remover arquivo"
+                        >
+                          <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Clique para adicionar mais arquivos</p>
                 </div>
               </>
             ) : (
@@ -360,7 +452,7 @@ export const XlsUploader: React.FC = () => {
                   <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Colunas obrigatórias:</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                      ID da tarefa | Responsável | Tempo gasto | Data
+                      ID da tarefa | Tempo gasto | Data
                     </p>
                   </div>
                 </div>
@@ -394,6 +486,7 @@ export const XlsUploader: React.FC = () => {
             type="file"
             accept=".xlsx,.xls"
             onChange={handleLayoutFileInput}
+            multiple
             className="hidden"
           />
 
@@ -403,14 +496,34 @@ export const XlsUploader: React.FC = () => {
                 <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
                 <p className="text-gray-600 dark:text-gray-400">Processando layout...</p>
               </>
-            ) : layoutFileName ? (
+            ) : (layoutFileName || storeLayoutFileNames.length > 0) ? (
               <>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
                   <FileSpreadsheet className="w-8 h-8 text-green-600 dark:text-green-400" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">✓ {layoutFileName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Clique para substituir</p>
+                <div className="w-full">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">✓ Arquivo(s) carregado(s):</p>
+                  <div className="space-y-1">
+                    {[...(layoutFileName ? [layoutFileName] : []), ...storeLayoutFileNames].filter((v, i, a) => a.indexOf(v) === i).map((fileName) => (
+                      <div key={fileName} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <span className="text-xs text-gray-600 dark:text-gray-300">{fileName}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTasksByFileName(fileName);
+                            if (fileName === layoutFileName) {
+                              setLayoutFileName(null);
+                            }
+                          }}
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                          title="Remover arquivo"
+                        >
+                          <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Clique para adicionar mais arquivos</p>
                 </div>
               </>
             ) : (

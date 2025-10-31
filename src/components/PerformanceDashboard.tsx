@@ -17,6 +17,7 @@ import { PerformanceMetricsModal } from './PerformanceMetricsModal';
 import { DeveloperDetailedAnalysisModal } from './DeveloperDetailedAnalysisModal';
 import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics, CustomPeriodMetrics } from '../types';
 import { calculateDetailedDeveloperAnalytics } from '../services/detailedDeveloperAnalytics';
+import { isCompletedStatus } from '../utils/calculations';
 
 type ViewMode = 'sprint' | 'allSprints';
 type SortBy = 'overall' | 'accuracy' | 'quality' | 'productivity';
@@ -101,11 +102,11 @@ export const PerformanceDashboard: React.FC = () => {
             `${selectedSprintView.length} Sprints Selecionados`
           );
           
-          // Calculate bugsVsFeatures for the period
+          // Calculate bugsVsFeatures for the period - IMPORTANT: Only completed tasks
           const periodTasks = tasks.filter(t => 
             t.idResponsavel === developerId && 
             selectedSprintView.includes(t.sprint) &&
-            t.status === 'Concluída'
+            isCompletedStatus(t.status)
           );
           const bugTasks = periodTasks.filter(t => t.tipo === 'Bug').length;
           const featureTasks = periodTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
@@ -140,6 +141,7 @@ export const PerformanceDashboard: React.FC = () => {
             performanceScore: customMetrics.avgPerformanceScore,
             baseScore: customMetrics.avgPerformanceScore,
             complexityBonus: 0,
+            seniorityEfficiencyBonus: 0,
             tasks: [],
           };
           
@@ -543,6 +545,7 @@ export const PerformanceDashboard: React.FC = () => {
                 performanceScore: allSprintsMetrics.avgPerformanceScore,
                 baseScore: allSprintsMetrics.avgPerformanceScore,
                 complexityBonus: 0,
+            seniorityEfficiencyBonus: 0,
                 tasks: [],
               };
             }

@@ -7,7 +7,6 @@ O arquivo de worklog deve ser um arquivo Excel (.xlsx ou .xls) com as seguintes 
 | Coluna | Obrigatório | Descrição | Exemplo | Variações Aceitas |
 |--------|------------|-----------|---------|-------------------|
 | **ID da tarefa** | ✅ Sim | Chave ou ID da tarefa | PROJ-101, DM-2018 | "ID da tarefa", "Issue", "Task ID", "Chave" |
-| **Responsável** | ✅ Sim | Nome do desenvolvedor | João Silva | "Responsável", "Author", "Developer" |
 | **Tempo gasto** | ✅ Sim | Tempo trabalhado | 1h, 2h 30m, 7200 | "Tempo gasto", "Time spent", "Hours", "Duration" |
 | **Data** | ✅ Sim | Data do lançamento | 2025-10-15, 29/10/2025 19:35 | "Data", "Date", "Created date (worklog)" |
 
@@ -15,31 +14,31 @@ O arquivo de worklog deve ser um arquivo Excel (.xlsx ou .xls) com as seguintes 
 
 O sistema aceita colunas em **português** e **inglês**:
 
-- ✅ Português: "ID da tarefa", "Responsável", "Tempo gasto", "Data"
-- ✅ Inglês: "Issue", "Author", "Time spent", "Created date (worklog)"
+- ✅ Português: "ID da tarefa", "Tempo gasto", "Data"
+- ✅ Inglês: "Issue", "Time spent", "Created date (worklog)"
 - ✅ Mix: Você pode misturar português e inglês
 
 ## 📝 Exemplo de Conteúdo
 
 ### Formato em Português
 ```
-ID da tarefa | Responsável    | Tempo gasto | Data
-PROJ-101     | João Silva     | 2h         | 2025-10-15
-PROJ-101     | João Silva     | 3h         | 2025-10-16
-PROJ-101     | João Silva     | 5h         | 2025-10-22
-PROJ-102     | Maria Santos   | 4h         | 2025-10-15
-PROJ-102     | Maria Santos   | 3h         | 2025-10-16
-PROJ-103     | Pedro Alves    | 8h         | 2025-10-22
-PROJ-103     | Pedro Alves    | 2h         | 2025-10-23
+ID da tarefa | Tempo gasto | Data
+PROJ-101     | 2h         | 2025-10-15
+PROJ-101     | 3h         | 2025-10-16
+PROJ-101     | 5h         | 2025-10-22
+PROJ-102     | 4h         | 2025-10-15
+PROJ-102     | 3h         | 2025-10-16
+PROJ-103     | 8h         | 2025-10-22
+PROJ-103     | 2h         | 2025-10-23
 ```
 
 ### Formato em Inglês (Jira Export)
 ```
-Issue    | Author         | Time spent | Created date (worklog)
-DM-2018  | Paulo Anjos    | 1h        | 29/10/2025 19:35
-DM-2018  | Paulo Anjos    | 2h        | 30/10/2025 10:15
-DM-2019  | Maria Santos   | 3h 30m    | 29/10/2025 14:20
-DM-2020  | João Silva     | 4h        | 30/10/2025 09:00
+Issue    | Time spent | Created date (worklog)
+DM-2018  | 1h        | 29/10/2025 19:35
+DM-2018  | 2h        | 30/10/2025 10:15
+DM-2019  | 3h 30m    | 29/10/2025 14:20
+DM-2020  | 4h        | 30/10/2025 09:00
 ```
 
 ## 🎯 Exemplo Prático
@@ -56,16 +55,16 @@ PROJ-103 | Testes          | 10h        | 10h         | Sprint 4 | Pedro Alves
 
 #### Worklog.xlsx
 ```
-ID da tarefa | Responsável    | Tempo gasto | Data
-PROJ-101     | João Silva     | 2h         | 2025-10-15  ← Sprint 3
-PROJ-101     | João Silva     | 3h         | 2025-10-16  ← Sprint 3
-PROJ-101     | João Silva     | 5h         | 2025-10-22  ← Sprint 4 ✓
-PROJ-101     | João Silva     | 5h         | 2025-10-23  ← Sprint 4 ✓
-PROJ-102     | Maria Santos   | 3h         | 2025-10-16  ← Sprint 3
-PROJ-102     | Maria Santos   | 4h         | 2025-10-22  ← Sprint 4 ✓
-PROJ-102     | Maria Santos   | 3h         | 2025-10-23  ← Sprint 4 ✓
-PROJ-103     | Pedro Alves    | 8h         | 2025-10-22  ← Sprint 4 ✓
-PROJ-103     | Pedro Alves    | 2h         | 2025-10-23  ← Sprint 4 ✓
+ID da tarefa | Tempo gasto | Data
+PROJ-101     | 2h         | 2025-10-15  ← Sprint 3
+PROJ-101     | 3h         | 2025-10-16  ← Sprint 3
+PROJ-101     | 5h         | 2025-10-22  ← Sprint 4 ✓
+PROJ-101     | 5h         | 2025-10-23  ← Sprint 4 ✓
+PROJ-102     | 3h         | 2025-10-16  ← Sprint 3
+PROJ-102     | 4h         | 2025-10-22  ← Sprint 4 ✓
+PROJ-102     | 3h         | 2025-10-23  ← Sprint 4 ✓
+PROJ-103     | 8h         | 2025-10-22  ← Sprint 4 ✓
+PROJ-103     | 2h         | 2025-10-23  ← Sprint 4 ✓
 ```
 
 ### Resultado da Análise
@@ -100,7 +99,6 @@ PROJ-103     | Pedro Alves    | 2h         | 2025-10-23  ← Sprint 4 ✓
 3. Selecione o período desejado
 4. Configure as colunas:
    - Issue Key (ID da tarefa)
-   - Author (Responsável)
    - Time Spent (Tempo gasto)
    - Log Date (Data)
 5. Exporte para Excel
@@ -158,7 +156,6 @@ Antes de fazer upload, verifique:
 
 - [ ] Todas as colunas obrigatórias estão presentes
 - [ ] IDs das tarefas correspondem ao arquivo de layout
-- [ ] Nomes dos responsáveis estão corretos
 - [ ] Datas estão em formato válido
 - [ ] Não há linhas vazias no meio dos dados
 - [ ] A primeira linha é o cabeçalho
@@ -185,9 +182,6 @@ Antes de fazer upload, verifique:
 **Causa**: Formato de tempo não reconhecido
 **Solução**: Use formatos simples como "2h" ou "120m"
 
-### Erro: "Responsável não encontrado"
-**Causa**: Nome do dev difere entre layout e worklog
-**Solução**: Padronize os nomes (ex: sempre "João Silva", não "João")
 
 ## 📊 Exemplo Completo
 

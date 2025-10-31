@@ -106,10 +106,18 @@ function parseSprintsData(rows: SprintsRow[]): SprintMetadata[] {
         continue;
       }
 
+      // Parse start date at beginning of day (00:00:00)
+      const dataInicio = parseDate(dataInicioRaw);
+      dataInicio.setHours(0, 0, 0, 0);
+      
+      // Parse end date at end of day (23:59:59.999) to include the entire last day
+      const dataFim = parseDate(dataFimRaw);
+      dataFim.setHours(23, 59, 59, 999);
+
       const sprintMetadata: SprintMetadata = {
         sprint: sprint.trim(),
-        dataInicio: parseDate(dataInicioRaw),
-        dataFim: parseDate(dataFimRaw),
+        dataInicio,
+        dataFim,
       };
 
       sprints.push(sprintMetadata);

@@ -15,7 +15,6 @@ interface WorklogRow {
 // Column mappings for different encodings
 const WORKLOG_COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'ID da tarefa': ['ID da tarefa', 'Task ID', 'Chave', 'Chave da item', 'Issue Key', 'Issue'],
-  'Responsável': ['Responsável', 'ResponsÃ¡vel', 'Responsavel', 'Author', 'Developer'],
   'Tempo gasto': ['Tempo gasto', 'Time Spent', 'Time spent', 'Hours', 'Horas', 'Duration'],
   'Data': ['Data', 'Date', 'Data de registro', 'Log Date', 'Started', 'Created date (worklog)', 'Created date'],
 };
@@ -105,18 +104,17 @@ function parseWorklogData(rows: WorklogRow[]): WorklogEntry[] {
   for (const row of rows) {
     try {
       const taskId = getWorklogColumnValue(row, 'ID da tarefa');
-      const responsavel = getWorklogColumnValue(row, 'Responsável');
       const tempoGastoRaw = getRawWorklogColumnValue(row, 'Tempo gasto');
       const dataRaw = getWorklogColumnValue(row, 'Data');
       
       // Skip empty rows
-      if (!taskId || !responsavel) {
+      if (!taskId) {
         continue;
       }
 
       const worklog: WorklogEntry = {
         taskId: taskId.trim(),
-        responsavel: responsavel.trim(),
+        responsavel: '', // Campo mantido para compatibilidade, mas não é mais obrigatório
         tempoGasto: parseTimeToHours(tempoGastoRaw),
         data: parseDate(dataRaw),
       };
@@ -154,23 +152,40 @@ export function validateWorklogStructure(file: File): Promise<boolean> {
         const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
         range.e.r = 0; // Limit to first row
         
-        const headers = XLSX.utils.sheet_to_json<any>(worksheet, {
+        const headersRaw = XLSX.utils.sheet_to_json<any>(worksheet, {
           range: 0,
           header: 1,
         })[0] || [];
+        
+        // Normalize headers: trim whitespace and convert to array if needed
+        const headers = Array.isArray(headersRaw) 
+          ? headersRaw.map((h: any) => String(h || '').trim())
+          : Object.values(headersRaw).map((h: any) => String(h || '').trim());
 
-        const requiredColumns = [
-          'ID da tarefa',
-          'Responsável',
-          'Tempo gasto',
-          'Data',
-        ];
+      const requiredColumns = [
+        'ID da tarefa',
+        'Tempo gasto',
+        'Data',
+      ];
 
         // Check if all required columns are present
+        // Compare ignoring case and whitespace
         const hasAllRequired = requiredColumns.every((columnName) => {
           const variations = WORKLOG_COLUMN_MAPPINGS[columnName] || [columnName];
-          return variations.some((variation) => headers.includes(variation));
+          return variations.some((variation) => 
+            headers.some((header: string) => {
+              const normalizedHeader = header.toLowerCase().trim();
+              const normalizedVariation = variation.toLowerCase().trim();
+              return normalizedHeader === normalizedVariation;
+            })
+          );
         });
+        
+        // Debug: log if validation fails
+        if (!hasAllRequired) {
+          console.log('Headers encontrados:', headers);
+          console.log('Colunas obrigatórias:', requiredColumns);
+        }
         
         resolve(hasAllRequired);
       } catch (error) {

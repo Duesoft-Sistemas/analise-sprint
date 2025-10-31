@@ -164,13 +164,17 @@ Equipe subestima em 30%:
 
 #### Fórmula (Atual)
 ```
-40% Qualidade (Nota de Teste × 20) + 35% Eficiência + 25% Conclusão
+Base Score = 50% Qualidade (Nota de Teste × 20) + 50% Eficiência de Execução
+Performance Score = Base Score (0-100) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15)
+Score Máximo: 125
 ```
 
 **Por que esta fórmula?**
-- **40% Qualidade via Nota de Teste:** Foca no resultado testado de cada tarefa
-- **35% Eficiência:** Execução dentro do estimado (com limites por complexidade)
-- **25% Conclusão:** Importante finalizar o que começou
+- **50% Qualidade via Nota de Teste:** Foca no resultado testado de cada tarefa
+- **50% Eficiência de Execução:** Execução dentro do estimado (com limites por complexidade)
+- **Taxa de Conclusão removida:** Pode ser afetada por interrupções/realocações (não é responsabilidade só do dev). Ainda é exibida como métrica informativa.
+- **Bonus de Complexidade:** Recompensa trabalhar em tarefas complexas (nível 4-5)
+- **Bonus de Senioridade:** Recompensa executar tarefas complexas com alta eficiência - indicador principal de senioridade
 
 **✅ Use para:**
 - Conversas 1:1 de desenvolvimento
