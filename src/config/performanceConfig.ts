@@ -116,6 +116,9 @@ export const MAX_COMPLEXITY_BONUS = 10;
 /** Bonus máximo por executar tarefas complexas com alta eficiência (seniority) */
 export const MAX_SENIORITY_EFFICIENCY_BONUS = 15;
 
+/** Bonus máximo por ajudar outros desenvolvedores (auxílio) */
+export const MAX_AUXILIO_BONUS = 10;
+
 // =============================================================================
 // CLASSIFICAÇÕES DE PERFORMANCE SCORE
 // =============================================================================
@@ -212,21 +215,20 @@ export function checkComplexityZoneEfficiency(
   // IMPORTANTE: Usa apenas horas gastas, não a estimativa original
   // A estimativa não é responsabilidade só do dev, então não deve penalizar por estimativa ruim
   // A estimativa original ainda é usada no cálculo do desvio percentual (fallback)
-  const maxHours = hoursSpent;
   
-  if (maxHours <= zone.maxEfficientHours) {
+  if (hoursSpent <= zone.maxEfficientHours) {
     return {
       type: 'complexity_zone',
-      description: `${maxHours}h gastas para complexidade ${complexity} está dentro da zona eficiente (máx ${zone.maxEfficientHours}h)`,
+      description: `${hoursSpent}h gastas para complexidade ${complexity} está dentro da zona eficiente (máx ${zone.maxEfficientHours}h)`,
       isEfficient: true,
       zone: 'efficient',
       hoursSpent,
       expectedMaxHours: zone.maxEfficientHours,
     };
-  } else if (maxHours <= zone.maxAcceptableHours) {
+  } else if (hoursSpent <= zone.maxAcceptableHours) {
     return {
       type: 'complexity_zone',
-      description: `${maxHours}h gastas para complexidade ${complexity} está na zona aceitável (máx ${zone.maxAcceptableHours}h)`,
+      description: `${hoursSpent}h gastas para complexidade ${complexity} está na zona aceitável (máx ${zone.maxAcceptableHours}h)`,
       isEfficient: false,
       zone: 'acceptable',
       hoursSpent,
@@ -235,7 +237,7 @@ export function checkComplexityZoneEfficiency(
   } else {
     return {
       type: 'complexity_zone',
-      description: `${maxHours}h gastas para complexidade ${complexity} excede o esperado (máx ${zone.maxAcceptableHours}h). Tempo gasto excessivo para a complexidade da tarefa.`,
+      description: `${hoursSpent}h gastas para complexidade ${complexity} excede o esperado (máx ${zone.maxAcceptableHours}h). Tempo gasto excessivo para a complexidade da tarefa.`,
       isEfficient: false,
       zone: 'inefficient',
       hoursSpent,

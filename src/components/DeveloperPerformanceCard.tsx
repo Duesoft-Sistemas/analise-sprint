@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Info,
   Calculator,
+  Calendar,
 } from 'lucide-react';
 import { SprintPerformanceMetrics, PerformanceInsight } from '../types';
 import { formatHours } from '../utils/calculations';
@@ -30,6 +31,7 @@ interface DeveloperPerformanceCardProps {
     totalHoursWorked: number;
     totalHoursEstimated: number;
     performanceScore: number;
+    auxilioBonus?: number;
   };
   sprintHistory?: Array<{
     sprintName: string;
@@ -274,6 +276,24 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
         </div>
       </div>
 
+      {/* Reunioes Hours - Informative Only */}
+      {metrics.reunioesHours > 0 && (
+        <div className="px-5 pb-3">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 text-xs">
+              <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-blue-700 dark:text-blue-300 font-semibold">Reuniões:</span>
+              <span className="text-blue-800 dark:text-blue-200 font-bold">
+                {formatHours(metrics.reunioesHours)}
+              </span>
+              <span className="text-blue-600 dark:text-blue-400 opacity-75">
+                ⓘ Informativo - não impacta o score
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Visual Comparison: Estimated vs Spent */}
       <div className="px-5 pb-3">
         <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -382,8 +402,8 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
             })}
           </div>
 
-          {/* Complexity and Seniority Bonuses */}
-          {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0) && (
+          {/* Complexity, Seniority and Auxilio Bonuses */}
+          {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0) && (
             <div className="space-y-2">
               {metrics.complexityBonus > 0 && (
                 <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-purple-300/50 dark:border-purple-600/50">
@@ -428,6 +448,26 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                     </div>
                     <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                       +{metrics.seniorityEfficiencyBonus}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {metrics.auxilioBonus > 0 && (
+                <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-green-300/50 dark:border-green-600/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🤝</span>
+                      <div>
+                        <div className="text-xs font-semibold text-green-700 dark:text-green-300">
+                          Bonus de Auxílio
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          Ajudou outros desenvolvedores
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      +{metrics.auxilioBonus}
                     </div>
                   </div>
                 </div>
@@ -490,6 +530,27 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                   Média: {teamAverage.performanceScore.toFixed(0)}
                 </div>
               </div>
+
+              {/* Auxilio Bonus Comparison */}
+              {teamAverage.auxilioBonus !== undefined && (
+                <div className="col-span-2 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                  <div className="text-gray-600 dark:text-gray-400 mb-1">Bonus de Auxílio</div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-gray-900 dark:text-white font-medium">Você: </span>
+                      <span className="text-green-600 dark:text-green-400">
+                        +{metrics.auxilioBonus}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Média: </span>
+                      <span className="text-green-600 dark:text-green-400">
+                        +{teamAverage.auxilioBonus.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Variance Comparison */}
               <div className="col-span-2 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">

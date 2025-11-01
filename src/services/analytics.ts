@@ -71,7 +71,7 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
     // HYBRID APPROACH:
     // - For capacity allocation: use estimativaRestante (what's left for THIS sprint)
     // - For time spent in sprint: use tempoGastoNoSprint (time logged in THIS sprint) - ALWAYS from worklog
-    // - For performance analysis: use original estimativa and tempoGastoTotal
+    // Note: This function receives tasks already filtered by sprint (from calculateSprintAnalytics)
     
     // Capacity/Allocation metrics (for "can they finish the sprint?")
     const totalAllocatedHours = devTasks.reduce(
@@ -145,13 +145,35 @@ function calculateDimensionMetrics(
   const map = new Map<string, TaskItem[]>();
 
   for (const task of tasks) {
-    const value = dimension === 'feature' ? task.feature : task.modulo;
-    const key = value || '(Sem ' + (dimension === 'feature' ? 'Feature' : 'Módulo') + ')';
-    
-    if (!map.has(key)) {
-      map.set(key, []);
+    if (dimension === 'feature') {
+      // Features é um array - cada feature deve criar uma entrada separada
+      // Filtrar features vazias e criar entrada para cada feature válida
+      const validFeatures = task.feature.filter(f => f && f.trim() !== '');
+      if (validFeatures.length > 0) {
+        for (const feature of validFeatures) {
+          const key = feature.trim();
+          if (!map.has(key)) {
+            map.set(key, []);
+          }
+          map.get(key)!.push(task);
+        }
+      } else {
+        // Sem features válidas
+        const key = '(Sem Feature)';
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key)!.push(task);
+      }
+    } else {
+      // Módulo continua sendo string
+      const value = task.modulo;
+      const key = value || '(Sem Módulo)';
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(task);
     }
-    map.get(key)!.push(task);
   }
 
   const totalizers: Totalizer[] = [];
@@ -167,13 +189,16 @@ function calculateClientMetrics(tasks: TaskItem[]): Totalizer[] {
   const map = new Map<string, TaskItem[]>();
 
   for (const task of tasks) {
-    const clients = task.categorias.length > 0 ? task.categorias : ['(Sem Cliente)'];
+    // Filtrar categorias vazias e criar entrada para cada categoria válida
+    const validClients = task.categorias.filter(c => c && c.trim() !== '');
+    const clients = validClients.length > 0 ? validClients : ['(Sem Cliente)'];
     
     for (const client of clients) {
-      if (!map.has(client)) {
-        map.set(client, []);
+      const key = client.trim();
+      if (!map.has(key)) {
+        map.set(key, []);
       }
-      map.get(client)!.push(task);
+      map.get(key)!.push(task);
     }
   }
 
@@ -383,12 +408,26 @@ export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAna
   const featureMap = new Map<string, TaskItem[]>();
 
   // Agrupar tarefas por feature
+  // Como features é um array, cada feature deve criar uma entrada separada
+  // Uma tarefa com múltiplas features aparece em múltiplos grupos (correto!)
   for (const task of tasks) {
-    const feature = task.feature || '(Sem Feature)';
-    if (!featureMap.has(feature)) {
-      featureMap.set(feature, []);
+    const validFeatures = task.feature.filter(f => f && f.trim() !== '');
+    if (validFeatures.length > 0) {
+      for (const feature of validFeatures) {
+        const key = feature.trim();
+        if (!featureMap.has(key)) {
+          featureMap.set(key, []);
+        }
+        featureMap.get(key)!.push(task);
+      }
+    } else {
+      // Sem features válidas
+      const key = '(Sem Feature)';
+      if (!featureMap.has(key)) {
+        featureMap.set(key, []);
+      }
+      featureMap.get(key)!.push(task);
     }
-    featureMap.get(feature)!.push(task);
   }
 
   const analyses: ProblemAnalysis[] = [];
@@ -406,8 +445,9 @@ export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAna
     );
     
     // Calcular horas totais (usando tempoGastoTotal de todos os sprints)
+    // This is cross-sprint analysis, so we need total hours across all sprints
     const totalHours = featureTasks.reduce(
-      (sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0),
+      (sum, t) => sum + (t.tempoGastoTotal ?? 0),
       0
     );
 
@@ -438,14 +478,19 @@ export function calculateProblemAnalysisByClient(tasks: TaskItem[]): ProblemAnal
   const clientMap = new Map<string, TaskItem[]>();
 
   // Agrupar tarefas por cliente (categoria)
+  // Como categorias é um array, cada categoria deve criar uma entrada separada
+  // Uma tarefa com múltiplas categorias aparece em múltiplos grupos (correto!)
   for (const task of tasks) {
-    const clients = task.categorias.length > 0 ? task.categorias : ['(Sem Cliente)'];
+    // Filtrar categorias vazias e criar entrada para cada categoria válida
+    const validClients = task.categorias.filter(c => c && c.trim() !== '');
+    const clients = validClients.length > 0 ? validClients : ['(Sem Cliente)'];
     
     for (const client of clients) {
-      if (!clientMap.has(client)) {
-        clientMap.set(client, []);
+      const key = client.trim();
+      if (!clientMap.has(key)) {
+        clientMap.set(key, []);
       }
-      clientMap.get(client)!.push(task);
+      clientMap.get(key)!.push(task);
     }
   }
 
@@ -464,8 +509,9 @@ export function calculateProblemAnalysisByClient(tasks: TaskItem[]): ProblemAnal
     );
     
     // Calcular horas totais (usando tempoGastoTotal de todos os sprints)
+    // This is cross-sprint analysis, so we need total hours across all sprints
     const totalHours = clientTasks.reduce(
-      (sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0),
+      (sum, t) => sum + (t.tempoGastoTotal ?? 0),
       0
     );
 

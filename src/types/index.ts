@@ -13,7 +13,7 @@ export interface TaskItem {
   idResponsavel: string;
   status: string;
   modulo: string;
-  feature: string;
+  feature: string[]; // Array de features - pode haver múltiplas colunas na planilha
   categorias: string[];
   detalhesOcultos: string;
   tipo: 'Bug' | 'Tarefa' | 'História' | 'Outro';
@@ -197,6 +197,7 @@ export interface SprintPerformanceMetrics {
   bugsVsFeatures: number; // ratio bugs/features (informative only)
   testScore?: number; // 0-100 (avgTestNote × 20)
   avgTestNote?: number; // 1-5
+  reunioesHours: number; // hours spent in meetings (informative only - neutral, doesn't affect score)
   
   // Efficiency
   utilizationRate: number; // hours worked / 40h
@@ -210,10 +211,11 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-125 weighted score (base + complexity bonus + seniority bonus)
+  performanceScore: number; // 0-135 weighted score (base + complexity bonus + seniority bonus + auxilio bonus)
   baseScore: number; // 0-100 base score without bonuses
   complexityBonus: number; // 0-10 bonus for working on complex tasks (level 4-5)
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
+  auxilioBonus: number; // 0-10 bonus for helping other developers
   
   // Raw data
   tasks: TaskPerformanceMetrics[];

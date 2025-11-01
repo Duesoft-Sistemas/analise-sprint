@@ -45,9 +45,9 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   
   qualityScore: {
     formula: 'Nota de Teste × 20 (nota 1–5 escalada para 0–100)',
-    description: 'Score de qualidade baseado exclusivamente na Nota de Teste informada em cada tarefa (1–5). Vazio = 5. Representa 50% do Performance Score.',
-    interpretation: 'Quanto maior, melhor a qualidade percebida nos testes. 80+ é excelente, 60-80 é bom, <60 precisa atenção.',
-    example: 'Nota média 4 → 80 de quality score; Nota média 3 → 60',
+    description: 'Score de qualidade baseado exclusivamente na Nota de Teste informada em cada tarefa (1–5). Vazio = 5. Representa 50% do Performance Score. Sistema de "detecção de falhas": nota 5 é o padrão inicial, diminuindo conforme problemas são detectados nos testes.',
+    interpretation: 'Quanto maior, melhor a qualidade percebida nos testes. 100 = Perfeito (todas tarefas nota 5). 80-99 = Excelente (problemas leves aceitáveis). 60-79 = Bom (alguns problemas). <60 = Precisa Atenção (problemas graves).',
+    example: 'Nota média 5.0 → 100 de quality score; Nota média 4.0 → 80; Nota média 3.0 → 60',
   },
   
   utilizationRate: {
@@ -72,10 +72,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas FEATURES com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs NÃO contam para bonus de senioridade. Score máximo: 125. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas FEATURES dentro dos limites de horas esperados - este é o indicador principal de senioridade.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5 🏆⭐',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Auxílio (0-10)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas FEATURES com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs NÃO contam para bonus de senioridade. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=3pts, 8h=6pts, 16h+=10pts). Score máximo: 135. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas FEATURES dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se ajudou 8h: 99.5 + 6 (auxílio) = 105.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -89,6 +89,16 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
+
+// Normalize text: remove accents and convert to lowercase for comparison
+function normalizeForComparison(text: string): string {
+  if (!text) return '';
+  // Remove accents and convert to lowercase
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
 
 // Calculate standard deviation
 function calculateStdDev(values: number[]): number {
@@ -230,14 +240,49 @@ function calculateSeniorityEfficiencyBonus(
   return Math.round(efficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS);
 }
 
+/**
+ * Calculate auxilio bonus for performance score
+ * Rewards developers who help other developers (tarefas de auxílio)
+ * Progressive scale based on hours spent helping
+ */
+function calculateAuxilioBonus(auxilioHours: number): number {
+  if (auxilioHours <= 0) return 0;
+  
+  // Progressive scale: more help = higher bonus per hour
+  if (auxilioHours >= 16) return 10;      // 16h+ = 10 points (maximum)
+  if (auxilioHours >= 12) return 8;       // 12h+ = 8 points  
+  if (auxilioHours >= 8) return 6;        // 8h+ = 6 points
+  if (auxilioHours >= 6) return 4;        // 6h+ = 4 points
+  if (auxilioHours >= 4) return 3;        // 4h+ = 3 points
+  if (auxilioHours >= 2) return 2;        // 2h+ = 2 points
+  return 1;                                // 0.5h+ = 1 point (minimum recognition)
+}
+
+// Helper to identify auxilio tasks (normalized comparison)
+function isAuxilioTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos) return false;
+  return normalizeForComparison(task.detalhesOcultos) === 'auxilio';
+}
+
+// Helper to identify reuniao (meetings) tasks (normalized comparison)
+function isReuniaoTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos) return false;
+  const normalized = normalizeForComparison(task.detalhesOcultos);
+  return normalized === 'reuniao' || normalized === 'reunioes';
+}
+
 // =============================================================================
 // TASK-LEVEL METRICS
 // =============================================================================
 
-// IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoTotal), never from sprint spreadsheet
-export function calculateTaskMetrics(task: TaskItem): TaskPerformanceMetrics {
-  // Use hybrid fields: tempoGastoTotal for complete historical analysis - ALWAYS from worklog
-  const hoursSpent = task.tempoGastoTotal ?? 0;
+// IMPORTANT: Time spent is ALWAYS from worklog, never from sprint spreadsheet
+// For single sprint analysis: use tempoGastoNoSprint (hours from that sprint only)
+// For multi-sprint analysis: use tempoGastoTotal (total hours across all sprints)
+export function calculateTaskMetrics(task: TaskItem, useSprintOnly: boolean = false): TaskPerformanceMetrics {
+  // Use hybrid fields: tempoGastoNoSprint for sprint-specific analysis, tempoGastoTotal for multi-sprint analysis - ALWAYS from worklog
+  // When useSprintOnly is true (single sprint analysis), use only hours from that sprint
+  // When useSprintOnly is false (multi-sprint analysis), use total hours across all sprints
+  const hoursSpent = useSprintOnly ? (task.tempoGastoNoSprint ?? 0) : (task.tempoGastoTotal ?? 0);
   const hoursEstimated = Number(task.estimativa) || 0;
   
   // Estimation accuracy: positive = overestimated, negative = underestimated
@@ -291,16 +336,24 @@ export function calculateSprintPerformance(
     return createEmptySprintMetrics(developerId, developerName, sprintName);
   }
   
-  // Calculate task-level metrics
-  const taskMetrics = devTasks.map(calculateTaskMetrics);
+  // Separate reuniao tasks (meetings) - these are neutral and excluded from performance calculations
+  const reuniaoTasks = devTasks.filter(isReuniaoTask);
+  const reunioesHours = reuniaoTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
-  // Separate completed and all tasks
-  const completedTasks = devTasks.filter(t => isCompletedStatus(t.status));
-  const completedMetrics = completedTasks.map(calculateTaskMetrics);
+  // Work tasks (exclude meetings and auxilio from main calculations)
+  const workTasks = devTasks.filter(t => !isReuniaoTask(t));
   
-  // Productivity metrics - use tempoGastoTotal for complete historical analysis - ALWAYS from worklog
+  // Calculate task-level metrics - use sprint-specific hours for single sprint analysis
+  const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, true));
+  
+  // Separate completed and all tasks (exclude meetings from performance calculations)
+  const completedTasks = workTasks.filter(t => isCompletedStatus(t.status));
+  const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, true));
+  
+  // Productivity metrics - use tempoGastoNoSprint for sprint-specific analysis - ALWAYS from worklog
   // IMPORTANT: For performance calculations, only completed tasks are considered
-  const totalHoursWorked = devTasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? 0), 0);
+  // IMPORTANT: For single sprint analysis, use only hours from that sprint (tempoGastoNoSprint)
+  const totalHoursWorked = devTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   // Total estimated hours for comparison - only from completed tasks (for performance analysis)
   const totalHoursEstimated = completedTasks.reduce((sum, t) => {
     const estimate = Number(t.estimativa) || 0;
@@ -309,7 +362,7 @@ export function calculateSprintPerformance(
   const tasksCompleted = completedTasks.length;
   const tasksStarted = devTasks.length;
   const averageHoursPerTask = tasksCompleted > 0 
-    ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? 0), 0) / tasksCompleted 
+    ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0) / tasksCompleted 
     : 0;
   
   // Accuracy metrics - measures execution efficiency
@@ -371,6 +424,7 @@ export function calculateSprintPerformance(
   const qualityScore = testScore;
   
   // Efficiency metrics
+  // Utilization rate: hours worked in this sprint / 40h (standard work week)
   const utilizationRate = (totalHoursWorked / 40) * 100;
   
   // Completion rate: simple calculation (informative only - not used in scoring)
@@ -378,7 +432,7 @@ export function calculateSprintPerformance(
   const completionRate = tasksStarted > 0 ? (tasksCompleted / tasksStarted) * 100 : 0;
   
   const avgTimeToComplete = tasksCompleted > 0
-    ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? 0), 0) / tasksCompleted
+    ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0) / tasksCompleted
     : 0;
   
   // Consistency score (based on deviation of estimates for completed tasks)
@@ -438,8 +492,13 @@ export function calculateSprintPerformance(
   // Rewards not just taking complex tasks, but executing them well
   const seniorityEfficiencyBonus = calculateSeniorityEfficiencyBonus(completedMetrics);
   
-  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) = max 125
-  const performanceScore = Math.min(125, baseScore + complexityBonus + seniorityEfficiencyBonus);
+  // Auxilio Bonus: 0-10 points based on hours spent helping other developers
+  const auxilioTasks = devTasks.filter(isAuxilioTask);
+  const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
+  const auxilioBonus = calculateAuxilioBonus(auxilioHours);
+  
+  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + auxilio bonus (0-10) = max 135
+  const performanceScore = Math.min(135, baseScore + complexityBonus + seniorityEfficiencyBonus + auxilioBonus);
   
   return {
     developerId,
@@ -459,6 +518,7 @@ export function calculateSprintPerformance(
     qualityScore,
     testScore,
     avgTestNote,
+    reunioesHours,
     utilizationRate,
     completionRate,
     avgTimeToComplete,
@@ -470,6 +530,7 @@ export function calculateSprintPerformance(
     baseScore,
     complexityBonus,
     seniorityEfficiencyBonus,
+    auxilioBonus,
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
     complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
       ? `${tasksImpactedByComplexityZone} tarefa(s) ${tasksImpactedByComplexityZone === 1 ? 'foi' : 'foram'} avaliada(s) pela zona de eficiência por complexidade (horas excessivas para a complexidade)`
@@ -499,6 +560,7 @@ function createEmptySprintMetrics(
     bugRate: 0,
     bugsVsFeatures: 0,
     qualityScore: 100,
+    reunioesHours: 0,
     utilizationRate: 0,
     completionRate: 0,
     avgTimeToComplete: 0,
@@ -510,6 +572,7 @@ function createEmptySprintMetrics(
     baseScore: 0,
     complexityBonus: 0,
     seniorityEfficiencyBonus: 0,
+    auxilioBonus: 0,
     tasks: [],
   };
 }

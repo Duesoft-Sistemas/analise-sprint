@@ -158,7 +158,7 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           <strong>Base Score</strong> = (50% × Qualidade) + (50% × Eficiência)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300">
-                          <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos) + Bonus de Senioridade (0-15 pontos)
+                          <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos) + Bonus de Senioridade (0-15 pontos) + Bonus de Auxílio (0-10 pontos)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
                           💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados).

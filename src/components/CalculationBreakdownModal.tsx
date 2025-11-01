@@ -4,6 +4,15 @@ import { SprintPerformanceMetrics } from '../types';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
+// Normalize text: remove accents and convert to lowercase for comparison
+function normalizeForComparison(text: string): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 interface CalculationBreakdownModalProps {
   metrics: SprintPerformanceMetrics;
   isOpen: boolean;
@@ -59,15 +68,15 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
         {
           label: 'Total de Horas Trabalhadas',
           value: `${formatHours(metrics.totalHoursWorked)}`,
-          formula: 'Soma de tempoGastoTotal de todas as tarefas (incluindo pendentes)',
+          formula: 'Soma de tempoGastoNoSprint de todas as tarefas do sprint selecionado (incluindo pendentes)',
           tasks: metrics.tasks.map(t => ({
             taskKey: t.task.chave || t.task.id,
             taskSummary: t.task.resumo || 'Sem resumo',
             complexity: t.task.complexidade,
             hoursEstimated: t.hoursEstimated,
-            hoursSpent: t.hoursSpent,
+            hoursSpent: t.task.tempoGastoNoSprint ?? 0,
             status: t.task.status,
-            impact: `${formatHours(t.hoursSpent)}`,
+            impact: `${formatHours(t.task.tempoGastoNoSprint ?? 0)}`,
           })),
         },
         {
@@ -289,10 +298,21 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           explanation: `Recompensa executar tarefas complexas (4-5) com alta eficiência dentro dos limites esperados. ${metrics.seniorityEfficiencyBonus === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexas!'}`,
         },
         {
+          label: 'Bonus de Auxílio',
+          value: `+${metrics.auxilioBonus}`,
+          formula: (() => {
+            const auxilioTasks = metrics.tasks.filter(t => normalizeForComparison(t.task.detalhesOcultos || '') === 'auxilio');
+            if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
+            const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
+            return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
+          })(),
+          explanation: `Recompensa ajudar outros desenvolvedores com tarefas de auxílio (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva: 2h=2pts, 4h=3pts, 6h=4pts, 8h=6pts, 12h=8pts, 16h+=10pts. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
+        },
+        {
           label: 'Score Final',
           value: `${metrics.performanceScore.toFixed(1)}`,
-          formula: `Score Base + Bonus Complexidade + Bonus Senioridade = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus}`,
-          explanation: `Score máximo: 125 (100 base + 10 complexidade + 15 senioridade)`,
+          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Auxílio = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.auxilioBonus}`,
+          explanation: `Score máximo: 135 (100 base + 10 complexidade + 15 senioridade + 10 auxílio)`,
         },
       ],
     });

@@ -4,7 +4,6 @@ import {
   parseTimeToHours,
   determineTaskType,
   parseDate,
-  parseCategories,
 } from '../utils/calculations';
 
 export interface ParseResult {
@@ -169,13 +168,49 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Converter para JSON
+        // Ler primeiro para obter os cabeçalhos completos (incluindo duplicatas)
+        // Usar header: 1 para obter arrays e poder identificar posições das colunas
+        const rawData = XLSX.utils.sheet_to_json<any>(worksheet, {
+          header: 1,
+          defval: '',
+        }) as any[][];
+
+        if (rawData.length === 0) {
+          resolve({ success: true, data: [] });
+          return;
+        }
+
+        // Primeira linha são os cabeçalhos
+        const headers = rawData[0] as string[];
+        
+        // Encontrar todas as colunas que correspondem a Feature e Categorias
+        const featureColumnIndices: number[] = [];
+        const categoriasColumnIndices: number[] = [];
+        
+        headers.forEach((header, index) => {
+          const headerStr = String(header || '').trim();
+          const normalizedHeader = normalizeText(headerStr).toLowerCase();
+          
+          // Verificar se é uma coluna de Feature - usar contains para pegar variações
+          if (normalizedHeader.includes('feature')) {
+            featureColumnIndices.push(index);
+          }
+          
+          // Verificar se é uma coluna de Categorias - usar contains para pegar variações
+          if (normalizedHeader.includes('categoria')) {
+            categoriasColumnIndices.push(index);
+          }
+        });
+
+        // Converter para formato com objetos (para compatibilidade com código existente)
+        // Mas processar manualmente features e categorias para capturar todas as colunas
         const jsonData = XLSX.utils.sheet_to_json<XlsRow>(worksheet, {
           raw: false,
           defval: '',
         });
 
-        const tasks = parseXlsData(jsonData);
+        // Processar dados linha por linha para capturar todas as colunas de features e categorias
+        const tasks = parseXlsDataWithMultipleColumns(jsonData, rawData, headers, featureColumnIndices, categoriasColumnIndices);
         resolve({ success: true, data: tasks });
       } catch (error) {
         resolve({
@@ -196,38 +231,120 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
   });
 }
 
-function parseXlsData(rows: XlsRow[]): TaskItem[] {
+/**
+ * Busca valores de múltiplas colunas que correspondem a um padrão
+ * Útil para colunas que podem se repetir (ex: múltiplas colunas de Feature ou Categorias)
+ */
+function getMultipleColumnValues(row: XlsRow, patternVariations: string[]): string[] {
+  const values: string[] = [];
+  const foundKeys = new Set<string>();
+  
+  // Percorrer todas as chaves do row
+  for (const key of Object.keys(row)) {
+    const normalizedKey = normalizeText(key);
+    
+    // Verificar se a chave corresponde a alguma variação do padrão
+    for (const variation of patternVariations) {
+      const normalizedVariation = normalizeText(variation);
+      
+      // Verificar se a chave contém a variação (permitindo variações como "Feature", "feature", etc.)
+      if (normalizedKey.toLowerCase().includes(normalizedVariation.toLowerCase())) {
+        // Evitar duplicatas
+        if (!foundKeys.has(key)) {
+          const value = normalizeText(String(row[key] || ''));
+          if (value && value.trim() !== '') {
+            values.push(value.trim());
+            foundKeys.add(key);
+          }
+        }
+      }
+    }
+  }
+  
+  return values;
+}
+
+/**
+ * Processa dados Excel capturando todas as colunas de Features e Categorias,
+ * mesmo quando há colunas duplicadas com o mesmo nome
+ */
+function parseXlsDataWithMultipleColumns(
+  jsonData: XlsRow[],
+  rawData: any[][],
+  headers: string[],
+  featureColumnIndices: number[],
+  categoriasColumnIndices: number[]
+): TaskItem[] {
   const tasks: TaskItem[] = [];
 
-  for (const row of rows) {
+  // Processar cada linha de dados (pular a primeira que são os cabeçalhos)
+  for (let rowIndex = 1; rowIndex < rawData.length; rowIndex++) {
     try {
+      const rawRow = rawData[rowIndex];
+      const jsonRow = jsonData[rowIndex - 1]; // jsonData não inclui a linha de cabeçalho
+      
+      if (!jsonRow) continue;
+
       // Obter valores das colunas (tentando diferentes variações de encoding)
-      const chave = getColumnValue(row, 'Chave da item');
-      const id = getColumnValue(row, 'ID da item');
+      const chave = getColumnValue(jsonRow, 'Chave da item');
+      const id = getColumnValue(jsonRow, 'ID da item');
       
       // Pular linhas vazias
       if (!chave && !id) {
         continue;
       }
 
-      const resumo = normalizeText(getColumnValue(row, 'Resumo'));
-      const tempoGasto = getRawColumnValue(row, 'Tempo gasto'); // Manter como número se for segundos
-      const sprint = normalizeText(getColumnValue(row, 'Sprint'));
-      const criado = getColumnValue(row, 'Criado');
-      const estimativa = getRawColumnValue(row, 'Estimativa original'); // Manter como número se for segundos
-      const responsavel = normalizeText(getColumnValue(row, 'Responsável'));
-      const idResponsavel = getColumnValue(row, 'ID do responsável');
-      const status = normalizeText(getColumnValue(row, 'Status'));
-      const modulo = normalizeText(getColumnValue(row, 'Campo personalizado (Modulo)'));
-      const feature = normalizeText(getColumnValue(row, 'Campo personalizado (Feature)'));
-      const categorias = normalizeText(getColumnValue(row, 'Categorias'));
-      const detalhesOcultos = normalizeText(getColumnValue(row, 'Campo personalizado (Detalhes Ocultos)'));
-      const complexidadeRaw = getRawColumnValue(row, 'Campo personalizado (Complexidade)');
-      const notaTesteRaw = getRawColumnValue(row, 'Campo personalizado (Nota Teste)');
-      const qualidadeChamado = normalizeText(getColumnValue(row, 'Campo personalizado (Qualidade do Chamado)'));
+      const resumo = normalizeText(getColumnValue(jsonRow, 'Resumo'));
+      const tempoGasto = getRawColumnValue(jsonRow, 'Tempo gasto'); // Manter como número se for segundos
+      const sprint = normalizeText(getColumnValue(jsonRow, 'Sprint'));
+      const criado = getColumnValue(jsonRow, 'Criado');
+      const estimativa = getRawColumnValue(jsonRow, 'Estimativa original'); // Manter como número se for segundos
+      const responsavel = normalizeText(getColumnValue(jsonRow, 'Responsável'));
+      const idResponsavel = getColumnValue(jsonRow, 'ID do responsável');
+      const status = normalizeText(getColumnValue(jsonRow, 'Status'));
+      const modulo = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Modulo)'));
+      
+      // Ler múltiplas colunas de Feature diretamente dos índices
+      // Isso captura TODAS as colunas, mesmo que tenham o mesmo nome
+      const featuresSet = new Set<string>();
+      featureColumnIndices.forEach(colIndex => {
+        if (rawRow && rawRow[colIndex] !== undefined && rawRow[colIndex] !== null) {
+          const value = rawRow[colIndex];
+          const valueStr = String(value).trim();
+          if (valueStr !== '' && valueStr !== 'undefined' && valueStr !== 'null') {
+            const normalizedValue = normalizeText(valueStr);
+            if (normalizedValue && normalizedValue.trim() !== '') {
+              featuresSet.add(normalizedValue.trim());
+            }
+          }
+        }
+      });
+      const features = Array.from(featuresSet);
+      
+      // Ler múltiplas colunas de Categorias diretamente dos índices
+      // Isso captura TODAS as colunas, mesmo que tenham o mesmo nome
+      const categoriasSet = new Set<string>();
+      categoriasColumnIndices.forEach(colIndex => {
+        if (rawRow && rawRow[colIndex] !== undefined && rawRow[colIndex] !== null) {
+          const value = rawRow[colIndex];
+          const valueStr = String(value).trim();
+          if (valueStr !== '' && valueStr !== 'undefined' && valueStr !== 'null') {
+            const normalizedValue = normalizeText(valueStr);
+            if (normalizedValue && normalizedValue.trim() !== '') {
+              categoriasSet.add(normalizedValue.trim());
+            }
+          }
+        }
+      });
+      const categorias = Array.from(categoriasSet);
+      
+      const detalhesOcultos = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Detalhes Ocultos)'));
+      const complexidadeRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Complexidade)');
+      const notaTesteRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Nota Teste)');
+      const qualidadeChamado = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Qualidade do Chamado)'));
       
       // Ler o tipo diretamente da coluna, se existir
-      const tipoRaw = getColumnValue(row, 'Tipo de item');
+      const tipoRaw = getColumnValue(jsonRow, 'Tipo de item');
       let tipo: 'Bug' | 'Tarefa' | 'História' | 'Outro';
       
       if (tipoRaw) {
@@ -250,8 +367,8 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
         idResponsavel,
         status,
         modulo,
-        feature,
-        categorias: parseCategories(categorias),
+        feature: features,
+        categorias: categorias,
         detalhesOcultos,
         tipo,
         complexidade: parseComplexidade(complexidadeRaw),
@@ -261,7 +378,7 @@ function parseXlsData(rows: XlsRow[]): TaskItem[] {
 
       tasks.push(task);
     } catch (error) {
-      console.warn('Erro ao processar linha:', row, error);
+      console.warn('Erro ao processar linha:', rowIndex, error);
       // Continuar processando outras linhas
     }
   }

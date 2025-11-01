@@ -795,7 +795,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
 
     if (taskFilters.feature) {
-      filtered = filtered.filter((t) => t.feature === taskFilters.feature);
+      filtered = filtered.filter((t) => t.feature.includes(taskFilters.feature!));
     }
 
     if (taskFilters.modulo) {

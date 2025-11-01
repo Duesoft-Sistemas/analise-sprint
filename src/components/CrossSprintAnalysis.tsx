@@ -102,9 +102,9 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         const sprintsData = Array.from(sprints.entries()).map(
           ([sprintName, tasks]) => ({
             sprintName,
-            // No multi-sprint, usar tempoGastoTotal (tempo total) ao invés de tempoGastoNoSprint
-            // tempoGastoNoSprint só funciona para o sprint atual/selecionado
-            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoTotal ?? t.tempoGastoNoSprint ?? 0), 0),
+            // When showing allocation per sprint, use tempoGastoNoSprint (hours in that specific sprint)
+            // Each sprint is analyzed separately, so we need sprint-specific hours
+            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
             estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
           })
         );
@@ -118,15 +118,19 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     );
 
     // Client allocation - apenas sprints selecionados
+    // Como categorias é um array, cada categoria deve criar uma entrada separada
     const clientSprintMap = new Map<string, Map<string, TaskItemType[]>>();
     for (const task of tasksWithSprint) {
-      const clients = task.categorias.length > 0 ? task.categorias : ['(Sem Cliente)'];
+      // Filtrar categorias vazias e criar entrada para cada categoria válida
+      const validClients = task.categorias.filter(c => c && c.trim() !== '');
+      const clients = validClients.length > 0 ? validClients : ['(Sem Cliente)'];
       
       for (const client of clients) {
-        if (!clientSprintMap.has(client)) {
-          clientSprintMap.set(client, new Map());
+        const key = client.trim();
+        if (!clientSprintMap.has(key)) {
+          clientSprintMap.set(key, new Map());
         }
-        const clientSprints = clientSprintMap.get(client)!;
+        const clientSprints = clientSprintMap.get(key)!;
         
         if (!clientSprints.has(task.sprint)) {
           clientSprints.set(task.sprint, []);
@@ -483,7 +487,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             filteredAnalytics.byFeature
               .slice(0, topFeatureLimit ?? undefined)
               .map((feature, index) => {
-                const totalProblems = feature.realBugs + feature.dubidasOcultas;
                 return (
               <div 
                 key={feature.label} 

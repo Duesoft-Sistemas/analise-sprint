@@ -77,7 +77,9 @@ export interface DeveloperDetailedAnalytics {
 
 function calculateTaskAccuracyRate(task: TaskItem): number {
   const estimated = task.estimativa;
-  const spent = task.tempoGastoNoSprint ?? task.tempoGastoTotal ?? 0;
+  // For detailed analytics (all sprints analysis), use tempoGastoTotal (total historical hours)
+  // This function analyzes all developer tasks across all sprints, so we need total hours
+  const spent = task.tempoGastoTotal ?? 0;
   
   if (estimated === 0) return 0;
   const accuracy = ((estimated - spent) / estimated) * 100;
@@ -107,20 +109,37 @@ function calculateFeatureModulePerformance(
   const grouped = new Map<string, TaskItem[]>();
   
   tasks.forEach(task => {
-    const key = groupBy === 'feature' ? task.feature : task.modulo;
-    if (!key || key.trim() === '') return;
-    
-    if (!grouped.has(key)) {
-      grouped.set(key, []);
+    if (groupBy === 'feature') {
+      // Features é um array - cada feature deve criar uma entrada separada
+      if (task.feature.length > 0) {
+        for (const feature of task.feature) {
+          if (feature && feature.trim() !== '') {
+            const key = feature.trim();
+            if (!grouped.has(key)) {
+              grouped.set(key, []);
+            }
+            grouped.get(key)!.push(task);
+          }
+        }
+      }
+    } else {
+      // Módulo continua sendo string
+      const key = task.modulo;
+      if (!key || key.trim() === '') return;
+      
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(task);
     }
-    grouped.get(key)!.push(task);
   });
   
   const results: FeatureModulePerformance[] = [];
   
   grouped.forEach((taskList, key) => {
+    // For detailed analytics (all sprints analysis), use tempoGastoTotal (total historical hours)
     const totalHoursWorked = taskList.reduce((sum, t) => 
-      sum + (t.tempoGastoNoSprint ?? t.tempoGastoTotal ?? 0), 0
+      sum + (t.tempoGastoTotal ?? 0), 0
     );
     const totalHoursEstimated = taskList.reduce((sum, t) => 
       sum + (t.estimativaRestante ?? t.estimativa), 0
@@ -191,8 +210,9 @@ function calculateComplexityDetailedAnalysis(
       return;
     }
     
+    // For complexity analysis (all sprints), use tempoGastoTotal (total historical hours)
     const totalHoursWorked = taskList.reduce((sum, t) => 
-      sum + (t.tempoGastoNoSprint ?? t.tempoGastoTotal ?? 0), 0
+      sum + (t.tempoGastoTotal ?? 0), 0
     );
     const totalHoursEstimated = taskList.reduce((sum, t) => 
       sum + (t.estimativaRestante ?? t.estimativa), 0
@@ -258,8 +278,10 @@ function calculateWorkloadCapacityAnalysis(
   const sprintPerformanceScores: Map<string, number> = new Map();
   
   sprintGroups.forEach((taskList, sprintName) => {
+    // For workload analysis per sprint, use tempoGastoNoSprint (hours in that specific sprint)
+    // This is correct because we're grouping by sprint and analyzing each sprint separately
     const hoursWorked = taskList.reduce((sum, t) => 
-      sum + (t.tempoGastoNoSprint ?? t.tempoGastoTotal ?? 0), 0
+      sum + (t.tempoGastoNoSprint ?? 0), 0
     );
     const hoursEstimated = taskList.reduce((sum, t) => 
       sum + (t.estimativaRestante ?? t.estimativa), 0

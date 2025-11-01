@@ -36,7 +36,7 @@ export const TaskList: React.FC = () => {
       filtered = filtered.filter((t) => t.responsavel === taskFilters.responsavel);
     }
     if (taskFilters.feature) {
-      filtered = filtered.filter((t) => t.feature === taskFilters.feature);
+      filtered = filtered.filter((t) => t.feature.includes(taskFilters.feature!));
     }
     if (taskFilters.modulo) {
       filtered = filtered.filter((t) => t.modulo === taskFilters.modulo);
@@ -70,7 +70,7 @@ export const TaskList: React.FC = () => {
 
     // Apply additional filters
     if (filterFeature) {
-      result = result.filter((t) => t.feature === filterFeature);
+      result = result.filter((t) => t.feature.includes(filterFeature));
     }
     if (filterModule) {
       result = result.filter((t) => t.modulo === filterModule);
@@ -90,7 +90,15 @@ export const TaskList: React.FC = () => {
 
   // Get unique values for filters - BASED ON CURRENT SPRINT TASKS
   const uniqueFeatures = useMemo(() => {
-    const features = new Set(baseFilteredTasks.filter((t) => t.feature).map((t) => t.feature));
+    const features = new Set<string>();
+    baseFilteredTasks.forEach((t) => {
+      // Features é um array - adicionar cada feature ao Set
+      t.feature.forEach(f => {
+        if (f && f.trim() !== '') {
+          features.add(f.trim());
+        }
+      });
+    });
     return Array.from(features).sort();
   }, [baseFilteredTasks]);
 

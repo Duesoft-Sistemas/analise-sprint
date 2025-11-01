@@ -17,6 +17,7 @@ import {
   PERFORMANCE_SCORE_WEIGHTS,
   MAX_COMPLEXITY_BONUS,
   MAX_SENIORITY_EFFICIENCY_BONUS,
+  MAX_AUXILIO_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
 } from '../config/performanceConfig';
 
@@ -274,6 +275,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         <p className="text-sm text-indigo-800 dark:text-indigo-200">
                           <Info className="w-4 h-4 inline mr-1" />
                           <strong>Bonus de Senioridade:</strong> até +{MAX_SENIORITY_EFFICIENCY_BONUS} pontos por executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados)
+                        </p>
+                      </div>
+                      <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <p className="text-sm text-green-800 dark:text-green-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          <strong>Bonus de Auxílio:</strong> até +{MAX_AUXILIO_BONUS} pontos por ajudar outros desenvolvedores (escala progressiva)
                         </p>
                       </div>
                     </div>

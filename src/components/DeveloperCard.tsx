@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
+import { User, TrendingUp, AlertTriangle } from 'lucide-react';
 import { DeveloperMetrics } from '../types';
 import { formatHours } from '../utils/calculations';
 import { useSprintStore } from '../store/useSprintStore';
@@ -44,11 +44,6 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
   };
 
   const colors = riskColors[developer.riskLevel];
-
-  const variance = developer.totalSpentHours - developer.estimatedHours;
-  const variancePercent = developer.estimatedHours > 0
-    ? Math.round((variance / developer.estimatedHours) * 100)
-    : 0;
 
   // Calcular distribuição por complexidade
   const complexityDistribution = [1, 2, 3, 4, 5].map(level => ({
@@ -112,26 +107,13 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         </p>
       </div>
 
-      {/* Metrics */}
+      {/* Sprint Current Status */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-            <Clock className="w-3 h-3" />
-            <span>Estimado (original)</span>
-            <span className="text-[9px] opacity-60" title="Soma das estimativas originais de todas as tarefas do desenvolvedor, usada para análise de performance">
-              ⓘ
-            </span>
-          </div>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
-            {formatHours(developer.estimatedHours)}
-          </span>
-        </div>
-
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <TrendingUp className="w-3 h-3" />
             <span>Gasto</span>
-            <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs. Não inclui tempo de sprints anteriores">
+            <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs">
               ⓘ
             </span>
           </div>
@@ -140,23 +122,27 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
           </span>
         </div>
 
-        {variance !== 0 && (
-          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-600 dark:text-gray-400">Variação</span>
-              <span className="text-[9px] opacity-60" title="Diferença entre o tempo gasto e a estimativa original. Positivo = gastou mais que o estimado, Negativo = gastou menos que o estimado">
-                ⓘ
-              </span>
-            </div>
-            <span
-              className={`text-sm font-bold ${
-                variance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-              }`}
-            >
-              {variance > 0 ? '+' : ''}
-              {formatHours(Math.abs(variance))} ({variancePercent > 0 ? '+' : ''}
-              {variancePercent}%)
+        {/* Sprint Balance - most important metric for planning */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Saldo do sprint</span>
+            <span className="text-[9px] opacity-60" title="Status atual: se já gastou tudo ou falta trabalhar. Negativo = ultrapassou alocação, Positivo = ainda falta trabalhar">
+              ⓘ
             </span>
+          </div>
+          <span className={`text-sm font-bold ${
+            developer.totalAllocatedHours - developer.totalSpentHours > 0
+              ? 'text-gray-700 dark:text-gray-300'
+              : 'text-red-600 dark:text-red-400'
+          }`}>
+            {formatHours(developer.totalAllocatedHours - developer.totalSpentHours)}
+          </span>
+        </div>
+
+        {/* Show worklog context if tasks from previous sprints */}
+        {developer.tasks.some(t => t.tempoGastoOutrosSprints !== undefined && t.tempoGastoOutrosSprints > 0) && (
+          <div className="mt-2 text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
+            ℹ️ Algumas tarefas já tinham trabalho em sprints anteriores (isso está sendo considerado no cálculo de alocação)
           </div>
         )}
       </div>
@@ -166,7 +152,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
-            <span className="text-[9px] opacity-60" title="Capacidade restante da semana (40h). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa, garantindo que tarefas que ultrapassaram a estimativa consumam o tempo real gasto">
+            <span className="text-[9px] opacity-60" title="Capacidade restante da semana (40h). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa">
               ⓘ
             </span>
           </div>
@@ -174,30 +160,6 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
             {formatHours(developer.totalAvailableHours)}
           </span>
         </div>
-
-        {/* Sprint Balance */}
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Saldo do sprint</span>
-            <span className="text-[9px] opacity-60" title="Diferença entre o alocado no sprint (estimativa restante) e o tempo gasto neste sprint. Positivo = ainda falta trabalho, Negativo = já gastou mais que o alocado">
-              ⓘ
-            </span>
-          </div>
-          <span className={`text-sm font-medium ${
-            developer.totalAllocatedHours - developer.totalSpentHours > 0
-              ? 'text-gray-900 dark:text-white'
-              : 'text-green-700 dark:text-green-400'
-          }`}>
-            {formatHours(developer.totalAllocatedHours - developer.totalSpentHours)}
-          </span>
-        </div>
-        
-        {/* Show worklog details if available */}
-        {developer.tasks.some(t => t.tempoGastoOutrosSprints !== undefined && t.tempoGastoOutrosSprints > 0) && (
-          <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
-            ℹ️ Algumas tarefas tiveram tempo gasto em sprints anteriores
-          </div>
-        )}
       </div>
 
       {/* Complexity Distribution */}

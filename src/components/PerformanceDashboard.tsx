@@ -129,6 +129,7 @@ export const PerformanceDashboard: React.FC = () => {
             bugRate: customMetrics.avgBugRate,
             bugsVsFeatures,
             qualityScore: customMetrics.avgQualityScore,
+            reunioesHours: 0,
             utilizationRate: customMetrics.utilizationRate,
             completionRate: customMetrics.completionRate,
             avgTimeToComplete: customMetrics.avgTimeToComplete,
@@ -142,6 +143,7 @@ export const PerformanceDashboard: React.FC = () => {
             baseScore: customMetrics.avgPerformanceScore,
             complexityBonus: 0,
             seniorityEfficiencyBonus: 0,
+            auxilioBonus: 0,
             tasks: [],
           };
           
@@ -278,6 +280,7 @@ export const PerformanceDashboard: React.FC = () => {
         avgUtilization: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
         totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
         totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
+        avgAuxilioBonus: sprintMetrics.reduce((sum, m) => sum + m.auxilioBonus, 0) / sprintMetrics.length,
       };
     }
   }, [sortedMetrics, viewMode]);
@@ -533,6 +536,7 @@ export const PerformanceDashboard: React.FC = () => {
                 bugRate: allSprintsMetrics.avgBugRate,
                 bugsVsFeatures: 0,
                 qualityScore: allSprintsMetrics.avgQualityScore,
+                reunioesHours: 0,
                 utilizationRate: allSprintsMetrics.utilizationRate,
                 completionRate: allSprintsMetrics.completionRate,
                 avgTimeToComplete: allSprintsMetrics.avgTimeToComplete,
@@ -545,7 +549,8 @@ export const PerformanceDashboard: React.FC = () => {
                 performanceScore: allSprintsMetrics.avgPerformanceScore,
                 baseScore: allSprintsMetrics.avgPerformanceScore,
                 complexityBonus: 0,
-            seniorityEfficiencyBonus: 0,
+                seniorityEfficiencyBonus: 0,
+                auxilioBonus: 0,
                 tasks: [],
               };
             }
@@ -570,6 +575,7 @@ export const PerformanceDashboard: React.FC = () => {
                           totalHoursWorked: summaryStats.totalHoursWorked || 0,
                           totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
                           performanceScore: summaryStats.avgPerformanceScore,
+                          auxilioBonus: summaryStats.avgAuxilioBonus || 0,
                         }
                       : undefined
                   }
