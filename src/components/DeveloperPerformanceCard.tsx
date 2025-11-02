@@ -6,7 +6,6 @@ import {
   Minus,
   Award,
   Target,
-  Zap,
   AlertTriangle,
   CheckCircle,
   ChevronDown,
@@ -188,7 +187,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
       </div>
 
       {/* Main Metrics Grid */}
-      <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
         {/* Execution Efficiency (formerly Accuracy) */}
         <div className="space-y-1 relative">
           <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
@@ -224,9 +223,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               </>
             )}
           </div>
-          <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1">
-            {formatHours(metrics.totalHoursEstimated)} est. | {formatHours(metrics.totalHoursWorked)} gasto
-          </div>
           {metrics.tasksImpactedByComplexityZone && metrics.tasksImpactedByComplexityZone > 0 && (
             <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-[10px] text-yellow-800 dark:text-yellow-200">
               <Info className="w-3 h-3 inline mr-1" />
@@ -248,21 +244,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
             {metrics.avgTestNote !== undefined
               ? <>Nota média {metrics.avgTestNote.toFixed(1)}/5</>
               : <>Nota média 5/5</>}
-          </div>
-        </div>
-
-        {/* Utilization - Context only */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-            <Zap className="w-3 h-3" />
-            <span>Utilização</span>
-            <span className="text-[10px] opacity-60" title="Métrica de contexto - não impacta o score">ⓘ</span>
-          </div>
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
-            {metrics.utilizationRate.toFixed(0)}%
-          </div>
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            {formatHours(metrics.totalHoursWorked)} / 40h
           </div>
         </div>
 
@@ -298,71 +279,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           </div>
         </div>
       )}
-
-      {/* Visual Comparison: Estimated vs Spent */}
-      <div className="px-5 pb-3">
-        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Estimado vs Gasto
-            </h4>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {(() => {
-                const variance = metrics.totalHoursWorked - metrics.totalHoursEstimated;
-                const variancePercent = metrics.totalHoursEstimated > 0 
-                  ? ((variance / metrics.totalHoursEstimated) * 100).toFixed(0)
-                  : '0';
-                const varianceSign = variance > 0 ? '+' : '';
-                return `${varianceSign}${variancePercent}%`;
-              })()}
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            {/* Estimated Bar */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-gray-600 dark:text-gray-400">Estimado</span>
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {formatHours(metrics.totalHoursEstimated)}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full transition-all duration-500"
-                  style={{ 
-                    width: `${Math.min(100, (metrics.totalHoursEstimated / Math.max(metrics.totalHoursEstimated, metrics.totalHoursWorked)) * 100)}%` 
-                  }}
-                />
-              </div>
-            </div>
-            
-            {/* Spent Bar */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-gray-600 dark:text-gray-400">Gasto</span>
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {formatHours(metrics.totalHoursWorked)}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    metrics.totalHoursWorked > metrics.totalHoursEstimated
-                      ? 'bg-red-500 dark:bg-red-400'
-                      : metrics.totalHoursWorked < metrics.totalHoursEstimated * 0.8
-                      ? 'bg-green-500 dark:bg-green-400'
-                      : 'bg-yellow-500 dark:bg-yellow-400'
-                  }`}
-                  style={{ 
-                    width: `${Math.min(100, (metrics.totalHoursWorked / Math.max(metrics.totalHoursEstimated, metrics.totalHoursWorked)) * 100)}%` 
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Complexity Profile */}
       <div className="px-5 pb-3">
@@ -577,24 +493,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                 </div>
               )}
 
-              {/* Variance Comparison */}
-              <div className="col-span-2 mt-2 pt-2 border-t border-purple-200 dark:border-purple-800">
-                <div className="text-gray-600 dark:text-gray-400 mb-1">Variação Tempo</div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-gray-900 dark:text-white font-medium">Você: </span>
-                    <span className={metrics.totalHoursWorked > metrics.totalHoursEstimated ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                      {((metrics.totalHoursWorked - metrics.totalHoursEstimated) / Math.max(metrics.totalHoursEstimated, 1) * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Média: </span>
-                    <span className={teamAverage.totalHoursWorked > teamAverage.totalHoursEstimated ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                      {((teamAverage.totalHoursWorked - teamAverage.totalHoursEstimated) / Math.max(teamAverage.totalHoursEstimated, 1) * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

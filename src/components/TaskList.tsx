@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, FileDown } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { exportTasksToExcel } from '../services/excelExportService';
 
 export const TaskList: React.FC = () => {
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
@@ -135,6 +136,12 @@ export const TaskList: React.FC = () => {
     setFilterNoEstimate(false);
   };
 
+  const handleExport = () => {
+    if (selectedSprint) {
+      exportTasksToExcel(filteredTasks, selectedSprint);
+    }
+  };
+
   // Calculate totals and averages for filtered tasks
   const totals = useMemo(() => {
     if (filteredTasks.length === 0) {
@@ -196,9 +203,20 @@ export const TaskList: React.FC = () => {
             <span className="text-sm text-blue-600 dark:text-blue-400">({selectedDeveloper})</span>
           )}
         </h3>
-        <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-          {filteredTasks.length} tarefa{filteredTasks.length !== 1 ? 's' : ''}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={filteredTasks.length === 0}
+            title={filteredTasks.length === 0 ? "Nenhuma tarefa para exportar" : "Exportar lista para Excel"}
+          >
+            <FileDown className="w-4 h-4" />
+            Exportar Excel
+          </button>
+          <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
+            {filteredTasks.length} tarefa{filteredTasks.length !== 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
 
       {/* Filters */}

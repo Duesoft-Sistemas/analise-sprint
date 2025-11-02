@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calculator, Info, TrendingUp, Award, Target } from 'lucide-react';
+import { X, Calculator, Info, Award, Target } from 'lucide-react';
 import { SprintPerformanceMetrics } from '../types';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
@@ -59,59 +59,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
     // Filter completed tasks (used for performance calculations)
     const completedTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
 
-    // 1. Produtividade
-    sections.push({
-      title: 'Produtividade',
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: 'blue',
-      items: [
-        {
-          label: 'Total de Horas Trabalhadas',
-          value: `${formatHours(metrics.totalHoursWorked)}`,
-          formula: 'Soma de tempoGastoNoSprint de todas as tarefas do sprint selecionado (incluindo pendentes)',
-          tasks: metrics.tasks.map(t => ({
-            taskKey: t.task.chave || t.task.id,
-            taskSummary: t.task.resumo || 'Sem resumo',
-            complexity: t.task.complexidade,
-            hoursEstimated: t.hoursEstimated,
-            hoursSpent: t.task.tempoGastoNoSprint ?? 0,
-            status: t.task.status,
-            impact: `${formatHours(t.task.tempoGastoNoSprint ?? 0)}`,
-          })),
-        },
-        {
-          label: 'Total de Horas Estimadas',
-          value: `${formatHours(metrics.totalHoursEstimated)}`,
-          formula: 'Soma de estimativa de tarefas concluídas (apenas para cálculos de performance)',
-          tasks: completedTasks.map(t => ({
-            taskKey: t.task.chave || t.task.id,
-            taskSummary: t.task.resumo || 'Sem resumo',
-            complexity: t.task.complexidade,
-            hoursEstimated: t.hoursEstimated,
-            hoursSpent: t.hoursSpent,
-            status: t.task.status,
-            impact: `${formatHours(t.hoursEstimated)}`,
-          })),
-        },
-        {
-          label: 'Tarefas Iniciadas',
-          value: metrics.tasksStarted,
-          formula: 'Contagem de todas as tarefas do desenvolvedor no sprint',
-        },
-        {
-          label: 'Tarefas Concluídas',
-          value: metrics.tasksCompleted,
-          formula: 'Contagem de tarefas com status concluído',
-        },
-        {
-          label: 'Média de Horas por Tarefa',
-          value: `${formatHours(metrics.averageHoursPerTask)}`,
-          formula: `Total de Horas Trabalhadas / Tarefas Concluídas = ${formatHours(metrics.totalHoursWorked)} / ${metrics.tasksCompleted}`,
-        },
-      ],
-    });
-
-    // 2. Eficiência de Execução
+    // 1. Eficiência de Execução
     const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
     const efficientTasks = completedWithEstimates.filter(t => {
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
@@ -188,7 +136,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       ],
     });
 
-    // 3. Qualidade
+    // 2. Qualidade
     const testNotes = completedTasks.map(t => t.task.notaTeste ?? 5);
     const avgTestNote = testNotes.length > 0 
       ? testNotes.reduce((sum, n) => sum + n, 0) / testNotes.length 
@@ -224,7 +172,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       ],
     });
 
-    // 4. Performance Score
+    // 3. Performance Score
     sections.push({
       title: 'Score de Performance',
       icon: <Calculator className="w-5 h-5" />,
@@ -334,7 +282,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       ],
     });
 
-    // 5. Métricas Informativas
+    // 4. Métricas Informativas
     sections.push({
       title: 'Métricas Informativas',
       icon: <Info className="w-5 h-5" />,

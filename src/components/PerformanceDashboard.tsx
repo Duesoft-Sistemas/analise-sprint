@@ -3,7 +3,6 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  HelpCircle,
   Filter,
   Calendar,
   Award,
@@ -13,7 +12,6 @@ import {
 import { useSprintStore } from '../store/useSprintStore';
 import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
-import { PerformanceMetricsModal } from './PerformanceMetricsModal';
 import { DeveloperDetailedAnalysisModal } from './DeveloperDetailedAnalysisModal';
 import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics, CustomPeriodMetrics } from '../types';
 import { calculateDetailedDeveloperAnalytics } from '../services/detailedDeveloperAnalytics';
@@ -31,7 +29,6 @@ export const PerformanceDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
   const [selectedSprintView, setSelectedSprintView] = useState<string[]>(selectedSprint ? [selectedSprint] : sprints.length > 0 ? [sprints[0]] : []);
   const [sortBy, setSortBy] = useState<SortBy>('overall');
-  const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [selectedDeveloperForAnalysis, setSelectedDeveloperForAnalysis] = useState<string | null>(null);
@@ -317,13 +314,6 @@ export const PerformanceDashboard: React.FC = () => {
             Métricas detalhadas de acurácia, qualidade e produtividade
           </p>
         </div>
-        <button
-          onClick={() => setShowMetricsModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          <HelpCircle className="w-4 h-4" />
-          Como são Calculadas?
-        </button>
       </div>
 
       {/* View Mode Toggle */}
@@ -597,12 +587,6 @@ export const PerformanceDashboard: React.FC = () => {
           })}
         </div>
       </div>
-
-      {/* Metrics Explanation Modal */}
-      <PerformanceMetricsModal
-        isOpen={showMetricsModal}
-        onClose={() => setShowMetricsModal(false)}
-      />
 
       {/* Detailed Analysis Modal */}
       <DeveloperDetailedAnalysisModal
