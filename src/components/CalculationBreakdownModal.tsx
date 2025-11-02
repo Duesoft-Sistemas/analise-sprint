@@ -134,7 +134,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           label: 'Taxa de Eficiência',
           value: `${metrics.accuracyRate.toFixed(1)}%`,
           formula: `(Tarefas Eficientes / Total com Estimativa) × 100 = (${efficientTasks.length} / ${completedWithEstimates.length}) × 100`,
-          explanation: 'Percentual de tarefas executadas de forma eficiente. Bugs usam zona de complexidade (1-4) OU desvio percentual (5). Features usam apenas desvio percentual.',
+          explanation: 'Percentual de tarefas executadas de forma eficiente. Bugs usam zona de complexidade para todas as complexidades (1-5). Features usam apenas desvio percentual.',
           tasks: completedWithEstimates.map(t => {
             const isEfficient = efficientTasks.includes(t);
             const zone = t.efficiencyImpact;
@@ -248,7 +248,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           ],
         },
         {
-          label: 'Bonus de Complexidade',
+          label: 'Bonus de Complexidade (4-5)',
           value: `+${metrics.complexityBonus}`,
           formula: (() => {
             const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
@@ -258,7 +258,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             const pct = total > 0 ? ((complex / total) * 100).toFixed(1) : '0';
             return `% de tarefas complexas (4-5) × 10 = ${pct}% × 10 = ${metrics.complexityBonus}`;
           })(),
-          explanation: `Recompensa trabalhar em tarefas complexas. ${metrics.complexityBonus === 0 ? 'Nenhuma tarefa complexa (4-5) identificada.' : `${metrics.complexityDistribution.filter(d => d.level >= 4).reduce((sum, d) => sum + d.count, 0)} tarefa(s) de complexidade 4-5.`}`,
+          explanation: `Recompensa trabalhar em tarefas complexas (níveis 4-5). ${metrics.complexityBonus === 0 ? 'Nenhuma tarefa complexa (4-5) identificada.' : `${metrics.complexityDistribution.filter(d => d.level >= 4).reduce((sum, d) => sum + d.count, 0)} tarefa(s) de complexidade 4-5.`}`,
         },
         {
           label: 'Bonus de Senioridade',
@@ -268,34 +268,51 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             if (complexTasks.length === 0) return 'Nenhuma tarefa complexa executada';
             
             let highlyEfficient = 0;
-            let moderatelyEfficient = 0;
             
             complexTasks.forEach(t => {
               if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
                 if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
-                else if (t.efficiencyImpact.zone === 'acceptable') moderatelyEfficient++;
+                // Removed: zona aceitável não conta mais
               } else {
-                // Para complexidade 5: avaliar por desvio percentual
+                // Features: avaliar por desvio percentual (limites de tolerância)
                 const threshold = getEfficiencyThreshold(t.complexityScore);
-                if (t.complexityScore === 5) {
-                  if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
-                    highlyEfficient++;
-                  }
-                } else if (t.complexityScore === 4) {
-                  // Complexidade 4 deveria ter zone, mas se não tiver, usar threshold
-                  const threshold4 = getEfficiencyThreshold(4);
-                  if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold4.slower)) {
-                    highlyEfficient++;
-                  }
+                if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
+                  highlyEfficient++;
                 }
               }
             });
             
             if (complexTasks.length === 0) return '0 (sem tarefas complexas)';
-            const efficiencyScore = (highlyEfficient * 1.0 + moderatelyEfficient * 0.5) / complexTasks.length;
-            return `${highlyEfficient} altamente eficiente + ${moderatelyEfficient} moderadamente eficiente / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
+            const efficiencyScore = highlyEfficient / complexTasks.length;
+            return `${highlyEfficient} eficientes / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
           })(),
-          explanation: `Recompensa executar tarefas complexas (4-5) com alta eficiência dentro dos limites esperados. ${metrics.seniorityEfficiencyBonus === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexas!'}`,
+          explanation: `Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência dentro dos limites esperados. Apenas tarefas altamente eficientes contam (zona aceitável não conta mais). ${metrics.seniorityEfficiencyBonus === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexas!'}`,
+        },
+        {
+          label: 'Bonus de Complexidade 3',
+          value: `+${metrics.intermediateComplexityBonus || 0}`,
+          formula: (() => {
+            const complexity3Tasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+            if (complexity3Tasks.length === 0) return 'Nenhuma tarefa complexidade 3 executada';
+            
+            let highlyEfficient = 0;
+            
+            complexity3Tasks.forEach(t => {
+              if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+                if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
+              } else {
+                const threshold = getEfficiencyThreshold(t.complexityScore);
+                if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
+                  highlyEfficient++;
+                }
+              }
+            });
+            
+            if (complexity3Tasks.length === 0) return '0 (sem tarefas complexidade 3)';
+            const efficiencyScore = highlyEfficient / complexity3Tasks.length;
+            return `${highlyEfficient} eficientes / ${complexity3Tasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 5`;
+          })(),
+          explanation: `Recompensa executar tarefas complexidade 3 com alta eficiência. Features: dentro da tolerância de eficiência (+20%). Bugs: zona eficiente apenas. ${(metrics.intermediateComplexityBonus || 0) === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexidade 3!'}`,
         },
         {
           label: 'Bonus de Auxílio',
@@ -306,13 +323,13 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
             return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
           })(),
-          explanation: `Recompensa ajudar outros desenvolvedores com tarefas de auxílio (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva: 2h=2pts, 4h=3pts, 6h=4pts, 8h=6pts, 12h=8pts, 16h+=10pts. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
+          explanation: `Recompensa ajudar outros desenvolvedores com tarefas de auxílio (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
         },
         {
           label: 'Score Final',
           value: `${metrics.performanceScore.toFixed(1)}`,
-          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Auxílio = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.auxilioBonus}`,
-          explanation: `Score máximo: 135 (100 base + 10 complexidade + 15 senioridade + 10 auxílio)`,
+          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Complexidade 3 + Bonus Auxílio = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.intermediateComplexityBonus || 0} + ${metrics.auxilioBonus}`,
+          explanation: `Score máximo: 140 (100 base + 10 complexidade 4-5 + 15 senioridade + 5 complexidade 3 + 10 auxílio)`,
         },
       ],
     });

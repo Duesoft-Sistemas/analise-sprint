@@ -60,11 +60,7 @@ A análise híbrida permite calcular métricas de sprint de forma mais precisa, 
 - ✅ **Usar**: `tempoGastoTotal`, `tempoGastoNoSprint`, `tempoGastoOutrosSprints` (calculados do worklog)
 - ❌ **NUNCA usar**: `tempoGasto` (campo da planilha de sprint) nos cálculos
 
-**Por quê?**
-- O worklog é a fonte verdadeira do tempo efetivamente trabalhado
-- A planilha de sprint pode ter valores desatualizados ou incorretos
-- Todos os cálculos de performance, capacidade e alertas devem usar o tempo real do worklog
-- Se não houver worklog, o tempo gasto é **0** (zero), não o valor da planilha
+**Importante:** Se não houver worklog, o tempo gasto é **0** (zero), não o valor da planilha.
 
 ### Como Funciona
 
@@ -106,23 +102,22 @@ O sistema utiliza os seguintes campos para análise híbrida:
 
 ### Estrutura do Worklog
 
-O arquivo de worklog deve ter as seguintes colunas:
+O arquivo de worklog deve ter as seguintes colunas obrigatórias:
 
-| Coluna | Descrição | Exemplo |
-|--------|-----------|---------|
-| **ID da tarefa** | Chave ou ID da tarefa | PROJ-101 |
-| **Responsável** | Nome do desenvolvedor | João Silva |
-| **Tempo gasto** | Horas trabalhadas | 2h ou 7200 (segundos) |
-| **Data** | Data do lançamento | 2025-10-15 |
+| Coluna | Obrigatório | Descrição | Exemplo |
+|--------|------------|-----------|---------|
+| **ID da tarefa** | ✅ Sim | Chave ou ID da tarefa | PROJ-101 |
+| **Tempo gasto** | ✅ Sim | Horas trabalhadas | 2h ou 7200 (segundos) |
+| **Data** | ✅ Sim | Data do lançamento | 2025-10-15 |
 
 ### Exemplo de Worklog
 
 ```
-ID da tarefa | Responsável  | Tempo gasto | Data
-PROJ-101     | João Silva   | 2h         | 2025-10-15
-PROJ-101     | João Silva   | 3h         | 2025-10-16
-PROJ-101     | João Silva   | 5h         | 2025-10-22
-PROJ-102     | Maria Santos | 4h         | 2025-10-23
+ID da tarefa | Tempo gasto | Data
+PROJ-101     | 2h         | 2025-10-15
+PROJ-101     | 3h         | 2025-10-16
+PROJ-101     | 5h         | 2025-10-22
+PROJ-102     | 4h         | 2025-10-15
 ```
 
 ### Como Usar
@@ -216,7 +211,7 @@ Acurácia: 0% (perfeito!)
 
 ### Importante
 
-- O worklog é **opcional** - se não enviado, usa tempo da planilha de layout
+- O worklog é **opcional** - se não enviado, o tempo gasto é considerado 0
 - O período do sprint é **opcional** - se não definido, usa semana atual
 - O arquivo de layout continua **obrigatório**
 - IDs/chaves do worklog devem **corresponder** ao layout

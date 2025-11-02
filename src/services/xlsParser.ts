@@ -231,38 +231,6 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
   });
 }
 
-/**
- * Busca valores de múltiplas colunas que correspondem a um padrão
- * Útil para colunas que podem se repetir (ex: múltiplas colunas de Feature ou Categorias)
- */
-function getMultipleColumnValues(row: XlsRow, patternVariations: string[]): string[] {
-  const values: string[] = [];
-  const foundKeys = new Set<string>();
-  
-  // Percorrer todas as chaves do row
-  for (const key of Object.keys(row)) {
-    const normalizedKey = normalizeText(key);
-    
-    // Verificar se a chave corresponde a alguma variação do padrão
-    for (const variation of patternVariations) {
-      const normalizedVariation = normalizeText(variation);
-      
-      // Verificar se a chave contém a variação (permitindo variações como "Feature", "feature", etc.)
-      if (normalizedKey.toLowerCase().includes(normalizedVariation.toLowerCase())) {
-        // Evitar duplicatas
-        if (!foundKeys.has(key)) {
-          const value = normalizeText(String(row[key] || ''));
-          if (value && value.trim() !== '') {
-            values.push(value.trim());
-            foundKeys.add(key);
-          }
-        }
-      }
-    }
-  }
-  
-  return values;
-}
 
 /**
  * Processa dados Excel capturando todas as colunas de Features e Categorias,
@@ -271,7 +239,7 @@ function getMultipleColumnValues(row: XlsRow, patternVariations: string[]): stri
 function parseXlsDataWithMultipleColumns(
   jsonData: XlsRow[],
   rawData: any[][],
-  headers: string[],
+  _headers: string[],
   featureColumnIndices: number[],
   categoriasColumnIndices: number[]
 ): TaskItem[] {

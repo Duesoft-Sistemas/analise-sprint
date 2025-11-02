@@ -16,6 +16,7 @@ import {
   EFFICIENCY_THRESHOLDS,
   PERFORMANCE_SCORE_WEIGHTS,
   MAX_COMPLEXITY_BONUS,
+  MAX_INTERMEDIATE_COMPLEXITY_BONUS,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_AUXILIO_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
@@ -97,12 +98,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               {expandedSections.has('complexity-zones') && (
                 <div className="p-4 bg-white dark:bg-gray-800">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Define os limites esperados de horas para tarefas <strong>(complexidade 1-4)</strong>.
-                    <strong>SISTEMA SEPARADO:</strong> Zonas aplicam APENAS para bugs. Features usam desvio percentual.
+                    Define os limites esperados de horas para tarefas <strong>(complexidade 1-5)</strong>.
+                    <strong>SISTEMA SEPARADO:</strong> Zonas aplicam APENAS para bugs (todas as complexidades 1-5). Features usam desvio percentual.
                   </p>
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold">
-                      🐛 <strong>BUGS:</strong> Complexidades 1-4 usam zona de eficiência (APENAS horas gastas). Complexidade 5 usa desvio percentual.
+                      🐛 <strong>BUGS:</strong> Todas as complexidades (1-5) usam zona de eficiência (APENAS horas gastas, baseado na zona de complexidade).
                     </p>
                   </div>
                   <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
@@ -188,7 +189,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <p className="text-sm text-orange-800 dark:text-orange-200">
                       <Info className="w-4 h-4 inline mr-1" />
-                      <strong>IMPORTANTE:</strong> Complexidades 1-4 usam zona de eficiência (APENAS horas gastas, não usa estimativa). Complexidade 5 não tem limites absolutos, então usa desvio percentual (compara estimativa vs horas gastas).
+                      <strong>IMPORTANTE:</strong> Para bugs, todas as complexidades (1-5) usam zona de eficiência (APENAS horas gastas, não usa estimativa). Features sempre usam desvio percentual.
                     </p>
                   </div>
                   <div className="overflow-x-auto">
@@ -271,10 +272,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                           <strong>Bonus de Complexidade:</strong> até +{MAX_COMPLEXITY_BONUS} pontos por trabalhar em tarefas complexas (níveis 4-5)
                         </p>
                       </div>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          <strong>Bonus de Complexidade 3:</strong> até +{MAX_INTERMEDIATE_COMPLEXITY_BONUS} pontos por executar tarefas complexidade 3 com alta eficiência (features dentro da tolerância +20%, bugs zona eficiente apenas)
+                        </p>
+                      </div>
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                         <p className="text-sm text-indigo-800 dark:text-indigo-200">
                           <Info className="w-4 h-4 inline mr-1" />
-                          <strong>Bonus de Senioridade:</strong> até +{MAX_SENIORITY_EFFICIENCY_BONUS} pontos por executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados)
+                          <strong>Bonus de Senioridade:</strong> até +{MAX_SENIORITY_EFFICIENCY_BONUS} pontos por executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência (apenas zona eficiente conta, zona aceitável não conta mais)
                         </p>
                       </div>
                       <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">

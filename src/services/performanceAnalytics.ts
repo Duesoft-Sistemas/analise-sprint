@@ -15,6 +15,7 @@ import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
   MAX_SENIORITY_EFFICIENCY_BONUS,
+  MAX_INTERMEDIATE_COMPLEXITY_BONUS,
 } from '../config/performanceConfig';
 
 // =============================================================================
@@ -30,10 +31,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   accuracyRate: {
-    formula: '(Tarefas eficientes / Total) × 100. Avaliação separada: Bugs usam zona OR desvio, Features usam apenas desvio',
-    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-4 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
-    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). FEATURES: Complexidade 1 estimou 10h, gastou 12h (-20%) = ❌ ineficiente (limite -15%). Complexidade 5: estimou 30h, gastou 35h (-16%) = ✅ eficiente (limite -40%).',
-    example: 'Bug complexidade 1 gastou 3h = ✅ eficiente (zona: ≤4h aceitável). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Bug complexidade 4 gastou 12h = ✅ eficiente (zona: ≤16h). Feature complexidade 4 estimou 10h, gastou 15h (-50%) = ❌ ineficiente (limite -30%).',
+    formula: '(Tarefas eficientes / Total) × 100. Avaliação separada: Bugs usam zona de eficiência (todas complexidades), Features usam apenas desvio percentual',
+    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-5 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
+    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). Complexidade 5 gastou 14h = ✅ eficiente (≤16h). FEATURES: Complexidade 1 estimou 10h, gastou 12h (-20%) = ❌ ineficiente (limite -15%). Complexidade 5 estimou 30h, gastou 35h (-16%) = ✅ eficiente (limite -40%).',
+    example: 'Bug complexidade 1 gastou 3h = ✅ eficiente (zona: ≤4h aceitável). Bug complexidade 5 gastou 14h = ✅ eficiente (zona: ≤16h). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Feature complexidade 4 estimou 10h, gastou 15h (-50%) = ❌ ineficiente (limite -30%).',
   },
   
   bugRate: {
@@ -72,10 +73,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Auxílio (0-10)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas FEATURES com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs NÃO contam para bonus de senioridade. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=3pts, 8h=6pts, 16h+=10pts). Score máximo: 135. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas FEATURES dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas: 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se ajudou 8h: 99.5 + 6 (auxílio) = 105.5 🏆⭐',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS COMPLEXIDADE 3: Executar tarefas complexidade 3 com alta eficiência adiciona até +5 pontos. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). Score máximo: 140. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas (4-5): 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se executou complexidade 3 com alta eficiência (80%): 99.5 + 4 (complexidade 3) = 103.5. Se ajudou 8h: 103.5 + 7 (auxílio) = 110.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -173,89 +174,111 @@ function calculateComplexityBonus(
 }
 
 /**
+ * Calculate intermediate complexity bonus for performance score
+ * Rewards developers who execute complexity 3 tasks with high efficiency
+ * 
+ * Similar to seniority bonus but for intermediate complexity (level 3)
+ */
+function calculateIntermediateComplexityBonus(
+  taskMetrics: TaskPerformanceMetrics[]
+): number {
+  // Filter complexity 3 tasks that were completed
+  const complexity3Tasks = taskMetrics.filter(t => 
+    t.complexityScore === 3 && t.hoursEstimated > 0
+  );
+  
+  if (complexity3Tasks.length === 0) return 0;
+  
+  // Count tasks executed with high efficiency only
+  let highlyEfficientComplex3 = 0;
+  
+  for (const task of complexity3Tasks) {
+    if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+      // Bugs: only efficient zone counts
+      if (task.efficiencyImpact.zone === 'efficient') {
+        highlyEfficientComplex3++;
+      }
+    } else {
+      // Features: evaluate by percentage deviation
+      const deviation = task.estimationAccuracy;
+      const threshold = getEfficiencyThreshold(task.complexityScore);
+      
+      // Only efficient tasks count (within tolerance or faster)
+      if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
+        highlyEfficientComplex3++;
+      }
+    }
+  }
+  
+  // Calculate bonus: 0% efficiency = 0 points, 100% efficiency = +5 points
+  const efficiencyScore = highlyEfficientComplex3 / complexity3Tasks.length;
+  return Math.round(efficiencyScore * MAX_INTERMEDIATE_COMPLEXITY_BONUS);
+}
+
+/**
  * Calculate seniority efficiency bonus for performance score
  * Rewards developers who execute complex tasks (level 4-5) with high efficiency
  * This indicates seniority: not just taking complex tasks, but executing them well
+ * 
+ * NOW INCLUDES BUGS: Bugs complexos também contam para o bônus de senioridade
+ * REMOVED: Zona aceitável não conta mais - apenas tarefas altamente eficientes
  */
 function calculateSeniorityEfficiencyBonus(
   taskMetrics: TaskPerformanceMetrics[]
 ): number {
   // Filter complex tasks (level 4-5) that were completed
-  // EXCLUDES bugs - only features get seniority bonus
+  // NOW INCLUDES bugs - bugs complexos também contam para senioridade
   const complexTasks = taskMetrics.filter(t => 
-    t.complexityScore >= 4 && t.hoursEstimated > 0 && t.task.tipo !== 'Bug'
+    t.complexityScore >= 4 && t.hoursEstimated > 0
   );
   
   if (complexTasks.length === 0) return 0;
   
-  // Count tasks executed with high efficiency
+  // Count tasks executed with high efficiency ONLY
   let highlyEfficientComplex = 0;
-  let moderatelyEfficientComplex = 0;
   
   for (const task of complexTasks) {
-    // Check if task was evaluated by complexity zone
+    // Check if task was evaluated by complexity zone (bugs use this)
     if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+      // Bugs: only efficient zone counts (removed acceptable)
       if (task.efficiencyImpact.zone === 'efficient') {
         highlyEfficientComplex++;
-      } else if (task.efficiencyImpact.zone === 'acceptable') {
-        moderatelyEfficientComplex++;
       }
-      // 'inefficient' doesn't count
+      // Removed: else if (zone === 'acceptable') - não conta mais
     } else {
-      // Se não tem efficiencyImpact, avaliar usando checkComplexityZoneEfficiency diretamente
+      // Features: avaliar por desvio percentual (limites de tolerância)
       // Para garantir consistência na lógica de avaliação
-      if (task.complexityScore === 5) {
-        // Complexidade 5: avaliar apenas por desvio percentual (não tem limites de zona)
-        // Executar dentro dos limites de tolerância conta como eficiente
-        const deviation = task.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(task.complexityScore);
-        if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
-          highlyEfficientComplex++;
-        }
-      } else if (task.complexityScore === 4) {
-        // Complexidade 4: usar checkComplexityZoneEfficiency para manter consistência
-        // Esta função já avalia corretamente usando apenas hoursSpent
-        const efficiencyResult = checkComplexityZoneEfficiency(
-          task.complexityScore,
-          task.hoursSpent,
-          task.hoursEstimated,
-          task.task.tipo // Passa tipo da tarefa
-        );
-        if (efficiencyResult.zone === 'efficient') {
-          highlyEfficientComplex++;
-        } else if (efficiencyResult.zone === 'acceptable') {
-          moderatelyEfficientComplex++;
-        }
-        // 'inefficient' doesn't count
+      const deviation = task.estimationAccuracy;
+      const threshold = getEfficiencyThreshold(task.complexityScore);
+      
+      // Only efficient tasks count (within tolerance or faster)
+      if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
+        highlyEfficientComplex++;
       }
     }
   }
   
-  // Calculate bonus based on efficiency rate in complex tasks
-  // Highly efficient tasks count more than moderately efficient
-  const totalComplexTasks = complexTasks.length;
-  const efficiencyScore = (highlyEfficientComplex * 1.0 + moderatelyEfficientComplex * 0.5) / totalComplexTasks;
-  
-  // Bonus: 0% efficiency = 0 points, 100% high efficiency = +15 points
+  // Calculate bonus: 0% efficiency = 0 points, 100% efficiency = +15 points
+  const efficiencyScore = highlyEfficientComplex / complexTasks.length;
   return Math.round(efficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS);
 }
 
 /**
  * Calculate auxilio bonus for performance score
  * Rewards developers who help other developers (tarefas de auxílio)
- * Progressive scale based on hours spent helping
+ * Progressive scale based on hours spent helping (escalonamento suave ajustado)
  */
 function calculateAuxilioBonus(auxilioHours: number): number {
   if (auxilioHours <= 0) return 0;
   
-  // Progressive scale: more help = higher bonus per hour
-  if (auxilioHours >= 16) return 10;      // 16h+ = 10 points (maximum)
-  if (auxilioHours >= 12) return 8;       // 12h+ = 8 points  
-  if (auxilioHours >= 8) return 6;        // 8h+ = 6 points
-  if (auxilioHours >= 6) return 4;        // 6h+ = 4 points
-  if (auxilioHours >= 4) return 3;        // 4h+ = 3 points
-  if (auxilioHours >= 2) return 2;        // 2h+ = 2 points
-  return 1;                                // 0.5h+ = 1 point (minimum recognition)
+  // Nova escala (escalonamento suave ajustado)
+  if (auxilioHours >= 16) return 10;      // 16h+ = 10 pontos (máximo)
+  if (auxilioHours >= 12) return 9;       // 12h+ = 9 pontos (subir de 8)
+  if (auxilioHours >= 8) return 7;        // 8h+ = 7 pontos (subir de 6)
+  if (auxilioHours >= 6) return 5;        // 6h+ = 5 pontos (subir de 4)
+  if (auxilioHours >= 4) return 4;        // 4h+ = 4 pontos (subir de 3)
+  if (auxilioHours >= 2) return 2;        // 2h+ = 2 pontos (mantém)
+  return 1;                                // 0.5h+ = 1 ponto (mantém)
 }
 
 // Helper to identify auxilio tasks (normalized comparison)
@@ -294,7 +317,7 @@ export function calculateTaskMetrics(task: TaskItem, useSprintOnly: boolean = fa
   const isOnTime = hoursSpent <= hoursEstimated;
   
   // SISTEMA SEPARADO: Verificar zona de eficiência APENAS para bugs
-  // Bugs: usam zona de complexidade (1-4) OU desvio (5)
+  // Bugs: usam zona de complexidade para todas as complexidades (1-5)
   // Features/Outros: usam APENAS desvio percentual
   // IMPORTANTE: Usa apenas horas gastas, não a estimativa original (que não é responsabilidade só do dev)
   // A estimativa original ainda é usada no cálculo do desvio percentual (fallback)
@@ -327,8 +350,12 @@ export function calculateSprintPerformance(
   sprintName: string
 ): SprintPerformanceMetrics {
   // Filter tasks for this developer and sprint
+  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in performance metrics
   const devTasks = tasks.filter(
-    t => t.idResponsavel === developerId && t.sprint === sprintName
+    t => t.idResponsavel === developerId && 
+         t.sprint === sprintName &&
+         t.sprint && 
+         t.sprint.trim() !== ''
   );
   
   if (devTasks.length === 0) {
@@ -492,13 +519,16 @@ export function calculateSprintPerformance(
   // Rewards not just taking complex tasks, but executing them well
   const seniorityEfficiencyBonus = calculateSeniorityEfficiencyBonus(completedMetrics);
   
+  // Intermediate Complexity Bonus: 0-5 points based on efficiency in complexity 3 tasks
+  const intermediateComplexityBonus = calculateIntermediateComplexityBonus(completedMetrics);
+  
   // Auxilio Bonus: 0-10 points based on hours spent helping other developers
   const auxilioTasks = devTasks.filter(isAuxilioTask);
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + auxilio bonus (0-10) = max 135
-  const performanceScore = Math.min(135, baseScore + complexityBonus + seniorityEfficiencyBonus + auxilioBonus);
+  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + intermediate complexity bonus (0-5) + auxilio bonus (0-10) = max 140
+  const performanceScore = Math.min(140, baseScore + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus);
   
   return {
     developerId,
@@ -530,6 +560,7 @@ export function calculateSprintPerformance(
     baseScore,
     complexityBonus,
     seniorityEfficiencyBonus,
+    intermediateComplexityBonus,
     auxilioBonus,
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
     complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
@@ -572,6 +603,7 @@ function createEmptySprintMetrics(
     baseScore: 0,
     complexityBonus: 0,
     seniorityEfficiencyBonus: 0,
+    intermediateComplexityBonus: 0,
     auxilioBonus: 0,
     tasks: [],
   };
@@ -1124,8 +1156,11 @@ export function calculateCustomPeriodPerformance(
   periodName?: string
 ): CustomPeriodMetrics {
   // Filter tasks for the selected sprints only
+  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in performance metrics
   const periodTasks = tasks.filter(t => 
     t.idResponsavel === developerId && 
+    t.sprint &&
+    t.sprint.trim() !== '' &&
     selectedSprints.includes(t.sprint)
   );
   

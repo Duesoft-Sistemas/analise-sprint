@@ -410,7 +410,12 @@ export function calculateDetailedDeveloperAnalytics(
   developerId: string,
   developerName: string
 ): DeveloperDetailedAnalytics {
-  const developerTasks = tasks.filter(t => t.idResponsavel === developerId);
+  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in detailed analytics
+  const developerTasks = tasks.filter(t => 
+    t.idResponsavel === developerId && 
+    t.sprint && 
+    t.sprint.trim() !== ''
+  );
   
   // Calculate by feature and module
   const byFeature = calculateFeatureModulePerformance(developerTasks, 'feature');

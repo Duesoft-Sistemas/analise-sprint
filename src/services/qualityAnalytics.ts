@@ -30,8 +30,14 @@ export interface QualityAnalytics {
  * Calcula análise de qualidade dos chamados agrupados por tipo de tarefa
  */
 export function calculateQualityAnalytics(tasks: TaskItem[]): QualityAnalytics {
-  // Filtrar apenas tarefas que têm qualidade do chamado definida
-  const tasksWithQuality = tasks.filter(t => t.qualidadeChamado && t.qualidadeChamado.trim() !== '');
+  // IMPORTANT: Exclude tasks without sprint (backlog) - they don't interfere in quality analytics
+  // Filtrar apenas tarefas que têm qualidade do chamado definida E têm sprint
+  const tasksWithQuality = tasks.filter(t => 
+    t.qualidadeChamado && 
+    t.qualidadeChamado.trim() !== '' &&
+    t.sprint &&
+    t.sprint.trim() !== ''
+  );
   
   // Mapear tarefas para formato QualityTask
   const allTasks: QualityTask[] = tasksWithQuality.map(task => ({

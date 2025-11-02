@@ -92,14 +92,18 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     
     // Calculate hybrid metrics if worklogs are available
     // Use sprint-specific periods from metadata
+    // IMPORTANT: Tarefas sem sprint (backlog) NÃO são processadas - são apenas para análise de demandas
+    // Elas não interferem em métricas de performance, mesmo que tenham worklog
     let processedTasks = tasks;
     
     // Reset file names array
     const layoutFileNames = fileName ? [fileName] : [];
     if (worklogs.length > 0 && sprintMetadata.length > 0) {
       // Process each sprint separately with its correct period
+      // Filter out tasks without sprint (backlog) - they are NOT processed for metrics
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '');
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasks.forEach(task => {
+      tasksWithSprint.forEach(task => {
         if (!tasksBySprint.has(task.sprint)) {
           tasksBySprint.set(task.sprint, []);
         }
@@ -121,10 +125,24 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+      
+      // IMPORTANT: Add backlog tasks (without sprint) back to processedTasks but WITHOUT hybrid metrics
+      // They keep their original structure but won't have tempoGastoTotal, tempoGastoNoSprint, etc.
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '');
+      processedTasks.push(...backlogTasks);
     } else if (worklogs.length > 0) {
       // Fallback: use single period if no metadata
+      // Filter out tasks without sprint (backlog) - they are NOT processed for metrics
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '');
       const { sprintPeriod } = get();
-      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+      const processed = calculateAllTasksHybridMetrics(tasksWithSprint, worklogs, sprintPeriod);
+      
+      // Add backlog tasks back without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '');
+      processedTasks = [...processed, ...backlogTasks];
+    } else {
+      // No worklogs - keep all tasks as-is (including backlog)
+      processedTasks = tasks;
     }
     
     // Build sprint options: prefer explicit sprint metadata (from sprints.xlsx)

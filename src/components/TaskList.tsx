@@ -18,8 +18,13 @@ export const TaskList: React.FC = () => {
   const [filterNoEstimate, setFilterNoEstimate] = useState(false);
 
   // Get base filtered tasks (by sprint, developer and global filters)
+  // IMPORTANT: Always exclude tasks without sprint (backlog) when no sprint is selected
+  // Backlog tasks should only appear in multi-sprint analysis, not in task list
   const baseFilteredTasks = useMemo(() => {
     let filtered = tasks;
+
+    // Always exclude backlog tasks (without sprint) - they are only for backlog analysis
+    filtered = filtered.filter((t) => t.sprint && t.sprint.trim() !== '');
 
     // Filter by selected sprint
     if (selectedSprint) {

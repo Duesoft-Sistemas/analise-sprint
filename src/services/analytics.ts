@@ -19,7 +19,8 @@ export function calculateSprintAnalytics(
   tasks: TaskItem[],
   sprintName: string
 ): SprintAnalytics {
-  const sprintTasks = tasks.filter((t) => t.sprint === sprintName);
+  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in sprint analytics
+  const sprintTasks = tasks.filter((t) => t.sprint === sprintName && t.sprint && t.sprint.trim() !== '');
 
   const completedTasks = sprintTasks.filter((t) => isCompletedStatus(t.status));
   
@@ -321,6 +322,8 @@ export function calculateCrossSprintAnalytics(
   return {
     backlogTasks: backlogTasks.length,
     backlogHours: backlogTasks.reduce((sum, t) => sum + t.estimativa, 0),
+    backlogByFeature: calculateBacklogAnalysisByFeature(backlogTasks),
+    backlogByClient: calculateBacklogAnalysisByClient(backlogTasks),
     sprintDistribution,
     developerAllocation,
     clientAllocation,
@@ -471,6 +474,223 @@ export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAna
     }
     return bProblems - aProblems;
   });
+}
+
+// Calculate backlog analysis by feature
+// IMPORTANT: Backlog tasks are NOT processed for hybrid metrics, so we use only estimativa
+export function calculateBacklogAnalysisByFeature(backlogTasks: TaskItem[]): Totalizer[] {
+  const featureMap = new Map<string, TaskItem[]>();
+
+  // Agrupar tarefas de backlog por feature
+  // Como features é um array, cada feature deve criar uma entrada separada
+  // Uma tarefa com múltiplas features aparece em múltiplos grupos (correto!)
+  for (const task of backlogTasks) {
+    const validFeatures = task.feature.filter(f => f && f.trim() !== '');
+    if (validFeatures.length > 0) {
+      for (const feature of validFeatures) {
+        const key = feature.trim();
+        if (!featureMap.has(key)) {
+          featureMap.set(key, []);
+        }
+        featureMap.get(key)!.push(task);
+      }
+    } else {
+      // Sem features válidas
+      const key = '(Sem Feature)';
+      if (!featureMap.has(key)) {
+        featureMap.set(key, []);
+      }
+      featureMap.get(key)!.push(task);
+    }
+  }
+
+  const totalizers: Totalizer[] = [];
+
+  for (const [feature, featureTasks] of featureMap.entries()) {
+    // Backlog usa apenas estimativa (não tem tempo gasto processado)
+    totalizers.push({
+      label: feature,
+      count: featureTasks.length,
+      hours: 0, // Backlog não tem horas trabalhadas
+      estimatedHours: featureTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    });
+  }
+
+  // Ordenar por horas estimadas (demanda futura)
+  return totalizers.sort((a, b) => b.estimatedHours - a.estimatedHours);
+}
+
+// Calculate backlog analysis by client
+// IMPORTANT: Backlog tasks are NOT processed for hybrid metrics, so we use only estimativa
+export function calculateBacklogAnalysisByClient(backlogTasks: TaskItem[]): Totalizer[] {
+  const clientMap = new Map<string, TaskItem[]>();
+
+  // Agrupar tarefas de backlog por cliente (categoria)
+  // Como categorias é um array, cada categoria deve criar uma entrada separada
+  // Uma tarefa com múltiplas categorias aparece em múltiplos grupos (correto!)
+  for (const task of backlogTasks) {
+    // Filtrar categorias vazias e criar entrada para cada categoria válida
+    const validClients = task.categorias.filter(c => c && c.trim() !== '');
+    const clients = validClients.length > 0 ? validClients : ['(Sem Cliente)'];
+    
+    for (const client of clients) {
+      const key = client.trim();
+      if (!clientMap.has(key)) {
+        clientMap.set(key, []);
+      }
+      clientMap.get(key)!.push(task);
+    }
+  }
+
+  const totalizers: Totalizer[] = [];
+
+  for (const [client, clientTasks] of clientMap.entries()) {
+    // Backlog usa apenas estimativa (não tem tempo gasto processado)
+    totalizers.push({
+      label: client,
+      count: clientTasks.length,
+      hours: 0, // Backlog não tem horas trabalhadas
+      estimatedHours: clientTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    });
+  }
+
+  // Ordenar por horas estimadas (demanda futura)
+  return totalizers.sort((a, b) => b.estimatedHours - a.estimatedHours);
+}
+
+// =============================================================================
+// BACKLOG ANALYTICS - Complete backlog analysis for sprint allocation
+// =============================================================================
+
+export interface BacklogAnalytics {
+  summary: {
+    totalTasks: number;
+    totalEstimatedHours: number;
+    bugs: number;
+    dubidasOcultas: number;
+    tarefas: number; // Inclui histórias, outros e qualquer coisa que não seja bug/dúvida oculta
+  };
+  byType: {
+    bugs: Totalizer;
+    dubidasOcultas: Totalizer;
+    tarefas: Totalizer; // Consolidado: histórias, outros e tudo que não é bug/dúvida oculta
+  };
+  byComplexity: Totalizer[];
+  byFeature: Totalizer[];
+  byClient: Totalizer[];
+  byResponsavel: Totalizer[];
+  byStatus: Totalizer[];
+  tasks: TaskItem[]; // All backlog tasks
+}
+
+/**
+ * Helper to create totalizer for backlog (uses only estimativa)
+ */
+function createBacklogTotalizer(label: string, tasks: TaskItem[]): Totalizer {
+  return {
+    label,
+    count: tasks.length,
+    hours: 0, // Backlog não tem horas trabalhadas
+    estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+  };
+}
+
+/**
+ * Calculate complete backlog analytics for sprint allocation planning
+ * IMPORTANT: Backlog tasks are NOT processed for hybrid metrics
+ */
+export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
+  // Filter only backlog tasks (without sprint)
+  const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
+
+  // Summary
+  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta');
+  const dubidasOcultas = backlogTasks.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta');
+  // Tarefas: tudo que não é bug ou dúvida oculta (inclui Tarefa, História, Outro, etc.)
+  const tarefas = backlogTasks.filter(
+    (t) => !(t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta') && 
+           !(t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta')
+  );
+
+  const summary = {
+    totalTasks: backlogTasks.length,
+    totalEstimatedHours: backlogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    bugs: bugs.length,
+    dubidasOcultas: dubidasOcultas.length,
+    tarefas: tarefas.length,
+  };
+
+  // By Type - apenas 3 tipos: Bugs, Dúvidas Ocultas e Tarefas
+  const byType = {
+    bugs: createBacklogTotalizer('Bugs Reais', bugs),
+    dubidasOcultas: createBacklogTotalizer('Dúvidas Ocultas', dubidasOcultas),
+    tarefas: createBacklogTotalizer('Tarefas', tarefas),
+  };
+
+  // By Complexity
+  const complexityMap = new Map<number, TaskItem[]>();
+  backlogTasks.forEach((task) => {
+    const complexity = task.complexidade || 1;
+    if (!complexityMap.has(complexity)) {
+      complexityMap.set(complexity, []);
+    }
+    complexityMap.get(complexity)!.push(task);
+  });
+
+  const byComplexity: Totalizer[] = [];
+  for (let level = 1; level <= 5; level++) {
+    const tasksAtLevel = complexityMap.get(level) || [];
+    byComplexity.push(createBacklogTotalizer(`Complexidade ${level}`, tasksAtLevel));
+  }
+
+  // By Feature
+  const byFeature = calculateBacklogAnalysisByFeature(backlogTasks);
+
+  // By Client
+  const byClient = calculateBacklogAnalysisByClient(backlogTasks);
+
+  // By Responsável
+  const responsavelMap = new Map<string, TaskItem[]>();
+  backlogTasks.forEach((task) => {
+    const responsavel = task.responsavel || '(Sem Responsável)';
+    if (!responsavelMap.has(responsavel)) {
+      responsavelMap.set(responsavel, []);
+    }
+    responsavelMap.get(responsavel)!.push(task);
+  });
+
+  const byResponsavel: Totalizer[] = [];
+  responsavelMap.forEach((tasks, responsavel) => {
+    byResponsavel.push(createBacklogTotalizer(responsavel, tasks));
+  });
+  byResponsavel.sort((a, b) => b.estimatedHours - a.estimatedHours);
+
+  // By Status
+  const statusMap = new Map<string, TaskItem[]>();
+  backlogTasks.forEach((task) => {
+    const status = task.status || '(Sem Status)';
+    if (!statusMap.has(status)) {
+      statusMap.set(status, []);
+    }
+    statusMap.get(status)!.push(task);
+  });
+
+  const byStatus: Totalizer[] = [];
+  statusMap.forEach((tasks, status) => {
+    byStatus.push(createBacklogTotalizer(status, tasks));
+  });
+  byStatus.sort((a, b) => b.count - a.count);
+
+  return {
+    summary,
+    byType,
+    byComplexity,
+    byFeature,
+    byClient,
+    byResponsavel,
+    byStatus,
+    tasks: backlogTasks,
+  };
 }
 
 // Calculate problem analysis by client (bugs reais e dúvidas ocultas)

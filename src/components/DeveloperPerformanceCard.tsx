@@ -145,12 +145,17 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {metrics.performanceScore.toFixed(0)}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 125</span>
-              {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0) && (
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 140</span>
+              {(metrics.complexityBonus > 0 || (metrics.intermediateComplexityBonus || 0) > 0 || metrics.seniorityEfficiencyBonus > 0) && (
                 <div className="text-xs space-y-0.5">
                   {metrics.complexityBonus > 0 && (
                     <div className="text-green-600 dark:text-green-400 font-medium">
-                      +{metrics.complexityBonus} bonus complexidade 🏆
+                      +{metrics.complexityBonus} bonus complexidade (4-5) 🏆
+                    </div>
+                  )}
+                  {(metrics.intermediateComplexityBonus || 0) > 0 && (
+                    <div className="text-blue-600 dark:text-blue-400 font-medium">
+                      +{metrics.intermediateComplexityBonus} bonus complexidade 3 🎯
                     </div>
                   )}
                   {metrics.seniorityEfficiencyBonus > 0 && (
@@ -173,7 +178,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                   ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
                   : 'bg-gradient-to-r from-red-500 to-red-600'
               }`}
-              style={{ width: `${Math.min(100, (metrics.performanceScore / 125) * 100)}%` }}
+              style={{ width: `${Math.min(100, (metrics.performanceScore / 140) * 100)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-right">
@@ -403,7 +408,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           </div>
 
           {/* Complexity, Seniority and Auxilio Bonuses */}
-          {(metrics.complexityBonus > 0 || metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0) && (
+          {(metrics.complexityBonus > 0 || (metrics.intermediateComplexityBonus || 0) > 0 || metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0) && (
             <div className="space-y-2">
               {metrics.complexityBonus > 0 && (
                 <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-purple-300/50 dark:border-purple-600/50">
@@ -412,7 +417,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                       <span className="text-2xl">🏆</span>
                       <div>
                         <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                          Bonus de Complexidade
+                          Bonus de Complexidade (4-5)
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
                           {(() => {
@@ -428,6 +433,26 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                     </div>
                     <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                       +{metrics.complexityBonus}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {(metrics.intermediateComplexityBonus || 0) > 0 && (
+                <div className="bg-white/50 dark:bg-black/20 rounded-md p-3 border border-blue-300/50 dark:border-blue-600/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🎯</span>
+                      <div>
+                        <div className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                          Bonus de Complexidade 3
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          Executou tarefas complexidade 3 com alta eficiência
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      +{metrics.intermediateComplexityBonus}
                     </div>
                   </div>
                 </div>

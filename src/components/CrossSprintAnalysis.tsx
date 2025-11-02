@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Inbox, Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare } from 'lucide-react';
+import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType } from '../types';
 import { formatHours } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
@@ -48,9 +48,12 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   // Filter analytics based on selected sprints
   const filteredAnalytics = React.useMemo(() => {
     if (selectedSprints.length === 0) {
+      // Quando não há sprints selecionados
       return {
         backlogTasks: 0,
         backlogHours: 0,
+        backlogByFeature: [],
+        backlogByClient: [],
         sprintDistribution: [],
         developerAllocation: [],
         clientAllocation: [],
@@ -59,8 +62,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     }
     
     const filteredTasks = tasks.filter(t => selectedSprints.includes(t.sprint));
-    // Backlog sempre mostra todas as tarefas sem sprint, independente do filtro
-    const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
+    // IMPORTANT: Backlog foi removido desta análise - agora está em aba separada (Backlog)
     const tasksWithSprint = filteredTasks.filter((t) => t.sprint && t.sprint.trim() !== '');
 
     // Sprint distribution - apenas sprints selecionados
@@ -158,9 +160,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       }
     );
 
+    // IMPORTANT: Backlog foi removido desta análise - agora está em aba separada (Backlog)
+    // Campos mantidos apenas para compatibilidade com tipo CrossSprintAnalytics
     return {
-      backlogTasks: backlogTasks.length,
-      backlogHours: backlogTasks.reduce((sum, t) => sum + t.estimativa, 0),
+      backlogTasks: 0,
+      backlogHours: 0,
+      backlogByFeature: [],
+      backlogByClient: [],
       sprintDistribution,
       developerAllocation,
       clientAllocation,
@@ -237,30 +243,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         </div>
       </div>
 
-      {/* Backlog */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
-            <Inbox className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Backlog</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Tarefas sem sprint definido</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total de Tarefas</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredAnalytics.backlogTasks}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Horas Estimadas</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {formatHours(filteredAnalytics.backlogHours)}
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Sprint Distribution */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">

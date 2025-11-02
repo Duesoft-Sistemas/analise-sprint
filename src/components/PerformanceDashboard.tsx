@@ -142,6 +142,7 @@ export const PerformanceDashboard: React.FC = () => {
             performanceScore: customMetrics.avgPerformanceScore,
             baseScore: customMetrics.avgPerformanceScore,
             complexityBonus: 0,
+            intermediateComplexityBonus: 0,
             seniorityEfficiencyBonus: 0,
             auxilioBonus: 0,
             tasks: [],
@@ -452,7 +453,7 @@ export const PerformanceDashboard: React.FC = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
               {summaryStats.avgPerformanceScore.toFixed(0)}
-              <span className="text-lg text-gray-500 dark:text-gray-400">/100</span>
+              <span className="text-lg text-gray-500 dark:text-gray-400">/140</span>
             </p>
           </div>
 
@@ -549,6 +550,7 @@ export const PerformanceDashboard: React.FC = () => {
                 performanceScore: allSprintsMetrics.avgPerformanceScore,
                 baseScore: allSprintsMetrics.avgPerformanceScore,
                 complexityBonus: 0,
+                intermediateComplexityBonus: 0,
                 seniorityEfficiencyBonus: 0,
                 auxilioBonus: 0,
                 tasks: [],

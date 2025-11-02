@@ -8,16 +8,15 @@
 // =============================================================================
 // ZONA DE EFICIÊNCIA POR COMPLEXIDADE
 // =============================================================================
-// Define os limites esperados de horas para tarefas (complexidade 1-4)
+// Define os limites esperados de horas para tarefas (complexidade 1-5)
 // Usado para detectar tarefas simples que levaram tempo excessivo
 // 
 // SISTEMA SEPARADO: Zonas aplicam APENAS para bugs
 // Features/Outros: usam apenas desvio percentual
-// Bugs: usam zona (1-4) OU desvio (5)
+// Bugs: usam zona de eficiência para todas as complexidades (1-5)
 // 
-// IMPORTANTE: Complexidade 5 NÃO tem limites de zona de eficiência.
-// Ela recebe apenas bonus de complexidade, sem penalizações por tempo excessivo.
-// Isso reconhece que tarefas muito complexas são naturalmente imprevisíveis.
+// IMPORTANTE: Para bugs, todas as complexidades usam zona de eficiência
+// baseada apenas em horas gastas (não na estimativa original).
 // =============================================================================
 
 export interface ComplexityEfficiencyZone {
@@ -56,8 +55,12 @@ export const COMPLEXITY_EFFICIENCY_ZONES: ComplexityEfficiencyZone[] = [
     maxEfficientHours: 16,
     maxAcceptableHours: 32,
   },
-  // Complexidade 5 não tem limites de zona de eficiência
-  // Apenas recebe bonus de complexidade, sem penalizações
+  {
+    complexity: 5,
+    name: 'Muito Complexa',
+    maxEfficientHours: 16,
+    maxAcceptableHours: 24,
+  },
 ];
 
 // Função auxiliar para obter a zona de eficiência de uma complexidade
@@ -113,6 +116,9 @@ export const PERFORMANCE_SCORE_WEIGHTS = {
 /** Bonus máximo por trabalhar em tarefas complexas (níveis 4-5) */
 export const MAX_COMPLEXITY_BONUS = 10;
 
+/** Bonus máximo por executar tarefas complexidade 3 com alta eficiência */
+export const MAX_INTERMEDIATE_COMPLEXITY_BONUS = 5;
+
 /** Bonus máximo por executar tarefas complexas com alta eficiência (seniority) */
 export const MAX_SENIORITY_EFFICIENCY_BONUS = 15;
 
@@ -138,7 +144,7 @@ export const PERFORMANCE_SCORE_CLASSIFICATIONS = {
 // AVALIAÇÃO DE EFICIÊNCIA POR COMPLEXIDADE
 // =============================================================================
 // Sistema separado que verifica eficiência baseado no tipo de tarefa
-// Bugs: usa zonas (1-4) OU desvio (5)
+// Bugs: usa zonas de eficiência para todas as complexidades (1-5)
 // Features/Outros: usa apenas desvio
 // =============================================================================
 
@@ -161,22 +167,20 @@ export interface EfficiencyImpactReason {
  * Verifica se uma tarefa é eficiente baseado na zona de complexidade
  * SISTEMA SEPARADO: Aplica zonas APENAS para bugs
  * 
- * - BUGS: Usam zona de complexidade (1-4) OU desvio percentual (5)
+ * - BUGS: Usam zona de complexidade para todas as complexidades (1-5)
  * - FEATURES/OUTROS: Sempre usam apenas desvio percentual
  * 
  * Se horas gastas excedem o limite esperado para aquela complexidade,
  * a tarefa é considerada ineficiente, independente do desvio percentual.
  * 
- * IMPORTANTE: Complexidade 5 NÃO tem zona de eficiência.
- * Para complexidade 5, usa-se APENAS desvio percentual (compara estimativa vs horas gastas).
- * Esta função retorna type: 'normal' para complexidade 5, indicando que deve ser avaliada
- * por desvio percentual (limites de tolerância) em vez de zona de eficiência.
+ * IMPORTANTE: Para bugs, todas as complexidades (1-5) usam zona de eficiência
+ * baseada apenas em horas gastas (não na estimativa original).
  */
 export function checkComplexityZoneEfficiency(
   complexity: number,
   hoursSpent: number,
-  _hoursEstimated?: number, // Para complexidade 5, a estimativa é necessária para avaliação por desvio percentual (não usado aqui, apenas documentação)
-  taskType?: 'Bug' | 'Tarefa' | 'História' | 'Outro' // Novo: tipo da tarefa
+  _hoursEstimated?: number, // Não usado para bugs (avaliação baseada apenas em horas gastas)
+  taskType?: 'Bug' | 'Tarefa' | 'História' | 'Outro' // Tipo da tarefa
 ): EfficiencyImpactReason {
   // Se não é bug, retornar type: 'normal' imediatamente (avaliado por desvio percentual)
   if (taskType && taskType !== 'Bug') {
@@ -188,17 +192,7 @@ export function checkComplexityZoneEfficiency(
     };
   }
 
-  // Complexidade 5 não tem zona de eficiência - deve ser avaliada por desvio percentual
-  // Retornamos type: 'normal' para indicar que não foi avaliada por zona e deve usar desvio percentual
-  // IMPORTANTE: Para complexidade 5, é necessário ter estimativa para avaliar eficiência por desvio percentual
-  if (complexity >= 5) {
-    return {
-      type: 'normal',
-      description: `Complexidade ${complexity} não tem limites de zona de eficiência. Deve ser avaliada por desvio percentual (compara estimativa vs horas gastas).`,
-      isEfficient: false, // Não marcamos como eficiente aqui - será avaliado por desvio percentual no código que chama
-      hoursSpent,
-    };
-  }
+  // Complexidade 5 agora também usa zona de eficiência para bugs (padronizado)
 
   const zone = getEfficiencyZone(complexity);
   

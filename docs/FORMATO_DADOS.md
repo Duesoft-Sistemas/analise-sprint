@@ -16,6 +16,9 @@ O arquivo de layout contém as tarefas do sprint. Deve ser um arquivo Excel (.xl
 | **Resumo** | Descrição da tarefa | Implementar API de login | "Resumo", "Summary", "Title" |
 | **Tempo gasto** | Tempo trabalhado | 2h, 2h 30m, 7200 | "Tempo gasto", "Time spent", "Hours" |
 | **Sprint** | Nome do sprint | Sprint 4, OUT25 - Semana 4 | "Sprint", "Sprint Name" |
+| | | **⚠️ IMPORTANTE:** Tarefas sem sprint (campo vazio) são tratadas como **BACKLOG** | |
+| | | Tarefas de backlog NÃO interferem em métricas de performance, mesmo que tenham worklog | |
+| | | Elas são usadas APENAS para análise de demandas na aba multi-sprint | |
 | **Criado** | Data de criação | 2025-10-15 | "Criado", "Created", "Created date" |
 | **Estimativa original** | Tempo estimado | 4h, 14400 | "Estimativa original", "Original Estimate", "Estimate" |
 | **Responsável** | Nome do desenvolvedor | João Silva | "Responsável", "Assignee", "Responsavel" |
@@ -84,11 +87,13 @@ Para cálculo de horas disponíveis, estes status são considerados concluídos:
 - `compilar`
 - `concluído` ou `concluido`
 
-**Rationale:** Uma vez em teste, o dev liberou capacidade. Se houver problemas, a métrica de retrabalho captura o impacto.
+**Importante:** Uma vez em teste, o dev liberou capacidade. Se houver problemas, a métrica de retrabalho captura o impacto.
 
 ## 📋 Arquivo de Worklog (Opcional)
 
 O arquivo de worklog contém registros detalhados de tempo trabalhado, necessário para análise híbrida precisa.
+
+**⚠️ IMPORTANTE:** Sem worklog, o sistema considera `tempoGastoTotal = 0` para todas as tarefas, o que significa que **todas as tarefas sem worklog serão consideradas ineficientes** no cálculo de performance. Use o dashboard "Inconsistências" para identificar tarefas sem registros de worklog.
 
 ### Estrutura Obrigatória
 
@@ -174,4 +179,31 @@ Antes de fazer upload, verifique:
 3. **IDs flexíveis:** Aceita tanto "PROJ-101" quanto "101"
 4. **Encoding:** O sistema corrige automaticamente problemas de encoding
 5. **Nomes consistentes:** Use o mesmo padrão de nome em todas as planilhas
+
+## 📋 Sobre Tarefas de Backlog
+
+**Tarefas sem sprint definido** (campo Sprint vazio ou sem valor) são automaticamente tratadas como **tarefas de backlog**.
+
+### Comportamento do Sistema
+
+- ✅ **São exibidas** na análise multi-sprint como backlog
+- ✅ **São contabilizadas** nas horas de backlog (baseado na estimativa)
+- ❌ **NÃO interferem** em métricas de performance
+- ❌ **NÃO aparecem** em análises de sprint específico
+- ❌ **NÃO são processadas** para cálculos híbridos (tempoGastoTotal, tempoGastoNoSprint, etc.)
+- ❌ **Worklog ignorado** - mesmo que a tarefa tenha registros de worklog, eles não são processados
+
+### Quando Usar
+
+Tarefas de backlog devem ser usadas para:
+- **Análise de demandas futuras** - visualizar o volume de trabalho pendente
+- **Planejamento** - estimar carga de trabalho não alocada
+- **Visão geral** - entender o tamanho do backlog
+
+### Importante
+
+Se uma tarefa teve trabalho realizado (worklog), mas está sem sprint, considere:
+- **Alocar em um sprint** se o trabalho já foi feito
+- **Manter como backlog** se for trabalho futuro/planejado
+- O sistema não contabilizará essas horas em métricas de performance até que a tarefa seja alocada em um sprint
 

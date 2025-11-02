@@ -165,3 +165,12 @@ export function calculatePercentage(value: number, total: number): number {
   return Math.round((value / total) * 100);
 }
 
+/**
+ * Check if a task has a sprint assigned (not backlog)
+ * IMPORTANT: Tasks without sprint are BACKLOG tasks - they should NOT interfere in performance metrics
+ * They are ONLY used for backlog analysis in multi-sprint view
+ */
+export function hasSprint(task: { sprint?: string }): boolean {
+  return !!(task.sprint && task.sprint.trim() !== '');
+}
+

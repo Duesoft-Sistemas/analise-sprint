@@ -26,7 +26,10 @@ O sistema de análise de performance fornece três níveis de visualização:
 - Complexidade (1 a 5)
 - Nota de Teste (1 a 5, vazio = 5)
 
-⚠️ **IMPORTANTE:** Apenas tarefas com status **concluído** são consideradas nos cálculos de performance.
+⚠️ **IMPORTANTE:** 
+- Apenas tarefas com status **concluído** são consideradas nos cálculos de performance
+- Tarefas devem ter **sprint** definido (tarefas sem sprint = backlog, não contam em performance)
+- Tarefas de backlog **NÃO interferem** em métricas de performance, mesmo que tenham worklog e estejam concluídas
 
 ## 🏆 Performance Score
 
@@ -36,8 +39,8 @@ Score geral que combina qualidade e eficiência de execução.
 
 ```
 Base Score (0-100) = 50% Qualidade + 50% Eficiência de Execução
-Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Auxílio (0-10)
-Score Máximo: 135
+Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10)
+Score Máximo: 140
 ```
 
 ### Componentes
@@ -46,13 +49,14 @@ Score Máximo: 135
 2. **Eficiência de Execução (50%)** = % de tarefas dentro dos limites ajustados por complexidade e tipo
 3. **Bonus de Complexidade (0-10)** = Recompensa por trabalhar em tarefas complexas (níveis 4-5)
 4. **Bonus de Senioridade (0-15)** = 🎯 Indicador principal de senioridade! Recompensa executar tarefas complexas com alta eficiência
-5. **Bonus de Auxílio (0-10)** = 🤝 Reconhece ajuda aos colegas! Recompensa tempo dedicado a ajudar outros desenvolvedores
+5. **Bonus de Complexidade 3 (0-5)** = Recompensa executar tarefas complexidade 3 com alta eficiência
+6. **Bonus de Auxílio (0-10)** = 🤝 Reconhece ajuda aos colegas! Recompensa tempo dedicado a ajudar outros desenvolvedores
 
 ### Interpretação dos Scores
 
 | Range | Classificação | Descrição |
 |-------|--------------|-----------|
-| 115-135 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas + execução eficiente + ajuda aos colegas |
+| 115-140 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas + execução eficiente + ajuda aos colegas |
 | 90-114 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
 | 75-89 | ⭐⭐⭐⭐ Muito Bom | Performance acima da média, consistente |
 | 60-74 | ⭐⭐⭐ Bom | Performance adequada, algumas áreas para melhorar |
@@ -128,23 +132,26 @@ Taxa alta pode indicar:
 
 **Sistema de Avaliação:**
 
-#### BUGS (Complexidades 1-4)
+#### BUGS (Complexidades 1-5)
 - Usa **zona de complexidade** baseada apenas em horas gastas (não usa estimativa)
 - Detecta bugs simples que levaram tempo excessivo
+- Todas as complexidades (1-5) usam zona de eficiência:
+  - Complexidade 1: até 2h eficiente, 2h-4h aceitável, acima de 4h ineficiente
+  - Complexidade 2: até 4h eficiente, 4h-8h aceitável, acima de 8h ineficiente
+  - Complexidade 3: até 8h eficiente, 8h-16h aceitável, acima de 16h ineficiente
+  - Complexidade 4: até 16h eficiente, 16h-32h aceitável, acima de 32h ineficiente
+  - Complexidade 5: até 16h eficiente, 16h-24h aceitável, acima de 24h ineficiente
 - Exemplo: Bug complexidade 1 gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
 
 #### FEATURES/OUTROS (Todas complexidades)
 - Usa **desvio percentual** entre estimativa original vs horas gastas
 - Limites ajustados por complexidade:
-  - Simples (-15%): pode atrasar até 15%
-  - Média (-25%): pode atrasar até 25%
-  - Complexa (-30%): pode atrasar até 30%
-  - Muito Complexa (-40%): pode atrasar até 40%
+  - Complexidade 1: pode atrasar até -15%
+  - Complexidade 2: pode atrasar até -18%
+  - Complexidade 3: pode atrasar até -20%
+  - Complexidade 4: pode atrasar até -30%
+  - Complexidade 5: pode atrasar até -40%
 - Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
-
-#### COMPLEXIDADE 5 (Ambos)
-- Não tem limites de horas absolutos (tarefas muito imprevisíveis)
-- Usa desvio percentual com tolerância de -40%
 
 **Faixas de Avaliação:**
 - `≥80%` - Excelente
@@ -216,7 +223,7 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
 
 ## 🎯 Bonus de Complexidade, Senioridade e Auxílio
 
-### Bonus de Complexidade (0-10 pontos)
+### Bonus de Complexidade (4-5) (0-10 pontos)
 
 Recompensa trabalhar em tarefas complexas (níveis 4-5):
 - 0% de tarefas complexas = 0 pontos
@@ -228,23 +235,31 @@ Recompensa trabalhar em tarefas complexas (níveis 4-5):
 **Indicador principal de senioridade!**
 
 Recompensa não apenas pegar tarefas complexas, mas **executá-las com alta eficiência**:
-- Aplicado APENAS para FEATURES complexas (bugs são excluídos)
-- 100% de eficiência alta em features complexas = +15 pontos (máximo)
+- Aplicado para FEATURES e BUGS complexos (nível 4-5)
+- 100% de eficiência alta em tarefas complexas = +15 pontos (máximo)
+- Bugs complexos também contam: executar bugs complexos com eficiência demonstra habilidade de debugging e solução de problemas complexos
+- **Importante:** Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
 
-**Por que bugs são excluídos?**
-Bugs são imprevisíveis por natureza. O bonus recompensa execução conforme estimativa em features.
+### Bonus de Complexidade 3 (0-5 pontos)
+
+Recompensa executar tarefas complexidade 3 com alta eficiência:
+- Aplicado para FEATURES e BUGS complexidade 3
+- Features: dentro da tolerância de eficiência (+20%)
+- Bugs: zona eficiente apenas (não aceitável)
+- 100% de eficiência em tarefas complexidade 3 = +5 pontos (máximo)
 
 ### Bonus de Auxílio (0-10 pontos) 🤝
 
 **Reconhece colaboração e mentoria!**
 
-Recompensa tempo dedicado a ajudar outros desenvolvedores:
-- 2h = 2 pontos 🟢
-- 4h = 3 pontos 🔵
-- 6h = 4 pontos 🟣
-- 8h = 6 pontos 🟠
-- 12h = 8 pontos 🟡
-- 16h+ = 10 pontos 🏆
+Recompensa tempo dedicado a ajudar outros desenvolvedores (escala progressiva ajustada):
+- 0.5h+ = 1 ponto
+- 2h+ = 2 pontos
+- 4h+ = 4 pontos
+- 6h+ = 5 pontos
+- 8h+ = 7 pontos
+- 12h+ = 9 pontos
+- 16h+ = 10 pontos (máximo)
 
 **Identificação:** Campo "Detalhes Ocultos" = "Auxilio" (qualquer variação de maiúsculas/minúsculas)
 
@@ -285,7 +300,7 @@ Recompensa tempo dedicado a ajudar outros desenvolvedores:
 - Eficiência: 80%
 - Base Score: (0.50 × 95) + (0.50 × 80) = 47.5 + 40 = 87.5
 - Bonus Complexidade: +8 (80% tarefas complexas)
-- Bonus Senioridade: +12 (80% eficiência em features complexas)
+- Bonus Senioridade: +12 (80% eficiência em tarefas complexas: features e bugs)
 - **Performance Score: 107.5** ⭐⭐⭐⭐⭐
 
 ### Exemplo 2: Desenvolvedor Subestimando
@@ -305,8 +320,8 @@ Recompensa tempo dedicado a ajudar outros desenvolvedores:
 
 **Métricas:**
 - Base Score: 80
-- Bonus Auxílio: +6 (8h de auxílio)
-- **Performance Score: 86** ⭐⭐⭐⭐
+- Bonus Auxílio: +7 (8h de auxílio)
+- **Performance Score: 87** ⭐⭐⭐⭐
 
 **Reconhecimento:** O sistema valoriza colaboração e mentoria!
 
@@ -350,6 +365,28 @@ Executar mais rápido é **POSITIVO**:
 4. Aprenda com o passado: compare estimado vs real
 5. Inclua buffer realista: 20-30% para imprevistos
 6. Esclareça requisitos antes de estimar
+
+## ⚠️ O Que NÃO É Considerado
+
+### Tarefas Excluídas dos Cálculos de Performance
+
+**Tarefas de Backlog (sem sprint):**
+- ❌ **NÃO interferem** em métricas de performance, mesmo que tenham worklog e estejam concluídas
+- ❌ **NÃO são processadas** para cálculos híbridos (tempoGastoTotal, tempoGastoNoSprint, etc.)
+- ❌ **Worklog ignorado** - mesmo que a tarefa tenha registros de worklog, eles não são processados
+- ✅ **São exibidas** apenas na análise de backlog (aba multi-sprint)
+- ✅ **São contabilizadas** nas horas de backlog (baseado na estimativa apenas)
+
+**Por que isso?**
+- Tarefas sem sprint são usadas apenas para **análise de demandas futuras**
+- Para contabilizar em performance, a tarefa precisa estar **alocada em um sprint**
+- Isso mantém a consistência: métricas de performance refletem apenas trabalho em sprints definidos
+
+**Outras exclusões:**
+- Tarefas em progresso (status diferente de `teste`, `teste gap`, `compilar`, `concluído`, `concluido`)
+- Tarefas marcadas como "Reunião" (neutras, não afetam score)
+- Tarefas sem estimativa (mas podem aparecer em métricas informativas)
+- Tarefas sem worklog (tempo gasto = 0)
 
 ## 🎓 Conclusão
 

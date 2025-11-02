@@ -161,7 +161,7 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           <strong>Score Final</strong> = Base Score + Bonus de Complexidade (0-10 pontos) + Bonus de Senioridade (0-15 pontos) + Bonus de Auxílio (0-10 pontos)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
-                          💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas com alta eficiência (dentro dos limites de horas esperados).
+                          💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência (dentro dos limites de horas esperados).
                         </p>
                       </div>
                       
@@ -263,17 +263,17 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
                     <p>Você fez 10 tarefas. Vejamos quais foram eficientes:</p>
                     <ul className="ml-4 space-y-1">
-                      <li>• <strong>Complexidades 1-4:</strong> Avaliadas por zona de eficiência (APENAS horas gastas, não usa estimativa)</li>
-                      <li>• 5 tarefas complexidade 1-4 com horas gastas ≤ limite aceitável → ✅ Eficientes</li>
-                      <li>• 3 tarefas complexidade 1-4 com horas gastas {'>'} limite aceitável → ❌ Ineficientes</li>
-                      <li>• <strong>Complexidade 5:</strong> Avaliada por desvio percentual (usa estimativa vs horas gastas)</li>
-                      <li>• 2 tarefas complexidade 5 dentro dos limites de desvio → ✅ Eficientes</li>
+                      <li>• <strong>BUGS (Complexidades 1-5):</strong> Avaliados por zona de eficiência (APENAS horas gastas, não usa estimativa)</li>
+                      <li>• 5 bugs complexidade 1-5 com horas gastas ≤ limite eficiente → ✅ Eficientes</li>
+                      <li>• 3 bugs complexidade 1-5 com horas gastas {'>'} limite aceitável → ❌ Ineficientes</li>
+                      <li>• <strong>FEATURES (Todas complexidades):</strong> Avaliadas por desvio percentual (usa estimativa vs horas gastas)</li>
+                      <li>• 2 features complexidade 5 dentro dos limites de desvio → ✅ Eficientes</li>
                     </ul>
                     <p className="mt-2 font-medium">
                       Eficiência: 7 tarefas eficientes de 10 = <strong>70% de Eficiência</strong>
                     </p>
                     <p className="text-xs italic mt-2 font-semibold text-blue-600 dark:text-blue-400">
-                      💡 IMPORTANTE: Complexidades 1-4 usam APENAS horas gastas (estimativa não é considerada). Complexidade 5 usa desvio percentual (usa estimativa).
+                      💡 IMPORTANTE: Bugs (todas as complexidades 1-5) usam APENAS horas gastas (estimativa não é considerada). Features sempre usam desvio percentual.
                     </p>
                   </div>
                 </div>
@@ -346,35 +346,41 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        Executar tarefas complexas (nível 4-5) <strong>com alta eficiência</strong> te dá um bonus ainda maior!
+                        Executar tarefas complexas (features e bugs nível 4-5) <strong>com alta eficiência</strong> te dá um bonus ainda maior!
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mt-2">
                         <strong>Bonus</strong> = (% de eficiência em tarefas complexas) × 15 pontos
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
-                        • Tarefas na zona <strong>eficiente</strong> (ex: Complexidade 4 gastou ≤16h) = peso 1.0
+                        • <strong>Features:</strong> Eficiente dentro dos limites de desvio percentual = peso 1.0
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 text-xs italic">
-                        • Tarefas na zona <strong>aceitável</strong> (ex: Complexidade 4 gastou ≤32h) = peso 0.5
+                        • <strong>Bugs:</strong> Zona eficiente (ex: Complexidade 4 gastou ≤16h) = peso 1.0
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 text-xs italic">
+                        • <strong>Importante:</strong> Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
                       </p>
                     </div>
                     
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Exemplo Simples:</p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • Você fez 3 tarefas complexas (nível 4)
+                        • Você fez 3 tarefas complexas (nível 4): 2 features + 1 bug
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • 2 tarefas executadas com alta eficiência (≤16h cada) = 2 × 1.0 = 2.0
+                        • 2 tarefas executadas com alta eficiência (1 feature dentro do limite + 1 bug na zona eficiente ≤16h) = 2 × 1.0 = 2.0
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • 1 tarefa executada com eficiência moderada (≤32h) = 1 × 0.5 = 0.5
+                        • 1 bug na zona aceitável (≤32h) = não conta (0)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • Eficiência: (2.0 + 0.5) / 3 tarefas = 83% de eficiência
+                        • Eficiência: 2.0 / 3 tarefas = 67% de eficiência
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 font-bold">
-                        • Bonus = 83% × 15 = <strong>+12 pontos</strong> ⭐
+                        • Bonus = 67% × 15 = <strong>+10 pontos</strong> ⭐
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
+                        💡 Bugs complexos agora também contam para o bônus de senioridade! 🐛✨
                       </p>
                     </div>
 

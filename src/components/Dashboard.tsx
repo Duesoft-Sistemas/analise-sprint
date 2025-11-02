@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings } from 'lucide-react';
+import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings, AlertTriangle, Inbox } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -10,9 +10,11 @@ import { CrossSprintAnalysis } from './CrossSprintAnalysis';
 import { PerformanceDashboard } from './PerformanceDashboard';
 import { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
 import { QualityDashboard } from './QualityDashboard';
+import { InconsistenciesDashboard } from './InconsistenciesDashboard';
+import { BacklogDashboard } from './BacklogDashboard';
 import { SettingsPanel } from './SettingsPanel';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog';
 
 export const Dashboard: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
@@ -121,7 +123,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Header with Sprint Selector and View Toggles */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'multiSprint' && <SprintSelector />}
+        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && <SprintSelector />}
         
         <div className="flex flex-wrap gap-3">
           <button
@@ -185,6 +187,30 @@ export const Dashboard: React.FC = () => {
           </button>
           
           <button
+            onClick={() => setViewMode('backlog')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'backlog'
+                ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Inbox className="w-4 h-4" />
+            Backlog
+          </button>
+          
+          <button
+            onClick={() => setViewMode('inconsistencies')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'inconsistencies'
+                ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+            Inconsistências
+          </button>
+          
+          <button
             onClick={() => setShowSettings(true)}
             className="px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
             title="Configurações de Métricas"
@@ -205,6 +231,10 @@ export const Dashboard: React.FC = () => {
         <PerformanceDashboard />
       ) : viewMode === 'quality' ? (
         <QualityDashboard />
+      ) : viewMode === 'inconsistencies' ? (
+        <InconsistenciesDashboard />
+      ) : viewMode === 'backlog' ? (
+        <BacklogDashboard />
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis analytics={crossSprintAnalytics} sprints={sprints} tasks={tasks} />
       ) : (

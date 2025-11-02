@@ -17,6 +17,7 @@ Aplicação web para análise e controle de sprints semanais. Transforma dados d
 - **Análise de Performance:** Métricas de qualidade, eficiência e acurácia (para coaching)
 - **Evolução Temporal:** Acompanhamento de performance ao longo do tempo (mensal, trimestral, semestral, anual)
 - **Qualidade dos Chamados:** Dashboard dedicado para análise de qualidade
+- **Inconsistências:** Identifica tarefas sem registros de worklog que impactam performance
 - **Análise Híbrida:** Separação precisa de tempo gasto entre sprints usando worklog
 - **Dark Mode:** Interface completa em modo claro e escuro
 
@@ -56,6 +57,7 @@ Você precisa de até 3 arquivos Excel:
    - **Performance:** Métricas de performance individual
    - **Evolução Temporal:** Análise de evolução ao longo do tempo
    - **Qualidade dos Chamados:** Análise de qualidade dos chamados
+   - **Inconsistências:** Identifica tarefas sem worklog que impactam performance
 4. **Explore** as métricas, alertas e visualizações
 
 ## 📚 Documentação Completa

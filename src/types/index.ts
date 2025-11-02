@@ -90,6 +90,8 @@ export interface ProblemAnalysis {
 export interface CrossSprintAnalytics {
   backlogTasks: number;
   backlogHours: number;
+  backlogByFeature: Totalizer[]; // Análise de backlog por feature
+  backlogByClient: Totalizer[]; // Análise de backlog por cliente
   sprintDistribution: {
     sprintName: string;
     tasks: number;
@@ -114,7 +116,7 @@ export interface CrossSprintAnalytics {
     }[];
     totalHours: number;
   }[];
-  // Análise de problemas (bugs reais e dúvidas ocultas)
+  // Análise de problemas (bugs reais e dúvidas ocultas) - apenas tarefas com sprint
   byFeature: ProblemAnalysis[];
   byClient: ProblemAnalysis[];
 }
@@ -182,7 +184,7 @@ export interface SprintPerformanceMetrics {
   
   // Accuracy
   estimationAccuracy: number; // Average % deviation
-  accuracyRate: number; // % of tasks executed efficiently (complexities 1-4: by hours spent zone, complexity 5: by deviation percentage)
+  accuracyRate: number; // % of tasks executed efficiently (bugs: all complexities 1-5 use hours spent zone, features: all use deviation percentage)
   tendsToOverestimate: boolean;
   tendsToUnderestimate: boolean;
   // Information about tasks impacted by complexity zone rule (hours exceeding complexity limits)
@@ -211,10 +213,11 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-135 weighted score (base + complexity bonus + seniority bonus + auxilio bonus)
+  performanceScore: number; // 0-140 weighted score (base + complexity bonus + intermediate complexity bonus + seniority bonus + auxilio bonus)
   baseScore: number; // 0-100 base score without bonuses
   complexityBonus: number; // 0-10 bonus for working on complex tasks (level 4-5)
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
+  intermediateComplexityBonus: number; // 0-5 bonus for executing complexity 3 tasks with high efficiency
   auxilioBonus: number; // 0-10 bonus for helping other developers
   
   // Raw data
