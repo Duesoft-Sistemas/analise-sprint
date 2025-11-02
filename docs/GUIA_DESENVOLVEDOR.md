@@ -8,7 +8,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 
 - **Qualidade:** Nota de teste (1-5). Sem nota = 5 (perfeito!)
 - **Eficiência:** Features compara estimativa vs tempo gasto. Bugs verifica horas gastas (não usa estimativa).
-- **Bônus:** Complexidade 4-5 (+10), Complexidade 3 (+5), Senioridade (+15), Auxílio (+10)
+- **Bônus:** Complexidade 4-5 (+10), Complexidade 3 (+5), Senioridade (fazer tarefas complexas bem, +15), Auxílio (+10)
 
 **⚠️ IMPORTANTE - Leia Antes:**
 - ✅ Só conta tarefas **concluídas** (`teste`, `teste gap`, `compilar`, `concluído`, `concluido`)
@@ -135,7 +135,7 @@ João fez 5 tarefas neste sprint (1 complexa nível 4-5):
 - Estimou 8h, gastou 8h ✅ (eficiente!)
 - Estimou 6h, gastou 5h ✅ (fez mais rápido!)
 - Estimou 4h, gastou 4.5h ✅ (dentro do limite!)
-- Estimou 10h, gastou 12h ✅ (dentro do limite!)
+- Estimou 10h, gastou 12h ✅ (assumindo complexidade 3, desvio de -20%, dentro do limite de -20%!)
 - Estimou 2h, gastou 1h ✅ (fez mais rápido!)
 
 Cálculo:

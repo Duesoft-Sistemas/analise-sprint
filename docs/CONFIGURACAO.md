@@ -1,14 +1,14 @@
 # Configuração e Análise Híbrida
 
-Este documento explica como configurar sprints e usar a análise híbrida com worklog.
+Especificação técnica do sistema de configuração de sprints e análise híbrida com worklog.
 
-## 📅 Configuração de Sprints
+## Configuração de Sprints
 
-Para análise híbrida precisa com múltiplos sprints, é necessário configurar os períodos de cada sprint.
+Sistema requer configuração de períodos de sprints para análise híbrida precisa com múltiplos sprints.
 
-### Formato da Planilha de Sprints
+### Estrutura da Planilha de Sprints
 
-Crie um arquivo Excel (`sprints.xlsx`) com 3 colunas:
+Arquivo Excel (`sprints.xlsx`) com 3 colunas obrigatórias:
 
 | Sprint | Data Início | Data Fim |
 |--------|-------------|----------|
@@ -16,209 +16,195 @@ Crie um arquivo Excel (`sprints.xlsx`) com 3 colunas:
 | NOV25 - Semana 1 | 04/11/2025 | 08/11/2025 |
 | NOV25 - Semana 2 | 11/11/2025 | 15/11/2025 |
 
-### Colunas Aceitas
+### Reconhecimento de Colunas
 
-O sistema reconhece automaticamente várias variações:
+Sistema reconhece automaticamente as seguintes variações de nomes de colunas:
 
-- **Sprint**: `Sprint`, `sprint`, `Nome do Sprint`, `Sprint Name`, `ID`
-- **Data Início**: `Data Início`, `Data Inicio`, `Start Date`, `Data inicial`, `Início`
-- **Data Fim**: `Data Fim`, `End Date`, `Data final`, `Fim`
+**Coluna Sprint:**
+- `Sprint`, `sprint`, `Nome do Sprint`, `Sprint Name`, `ID`
+
+**Coluna Data Início:**
+- `Data Início`, `Data Inicio`, `Data início`, `Data inicio`, `Start Date`, `Data Inicial`, `Data inicial`, `Início`, `Inicio`
+
+**Coluna Data Fim:**
+- `Data Fim`, `Data fim`, `End Date`, `Data Final`, `Data final`, `Fim`
 
 ### Formatos de Data Aceitos
 
-- ✅ **DD/MM/YYYY** - Formato brasileiro (recomendado): `28/10/2025`
-- ✅ **YYYY-MM-DD** - Formato ISO: `2025-10-28`
-- ✅ **DD-MM-YYYY** - Formato alternativo: `28-10-2025`
+- DD/MM/YYYY: `28/10/2025`
+- YYYY-MM-DD: `2025-10-28`
+- DD-MM-YYYY: `28-10-2025`
 
-### Como Usar
+### Regras de Validação
 
-1. **Criar a Planilha:**
-   - Abra o Excel
-   - Adicione as colunas: `Sprint`, `Data Início`, `Data Fim`
-   - Preencha com os dados de cada sprint
-   - Salve como `sprints.xlsx`
+- Nome do sprint na planilha deve corresponder exatamente ao nome no layout.xlsx
+- Períodos de sprints não devem se sobrepor
+- Primeira linha do arquivo deve conter os cabeçalhos
+- Datas devem estar em formato válido
 
-2. **Carregar no Sistema:**
-   - Acesse o sistema
-   - Na seção "1. Configuração de Sprints"
-   - Arraste o arquivo `sprints.xlsx` ou clique para selecionar
-   - Aguarde o processamento
+## Análise Híbrida com Worklog
 
-3. **Importante:**
-   - O nome do sprint na planilha deve ser **exatamente igual** ao nome no layout.xlsx
-   - Períodos não devem se sobrepor
-   - A primeira linha deve conter os cabeçalhos
+Sistema utiliza worklog para calcular tempo gasto com precisão, separando tempo por sprint para tarefas que atravessam múltiplos sprints.
 
-## ⏱️ Análise Híbrida com Worklog
-
-A análise híbrida permite calcular métricas de sprint de forma mais precisa, separando o tempo gasto em diferentes sprints. Isso é útil para tarefas que atravessam múltiplos sprints.
-
-### ⚠️ REGRA FUNDAMENTAL
+### REGRA FUNDAMENTAL
 
 **O tempo gasto nos cálculos SEMPRE vem do worklog, NUNCA da planilha de sprint.**
 
-- ✅ **Usar**: `tempoGastoTotal`, `tempoGastoNoSprint`, `tempoGastoOutrosSprints` (calculados do worklog)
-- ❌ **NUNCA usar**: `tempoGasto` (campo da planilha de sprint) nos cálculos
+**Campos utilizados (calculados do worklog):**
+- `tempoGastoTotal`: Tempo total acumulado em todos os sprints
+- `tempoGastoNoSprint`: Tempo gasto apenas no sprint atual
+- `tempoGastoOutrosSprints`: Tempo gasto em sprints anteriores
 
-**Importante:** Se não houver worklog, o tempo gasto é **0** (zero), não o valor da planilha.
+**Campo NUNCA utilizado em cálculos:**
+- `tempoGasto`: Campo da planilha de sprint (deprecated)
 
-### Como Funciona
+**Comportamento:** Se não houver worklog, o tempo gasto é 0 (zero), independente do valor na planilha.
 
-**Exemplo:**
-```
-Tarefa: PROJ-101
-├─ Estimativa Original: 15h
-├─ Tempo Gasto Outros Sprints: 5h
-├─ Estimativa Restante (Sprint 2): 10h
-└─ Tempo Gasto no Sprint: 10h
+### Estrutura de Campos Híbridos
 
-No Sprint 2, o sistema mostra:
-   - Alocação: 10h (estimativa restante)
-   - Disponível: 30h do dev (40h - 10h)
-   - Performance: 15h estimadas vs 15h gastas (100%)
-```
+O sistema calcula os seguintes campos para cada tarefa:
+
+- `estimativa`: Estimativa original (nunca muda)
+- `estimativaRestante`: Estimativa original - tempo gasto em outros sprints (min 0)
+- `tempoGastoNoSprint`: Soma de worklogs cuja data está dentro do período do sprint atual
+- `tempoGastoOutrosSprints`: Soma de worklogs cuja data está fora do período do sprint atual
+- `tempoGastoTotal`: `tempoGastoNoSprint + tempoGastoOutrosSprints`
 
 ### Visões de Análise
 
-O sistema usa uma **abordagem híbrida** que mantém duas visões:
+Sistema mantém duas visões separadas:
 
-1. **Capacidade do Sprint Atual** (para planejamento)
-   - Usa `estimativaRestante` = quanto falta fazer NESTE sprint
-   - Usa `tempoGastoNoSprint` = quanto foi gasto NESTE sprint
+**1. Capacidade do Sprint Atual (planejamento)**
+- Campo utilizado: `estimativaRestante`
+- Campo utilizado: `tempoGastoNoSprint`
+- Uso: Alocação de desenvolvedor, cálculo de horas disponíveis
 
-2. **Performance Histórica** (para análise)
-   - Usa `estimativa` = estimativa original
-   - Usa `tempoGastoTotal` = tempo total em todos os sprints
+**2. Performance Histórica (avaliação)**
+- Campo utilizado: `estimativa`
+- Campo utilizado: `tempoGastoTotal`
+- Uso: Cálculo de eficiência, acurácia, performance score
 
-### Campos Utilizados
+### Estrutura do Arquivo Worklog
 
-O sistema utiliza os seguintes campos para análise híbrida:
+Arquivo Excel com 3 colunas obrigatórias:
 
-- `estimativa`: Estimativa original (nunca muda)
-- `estimativaRestante`: Quanto falta fazer no sprint atual
-- `tempoGastoNoSprint`: Tempo gasto apenas neste sprint
-- `tempoGastoOutrosSprints`: Tempo gasto em sprints anteriores
-- `tempoGastoTotal`: Tempo total acumulado em todos os sprints
+| Coluna | Obrigatório | Tipo | Exemplo |
+|--------|------------|------|---------|
+| ID da tarefa | Sim | String | PROJ-101 |
+| Tempo gasto | Sim | Number/String | 2h ou 7200 |
+| Data | Sim | Date | 2025-10-15 |
 
-### Estrutura do Worklog
+**Variações de nomes de colunas aceitas:**
 
-O arquivo de worklog deve ter as seguintes colunas obrigatórias:
+**ID da tarefa:**
+- `ID da tarefa`, `Task ID`, `Chave`, `Chave da item`, `Issue Key`, `Issue`
 
-| Coluna | Obrigatório | Descrição | Exemplo |
-|--------|------------|-----------|---------|
-| **ID da tarefa** | ✅ Sim | Chave ou ID da tarefa | PROJ-101 |
-| **Tempo gasto** | ✅ Sim | Horas trabalhadas | 2h ou 7200 (segundos) |
-| **Data** | ✅ Sim | Data do lançamento | 2025-10-15 |
+**Tempo gasto:**
+- `Tempo gasto`, `Time Spent`, `Time spent`, `Hours`, `Horas`, `Duration`
 
-### Exemplo de Worklog
+**Data:**
+- `Data`, `Date`, `Data de registro`, `Log Date`, `Started`, `Created date (worklog)`, `Created date`
 
+### Formato de Dados Worklog
+
+**ID da tarefa:**
+- Aceita chave completa (ex: PROJ-101) ou ID numérico (ex: 101)
+- Deve corresponder ao campo "Chave da item" ou "ID da item" do layout.xlsx
+
+**Tempo gasto:**
+- Aceita formato texto: `2h`, `2h 30m`, `45m`, `0.5h`
+- Aceita número: interpretado como segundos (ex: 7200 = 2h)
+- Aceita decimal sem sufixo: interpretado como segundos
+
+**Data:**
+- Aceita formato ISO: `2025-10-15`
+- Aceita formato BR: `15/10/2025`
+- Aceita formato com hora: `2025-10-15 14:30:00`
+
+### Processamento de Worklog
+
+**Algoritmo de cálculo híbrido:**
+
+1. Para cada tarefa no layout.xlsx:
+   - Buscar worklogs correspondentes (match por ID ou chave)
+   - Se não houver worklogs: `tempoGastoTotal = 0`, `tempoGastoNoSprint = 0`, `tempoGastoOutrosSprints = 0`, `estimativaRestante = estimativa`
+
+2. Se houver worklogs:
+   - Filtrar worklogs por data do sprint atual (se período definido)
+   - `tempoGastoNoSprint` = soma de worklogs dentro do período do sprint atual
+   - `tempoGastoOutrosSprints` = soma de worklogs fora do período do sprint atual
+   - `tempoGastoTotal` = `tempoGastoNoSprint + tempoGastoOutrosSprints`
+   - `estimativaRestante` = `max(0, estimativa - tempoGastoOutrosSprints)`
+
+3. Se período do sprint não definido:
+   - Todos os worklogs são considerados do sprint atual
+   - `tempoGastoNoSprint = tempoGastoTotal`
+   - `tempoGastoOutrosSprints = 0`
+
+### Exemplo de Cálculo Híbrido
+
+**Dados de entrada:**
 ```
-ID da tarefa | Tempo gasto | Data
-PROJ-101     | 2h         | 2025-10-15
-PROJ-101     | 3h         | 2025-10-16
-PROJ-101     | 5h         | 2025-10-22
-PROJ-102     | 4h         | 2025-10-15
-```
-
-### Como Usar
-
-1. **Preparar os Arquivos:**
-   - **layout.xlsx**: Arquivo normal com todas as tarefas (obrigatório)
-   - **worklog.xlsx**: Arquivo com registros detalhados de tempo (opcional)
-   - **sprints.xlsx**: Arquivo com períodos de cada sprint (opcional)
-
-2. **Fazer Upload:**
-   - Upload do Layout (obrigatório)
-   - Upload do Worklog (opcional)
-   - Upload da configuração de Sprints (opcional)
-
-3. **Definir Período do Sprint** (opcional):
-   - Se enviou worklog, defina as datas de início e fim
-   - Se não definir, usa a semana atual automaticamente
-   - Se enviou sprints.xlsx, o período é detectado automaticamente
-
-### Impacto nas Métricas
-
-#### Card do Desenvolvedor
-
-```
-┌─────────────────────────────────────────┐
-│ João Silva                               │
-├─────────────────────────────────────────┤
-│ CAPACIDADE NESTE SPRINT                 │
-│ 🎯 Alocado: 40h (tarefas restantes)     │ ← usa estimativaRestante
-│ ⏱️  Gasto: 12h (neste sprint)           │ ← usa tempoGastoNoSprint
-│ ✅ Disponível: 28h                       │
-├─────────────────────────────────────────┤
-│ PERFORMANCE (todas as tarefas)          │
-│ 📈 Estimado: 80h (original)             │ ← usa estimativa
-│ ⚡ Realizado: 85h (total histórico)     │ ← usa tempoGastoTotal
-│ 🎯 Acurácia: -6.25%                     │
-└─────────────────────────────────────────┘
-```
-
-#### Lista de Tarefas
-
-```
-PROJ-101 | Implementar login
-├─ Estimativa: 10h (15h orig.)  ← mostra ambos!
-├─ Gasto: 3h                     ← só deste sprint
-│  +5h ant.                      ← tempo anterior
-└─ Variação: -7h (-70%)          ← baseado na restante
-```
-
-### Cálculo Detalhado
-
-**Exemplo Completo:**
-
-```
-// Dados de entrada
 Tarefa: PROJ-101
-├─ Estimativa Original: 15h
-├─ Sprint do Layout: "Sprint 4"
-└─ Worklogs:
-    ├─ 2025-10-15: 2h (Sprint 3)
-    ├─ 2025-10-16: 3h (Sprint 3)
-    ├─ 2025-10-22: 5h (Sprint 4) ✓
-    └─ 2025-10-23: 5h (Sprint 4) ✓
+- Estimativa Original: 15h
+- Sprint do Layout: "Sprint 4"
+- Worklogs:
+  - 2025-10-15: 2h (fora do período Sprint 4)
+  - 2025-10-16: 3h (fora do período Sprint 4)
+  - 2025-10-22: 5h (dentro do período Sprint 4)
+  - 2025-10-23: 5h (dentro do período Sprint 4)
 
-// Período do Sprint 4: 2025-10-21 a 2025-10-27
+Período Sprint 4: 2025-10-21 a 2025-10-27
+```
 
-// Cálculo
+**Cálculo:**
+```
 tempoGastoOutrosSprints = 2h + 3h = 5h
 tempoGastoNoSprint = 5h + 5h = 10h
 tempoGastoTotal = 5h + 10h = 15h
-estimativaRestante = 15h - 5h = 10h
-
-// Resultado para o Dev
-Alocação: 10h (estimativaRestante)
-Gasto: 10h (tempoGastoNoSprint)
-Disponível: 40h - 10h = 30h ✓
-
-// Performance (histórico)
-Estimado: 15h (original)
-Gasto: 15h (total)
-Acurácia: 0% (perfeito!)
+estimativaRestante = max(0, 15h - 5h) = 10h
 ```
 
-### Benefícios
+**Resultado para métricas:**
+- Alocação (sprint atual): `estimativaRestante = 10h`
+- Gasto (sprint atual): `tempoGastoNoSprint = 10h`
+- Disponível: `40h - 10h = 30h`
+- Performance (histórico): `estimativa = 15h`, `tempoGastoTotal = 15h`, Acurácia = 0%
 
-1. **Capacidade Correta:** Alocação reflete apenas o trabalho restante
-2. **Performance Precisa:** Análise usa o histórico completo
-3. **Alertas Melhores:** Riscos baseados no tempo real do sprint
-4. **Transparência:** Visualização clara do tempo em outros sprints
-5. **Flexibilidade:** Funciona com ou sem worklog
+### Comportamento do Sistema
 
-### Importante
+**Arquivos:**
+- `layout.xlsx`: Obrigatório
+- `worklog.xlsx`: Opcional. Se ausente, `tempoGastoTotal = 0` para todas as tarefas
+- `sprints.xlsx`: Opcional. Se ausente, usa semana atual (segunda a sexta) como período padrão
 
-- O worklog é **opcional** - se não enviado, o tempo gasto é considerado 0
-- O período do sprint é **opcional** - se não definido, usa semana atual
-- O arquivo de layout continua **obrigatório**
-- IDs/chaves do worklog devem **corresponder** ao layout
-- O nome do sprint na planilha de sprints deve ser **exatamente igual** ao nome no layout
+**Período Padrão (quando sprints.xlsx não fornecido):**
+- Sistema calcula automaticamente a semana atual
+- Início: Segunda-feira (00:00:00)
+- Fim: Sexta-feira (23:59:59.999)
+- Todos os worklogs são considerados do sprint atual quando período não definido
 
-## 📖 Referências
+**Validações:**
+- IDs/chaves do worklog devem corresponder ao layout.xlsx (match por ID ou chave completa)
+- Nome do sprint na planilha de sprints deve corresponder exatamente ao nome no layout.xlsx (comparação case-sensitive após trim)
+- Worklogs com datas inválidas são ignorados (continua processamento de outras linhas)
+- Worklogs com tempo gasto ≤ 0 são ignorados
+- Linhas vazias no meio dos dados são ignoradas
+- Tarefas sem ID nem chave são ignoradas
+
+**Processamento de Datas:**
+- Data de início do sprint: 00:00:00 (início do dia)
+- Data de fim do sprint: 23:59:59.999 (fim do dia, inclui dia inteiro)
+- Worklogs são filtrados por inclusão dentro do intervalo [data início, data fim]
+
+**Tarefas de Backlog (sem sprint):**
+- Tarefas sem sprint definido (campo vazio, null ou string vazia após trim) NÃO são processadas para métricas híbridas
+- Worklog de tarefas sem sprint é ignorado (não faz match, não processado)
+- Tarefas sem sprint são exibidas apenas na análise de backlog (aba multi-sprint)
+- Tarefas sem sprint NÃO interferem em métricas de performance
+- Horas de backlog são calculadas apenas pela estimativa original (não usa worklog)
+
+## Referências
 
 - [Formato dos Dados](FORMATO_DADOS.md) - Estrutura completa dos arquivos
-- [Métricas de Performance](METRICAS_PERFORMANCE.md) - Como as métricas são calculadas
-
+- [Métricas de Performance](METRICAS_PERFORMANCE.md) - Especificações de cálculo de métricas

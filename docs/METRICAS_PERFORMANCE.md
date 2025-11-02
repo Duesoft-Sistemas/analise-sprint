@@ -1,406 +1,384 @@
 # Métricas de Performance
 
-Este documento descreve todas as métricas de performance disponíveis no Sprint Analysis Dashboard, incluindo como são calculadas e como interpretá-las.
+Especificação técnica das métricas de performance do Sprint Analysis Dashboard.
 
-⚠️ **IMPORTANTE:** Use estas métricas para **coaching e melhoria contínua**, nunca como único critério de avaliação.
+## Visão Geral
 
-## 🎯 Visão Geral
+Sistema fornece três níveis de análise:
+1. Por Tarefa: Métricas individuais
+2. Por Sprint: Agregação por sprint
+3. Todos os Sprints: Análise histórica e tendências
 
-O sistema de análise de performance fornece três níveis de visualização:
-
-1. **Por Tarefa** - Métricas individuais de cada tarefa
-2. **Por Sprint** - Agregação das métricas em um sprint específico
-3. **Todos os Sprints** - Análise histórica e tendências ao longo do tempo
-
-### Dados Necessários
+## Dados Necessários
 
 **Obrigatórios:**
 - Tempo estimado
-- Tempo gasto
+- Tempo gasto (do worklog)
 - Status
 - Responsável
 
-**Opcionais (para análise completa):**
-- Tipo de item (Bug, Tarefa, História)
+**Opcionais:**
+- Tipo de item (Bug, Tarefa, História, Outro)
 - Retrabalho (Sim/Não)
 - Complexidade (1 a 5)
 - Nota de Teste (1 a 5, vazio = 5)
 
-⚠️ **IMPORTANTE:** 
-- Apenas tarefas com status **concluído** são consideradas nos cálculos de performance
-- Tarefas devem ter **sprint** definido (tarefas sem sprint = backlog, não contam em performance)
-- Tarefas de backlog **NÃO interferem** em métricas de performance, mesmo que tenham worklog e estejam concluídas
+## Critérios de Inclusão
 
-## 🏆 Performance Score
+Apenas tarefas que atendem TODOS os critérios são consideradas nos cálculos de performance:
 
-Score geral que combina qualidade e eficiência de execução.
+1. Status concluído: `teste`, `teste gap`, `compilar`, `concluído`, `concluido`
+2. Sprint definido: Tarefa deve ter sprint não vazio. Tarefas sem sprint = backlog, não contam
+3. Estimativa presente: Tarefa deve ter estimativa > 0
+4. Worklog presente: Para cálculo de tempo gasto (se ausente, tempo gasto = 0)
+
+**Exclusões:**
+- Tarefas de backlog (sem sprint): NÃO interferem em métricas de performance, mesmo que tenham worklog e estejam concluídas
+- Tarefas em progresso (status diferente de concluído)
+- Tarefas marcadas como "Reunião" (neutras, não afetam score)
+- Tarefas sem estimativa (aparecem apenas em métricas informativas)
+
+## Performance Score
+
+Score geral combinando qualidade e eficiência de execução.
 
 ### Fórmula
 
 ```
-Base Score (0-100) = 50% Qualidade + 50% Eficiência de Execução
+Base Score (0-100) = (Qualidade × 0.50) + (Eficiência de Execução × 0.50)
+
 Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10)
+
 Score Máximo: 140
 ```
 
 ### Componentes
 
-1. **Qualidade (50%)** = `Nota de Teste Média × 20`
-2. **Eficiência de Execução (50%)** = % de tarefas dentro dos limites ajustados por complexidade e tipo
-3. **Bonus de Complexidade (0-10)** = Recompensa por trabalhar em tarefas complexas (níveis 4-5)
-4. **Bonus de Senioridade (0-15)** = 🎯 Indicador principal de senioridade! Recompensa executar tarefas complexas com alta eficiência
-5. **Bonus de Complexidade 3 (0-5)** = Recompensa executar tarefas complexidade 3 com alta eficiência
-6. **Bonus de Auxílio (0-10)** = 🤝 Reconhece ajuda aos colegas! Recompensa tempo dedicado a ajudar outros desenvolvedores
+**1. Qualidade (50%):**
+- Fórmula: `Nota de Teste Média × 20`
+- Range: 0-100 pontos
+- Nota de teste: 1-5, vazio = 5 (padrão)
 
-### Interpretação dos Scores
+**2. Eficiência de Execução (50%):**
+- Fórmula: `(Tarefas eficientes / Total de Tarefas) × 100`
+- Range: 0-100 pontos
+- Sistema de avaliação separado para Bugs e Features (ver seção Eficiência de Execução)
 
-| Range | Classificação | Descrição |
-|-------|--------------|-----------|
-| 115-140 | 🏆 Excepcional | Performance excepcional + trabalho em tarefas complexas + execução eficiente + ajuda aos colegas |
-| 90-114 | ⭐⭐⭐⭐⭐ Excelente | Performance excepcional em todas as dimensões |
-| 75-89 | ⭐⭐⭐⭐ Muito Bom | Performance acima da média, consistente |
-| 60-74 | ⭐⭐⭐ Bom | Performance adequada, algumas áreas para melhorar |
-| 45-59 | ⭐⭐ Adequado | Performance aceitável, precisa atenção |
-| <45 | ⭐ Precisa Atenção | Performance abaixo do esperado, necessita melhorias |
+**3. Bonus de Complexidade (0-10):**
+- Fórmula: `(% de tarefas complexas nível 4-5 / 100) × 10`
+- Arredondamento: `Math.round()`
 
-### ⚠️ Uso Adequado
+**4. Bonus de Senioridade (0-15):**
+- Fórmula: `(% de tarefas complexas nível 4-5 eficientes / 100) × 15`
+- Aplica para Features e Bugs complexos (nível 4-5)
+- Apenas tarefas altamente eficientes contam (zona aceitável não conta)
+- Arredondamento: `Math.round()`
 
-**✅ Use para:**
-- Conversas 1:1 de desenvolvimento
-- Identificar necessidades de treinamento
-- Reconhecer e celebrar melhorias
-- Detectar necessidade de suporte
+**5. Bonus de Complexidade 3 (0-5):**
+- Fórmula: `(% de tarefas complexidade 3 eficientes / 100) × 5`
+- Aplica para Features e Bugs complexidade 3
+- Features: dentro da tolerância de eficiência (+20%)
+- Bugs: zona eficiente apenas (não aceitável)
+- Arredondamento: `Math.round()`
 
-**❌ NÃO use para:**
-- Único critério de avaliação de desempenho
-- Bônus/promoções sem outros contextos
-- Comparações diretas sem considerar complexidade
-- Criar ranking competitivo prejudicial
+**6. Bonus de Auxílio (0-10):**
+- Escala progressiva baseada em horas de auxílio
+- Identificação: Campo "Detalhes Ocultos" = "Auxilio" (case-insensitive)
+- Função de cálculo:
+  ```
+  auxilioHours >= 16: 10 pontos
+  auxilioHours >= 12: 9 pontos
+  auxilioHours >= 8: 7 pontos
+  auxilioHours >= 6: 5 pontos
+  auxilioHours >= 4: 4 pontos
+  auxilioHours >= 2: 2 pontos
+  auxilioHours >= 0.5: 1 ponto
+  auxilioHours < 0.5: 0 pontos
+  ```
 
-## 🎯 Métricas de Qualidade
+### Classificações de Score
 
-### 1. Quality Score (Score de Qualidade)
+| Range | Classificação |
+|-------|--------------|
+| 115-140 | Excepcional |
+| 90-114 | Excelente |
+| 75-89 | Muito Bom |
+| 60-74 | Bom |
+| 45-59 | Adequado |
+| <45 | Precisa Atenção |
+
+## Métricas de Qualidade
+
+### Quality Score
 
 **Fórmula:** `Nota de Teste Média × 20`
 
-**Sistema de Nota de Teste (1-5):**
-- **5 (100 pontos)**: ✨ Perfeito — Passou em todos os testes, sem problemas detectados
-- **4 (80 pontos)**: ✅ Aceitável — Problemas leves que não quebram o processo
-- **3 (60 pontos)**: ⚠️ Problema — Quebra o processo ou funcionalidade principal
-- **2 (40 pontos)**: ❌ Crítico — Múltiplos problemas graves
-- **1 (20 pontos)**: 🔥 Catastrófico — Faltou completar grandes partes
+**Sistema de Nota de Teste:**
+- Nota 5: 100 pontos (padrão quando vazio)
+- Nota 4: 80 pontos
+- Nota 3: 60 pontos
+- Nota 2: 40 pontos
+- Nota 1: 20 pontos
 
-**Interpretação:**
-- `100` - Perfeito (todas tarefas nota 5)
-- `80-99` - Excelente
-- `60-79` - Bom
-- `40-59` - Precisava Atenção
-- `<40` - Crítico
-
-### 2. Taxa de Retrabalho
+### Taxa de Retrabalho
 
 **Fórmula:** `(Tarefas com Retrabalho = Sim / Total de Tarefas) × 100`
 
-**Interpretação:**
-- `0-5%` - Excelente
-- `5-10%` - Muito Bom
-- `10-20%` - Aceitável
-- `>20%` - Precisa Atenção
+**Validação:**
+- Campo "Campo personalizado (Retrabalho)" = "Sim", "Yes", "S" (comparação case-insensitive)
+- Considera apenas tarefas concluídas com estimativa > 0
+- Valores aceitos: "Sim", "sim", "SIM", "Yes", "yes", "S", "s"
+- Qualquer outro valor (incluindo vazio) = não é retrabalho
 
-**Causas Comuns de Alto Retrabalho:**
-- Requisitos mal compreendidos
-- Testes insuficientes
-- Débito técnico
-- Complexidade subestimada
-- Falta de code review
-
-### 3. Taxa de Bugs
+### Taxa de Bugs
 
 **Fórmula:** `(Tarefas tipo Bug / Total de Tarefas) × 100`
 
-**Interpretação:**
-Taxa alta pode indicar:
-- Problemas de qualidade no código
-- Módulos legados que precisam refatoração
-- Processo de testes inadequado
+**Observação:** Métrica informativa, não impacta Performance Score.
 
-## ⚡ Métricas de Eficiência
+## Métricas de Eficiência
 
-### 1. Eficiência de Execução
+### Eficiência de Execução
 
 **Fórmula:** `(Tarefas eficientes / Total de Tarefas) × 100`
 
 **Sistema de Avaliação:**
 
-#### BUGS (Complexidades 1-5)
-- Usa **zona de complexidade** baseada apenas em horas gastas (não usa estimativa)
-- Detecta bugs simples que levaram tempo excessivo
-- Todas as complexidades (1-5) usam zona de eficiência:
-  - Complexidade 1: até 2h eficiente, 2h-4h aceitável, acima de 4h ineficiente
-  - Complexidade 2: até 4h eficiente, 4h-8h aceitável, acima de 8h ineficiente
-  - Complexidade 3: até 8h eficiente, 8h-16h aceitável, acima de 16h ineficiente
-  - Complexidade 4: até 16h eficiente, 16h-32h aceitável, acima de 32h ineficiente
-  - Complexidade 5: até 16h eficiente, 16h-24h aceitável, acima de 24h ineficiente
-- Exemplo: Bug complexidade 1 gastou 20h → ❌ INEFICIENTE (excede 4h aceitável)
+**BUGS (Complexidades 1-5):**
+- Usa zona de complexidade baseada APENAS em horas gastas (não usa estimativa)
+- Avaliação por zona de eficiência:
 
-#### FEATURES/OUTROS (Todas complexidades)
-- Usa **desvio percentual** entre estimativa original vs horas gastas
-- Limites ajustados por complexidade:
-  - Complexidade 1: pode atrasar até -15%
-  - Complexidade 2: pode atrasar até -18%
-  - Complexidade 3: pode atrasar até -20%
-  - Complexidade 4: pode atrasar até -30%
-  - Complexidade 5: pode atrasar até -40%
-- Executar **mais rápido** (até 50% mais rápido) = ✅ SEMPRE BOM
+| Complexidade | Zona Eficiente (horas) | Zona Aceitável (horas) | Zona Ineficiente |
+|--------------|----------------------|----------------------|------------------|
+| 1 | ≤ 2h | 2h < x ≤ 4h | > 4h |
+| 2 | ≤ 4h | 4h < x ≤ 8h | > 8h |
+| 3 | ≤ 8h | 8h < x ≤ 16h | > 16h |
+| 4 | ≤ 16h | 16h < x ≤ 32h | > 32h |
+| 5 | ≤ 16h | 16h < x ≤ 24h | > 24h |
 
-**Faixas de Avaliação:**
-- `≥80%` - Excelente
-- `70-79%` - Muito Bom
-- `60-69%` - Bom
-- `50-59%` - Adequado
-- `<50%` - Precisa Atenção
+**Cálculo de eficiência para Bugs:**
+- Se horas gastas ≤ maxEfficientHours: Eficiente = true (zona eficiente)
+- Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: Eficiente = false (zona aceitável não conta mais)
+- Se horas gastas > maxAcceptableHours: Eficiente = false (zona ineficiente)
 
-### 2. Taxa de Conclusão
+**IMPORTANTE:** A "Zona Aceitável" existe como uma classificação para identificar tarefas que excederam o tempo ideal, mas não de forma crítica. No entanto, para todos os cálculos de pontuação (Eficiência de Execução e bônus), as tarefas na Zona Aceitável são consideradas **ineficientes**. Apenas a "Zona Eficiente" contribui positivamente para o score.
+
+**Exemplo:**
+- Bug complexidade 1 gastou 2h = ✅ eficiente (≤2h)
+- Bug complexidade 1 gastou 3h = ❌ ineficiente (zona aceitável não conta)
+- Bug complexidade 5 gastou 15h = ✅ eficiente (≤16h)
+- Bug complexidade 5 gastou 20h = ❌ ineficiente (zona aceitável não conta mais)
+
+**FEATURES/OUTROS (Todas complexidades):**
+- Usa desvio percentual entre estimativa original vs tempo gasto total
+- Fórmula de desvio: `((Tempo Estimado - Tempo Gasto) / Tempo Estimado) × 100`
+- Valores positivos = executou mais rápido que estimado (superestimou)
+- Valores negativos = executou mais devagar que estimado (subestimou)
+
+**Limites de tolerância por complexidade:**
+
+| Complexidade | Limite Superior (mais rápido) | Limite Inferior (atraso permitido) |
+|--------------|----------------------------|----------------------------------|
+| 1 | +50% | -15% |
+| 2 | +50% | -18% |
+| 3 | +50% | -20% |
+| 4 | +50% | -30% |
+| 5 | +50% | -40% |
+
+**Cálculo de eficiência para Features:**
+- Se desvio > 0 (executou mais rápido): Eficiente = true SE desvio ≤ +50%
+- Se desvio ≤ 0 e desvio >= limite inferior (ex: -20% para complexidade 3): Eficiente = true
+- Se desvio < limite inferior: Eficiente = false
+
+**Regra:** Executar até 50% mais rápido = sempre eficiente (até o limite superior).
+
+**Exemplo:**
+- Feature complexidade 1: estimou 10h, gastou 8h = +20% (≤+50%) = ✅ eficiente
+- Feature complexidade 1: estimou 10h, gastou 11h = -10% (≥-15%) = ✅ eficiente
+- Feature complexidade 1: estimou 10h, gastou 12h = -20% (<-15%) = ❌ ineficiente
+- Feature complexidade 5: estimou 30h, gastou 35h = -16.67% (≥-40%) = ✅ eficiente
+
+### Taxa de Conclusão
 
 **Fórmula:** `(Tarefas Concluídas / Tarefas Iniciadas) × 100`
 
-**Interpretação:**
-- `≥90%` - Excelente
-- `80-89%` - Muito Bom
-- `70-79%` - Bom
-- `<70%` - Pode indicar bloqueios ou interrupções frequentes
+**Observação:** Métrica informativa, não impacta Performance Score.
 
-**Causas de Baixa Taxa:**
-- Tarefas bloqueadas
-- Interrupções frequentes
-- Tarefas muito grandes
-- Prioridades mudando
-
-### 3. Taxa de Utilização ⚠️
-
-**⚠️ MÉTRICA DE CONTEXTO - NÃO IMPACTA O PERFORMANCE SCORE**
+### Taxa de Utilização
 
 **Fórmula:** `(Total de Horas Trabalhadas / 40h) × 100`
 
-**Por que não faz parte do score?**
-Como todos os desenvolvedores registram aproximadamente 40 horas (incluindo reuniões, bloqueios, etc), esta métrica não diferencia performance individual. Ela serve apenas como **métrica de contexto** para identificar sobrecarga.
+**Observação:** Métrica de contexto, não impacta Performance Score. Usada para identificar sobrecarga.
 
-**Interpretação:**
-- `>100%` - Sobrecarga (risco de burnout) - **Requer atenção do gestor**
-- `80-100%` - Bem utilizado (ideal)
-- `60-79%` - Utilização normal
-- `<60%` - Pode indicar bloqueios ou tarefas insuficientes
+## Métricas de Acurácia (Informativas)
 
-## ℹ️ Métricas de Acurácia (Informativas)
+**IMPORTANTE:** Estas métricas refletem o processo de estimativa da equipe/analista, não responsabilidade individual do desenvolvedor.
 
-⚠️ **IMPORTANTE:** Estas métricas refletem o **processo de estimativa da equipe/analista**, não responsabilidade individual do desenvolvedor.
-
-### 1. Desvio de Estimativa
+### Desvio de Estimativa
 
 **Fórmula:** `((Tempo Estimado - Tempo Gasto) / Tempo Estimado) × 100`
 
 **Interpretação:**
-- **Valores Negativos** = Subestimou (gastou mais que estimado)
-- **Valores Positivos** = Superestimou (gastou menos que estimado)
-- **Valor Zero** = Estimativa perfeita
+- Valores negativos: Subestimou (gastou mais que estimado)
+- Valores positivos: Superestimou (gastou menos que estimado)
+- Valor zero: Estimativa perfeita
 
-**Faixas:**
-- `±0-10%` - Excelente
-- `±10-20%` - Bom
-- `±20-30%` - Aceitável
-- `>±30%` - Ruim (precisa revisão no processo)
-
-### 2. Taxa de Acurácia
+### Taxa de Acurácia
 
 **Fórmula:** `(Tarefas dentro de ±20% / Total de Tarefas) × 100`
 
 Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
 
-**Uso Recomendado:**
-- Melhorar processo de Planning Poker da equipe
-- Calibrar estimativas coletivas
-- Identificar tipos de tarefa difíceis de estimar
+## Bonus de Complexidade, Senioridade e Auxílio
 
-## 🎯 Bonus de Complexidade, Senioridade e Auxílio
+### Bonus de Complexidade (4-5)
 
-### Bonus de Complexidade (4-5) (0-10 pontos)
+**Range:** 0-10 pontos
 
-Recompensa trabalhar em tarefas complexas (níveis 4-5):
-- 0% de tarefas complexas = 0 pontos
-- 50% de tarefas complexas = +5 pontos
-- 100% de tarefas complexas = +10 pontos
+**Cálculo:**
+```
+% tarefas complexas (nível 4-5) = (Tarefas complexas / Total de tarefas) × 100
+Bonus = Math.round((% tarefas complexas / 100) × 10)
+```
 
-### Bonus de Senioridade (0-15 pontos) 🎯
+**Definição:**
+- Tarefas complexas: `complexidade >= 4`
 
-**Indicador principal de senioridade!**
+### Bonus de Senioridade
 
-Recompensa não apenas pegar tarefas complexas, mas **executá-las com alta eficiência**:
-- Aplicado para FEATURES e BUGS complexos (nível 4-5)
-- 100% de eficiência alta em tarefas complexas = +15 pontos (máximo)
-- Bugs complexos também contam: executar bugs complexos com eficiência demonstra habilidade de debugging e solução de problemas complexos
-- **Importante:** Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
+**Range:** 0-15 pontos
 
-### Bonus de Complexidade 3 (0-5 pontos)
+**Aplicação:** Features e Bugs complexos (nível 4-5)
 
-Recompensa executar tarefas complexidade 3 com alta eficiência:
-- Aplicado para FEATURES e BUGS complexidade 3
-- Features: dentro da tolerância de eficiência (+20%)
-- Bugs: zona eficiente apenas (não aceitável)
-- 100% de eficiência em tarefas complexidade 3 = +5 pontos (máximo)
+**Cálculo:**
+```
+1. Filtrar tarefas complexas (nível 4-5) concluídas
+2. Contar tarefas eficientes:
+   - Features: dentro da tolerância de eficiência (ver seção Eficiência)
+   - Bugs: zona eficiente apenas (zona aceitável não conta)
+3. % eficiência = (Tarefas eficientes / Total tarefas complexas) × 100
+4. Bonus = Math.round((% eficiência / 100) × 15)
+```
 
-### Bonus de Auxílio (0-10 pontos) 🤝
+**Critério de eficiência para Features complexas:**
+- Desvio >= -30% (complexidade 4) ou >= -40% (complexidade 5)
+- OU desvio > 0 (executou mais rápido, até +50%)
 
-**Reconhece colaboração e mentoria!**
+**Critério de eficiência para Bugs complexos:**
+- Horas gastas ≤ maxEfficientHours para a complexidade
+- Zona aceitável NÃO conta
 
-Recompensa tempo dedicado a ajudar outros desenvolvedores (escala progressiva ajustada):
-- 0.5h+ = 1 ponto
-- 2h+ = 2 pontos
-- 4h+ = 4 pontos
-- 6h+ = 5 pontos
-- 8h+ = 7 pontos
-- 12h+ = 9 pontos
-- 16h+ = 10 pontos (máximo)
+### Bonus de Complexidade 3
 
-**Identificação:** Campo "Detalhes Ocultos" = "Auxilio" (qualquer variação de maiúsculas/minúsculas)
+**Range:** 0-5 pontos
 
-## 💡 Como Usar as Métricas
+**Aplicação:** Features e Bugs complexidade 3
 
-### Para Desenvolvedores
+**Cálculo:**
+```
+1. Filtrar tarefas complexidade 3 concluídas
+2. Contar tarefas eficientes:
+   - Features: dentro da tolerância de eficiência (+20%)
+   - Bugs: zona eficiente apenas (≤ 8h)
+3. % eficiência = (Tarefas eficientes / Total tarefas complexidade 3) × 100
+4. Bonus = Math.round((% eficiência / 100) × 5)
+```
 
-**Auto-avaliação:**
-- Veja suas métricas individuais
-- Identifique pontos fortes e fracos
-- Estabeleça metas de melhoria
-- Acompanhe sua evolução ao longo do tempo
+**Critério de eficiência para Features complexidade 3:**
+- Desvio >= -20%
+- OU desvio > 0 (executou mais rápido, até +50%)
 
-### Para Tech Leads / Managers
+**Critério de eficiência para Bugs complexidade 3:**
+- Horas gastas ≤ 8h
+- Zona aceitável (8h < x ≤ 16h) NÃO conta
 
-**Coaching:**
-- Use para iniciar conversas 1:1
-- Identifique necessidades de treinamento
-- Reconheça melhorias
-- Detecte necessidade de suporte
+### Bonus de Auxílio
 
-**⚠️ IMPORTANTE:** Sempre considere contexto (complexidade, módulo, experiência) ao analisar métricas.
+**Range:** 0-10 pontos
 
-### Para a Equipe
+**Identificação:**
+- Campo "Detalhes Ocultos" = "Auxilio" (normalização case-insensitive, sem acentos)
+- Identificação: normalização NFD + lowercase compara com "auxilio"
+- Variantes aceitas: "Auxilio", "auxilio", "Auxílio", "AUXILIO", etc. (todos reconhecidos)
 
-**Retrospectivas:**
-- Use métricas como base para discussão
-- Identifique padrões da equipe
-- Celebre melhorias
-- Estabeleça metas coletivas
+**Cálculo:**
+```
+auxilioHours = soma de tempoGastoNoSprint de tarefas marcadas como "Auxilio"
 
-## 📚 Exemplos Práticos
+Função calculateAuxilioBonus(auxilioHours):
+  if auxilioHours <= 0: return 0
+  if auxilioHours >= 16: return 10
+  if auxilioHours >= 12: return 9
+  if auxilioHours >= 8: return 7
+  if auxilioHours >= 6: return 5
+  if auxilioHours >= 4: return 4
+  if auxilioHours >= 2: return 2
+  return 1  // 0.5h < auxilioHours < 2h
+```
 
-### Exemplo 1: Desenvolvedor com Alta Qualidade
+**Observação:** Usa `tempoGastoNoSprint` (tempo gasto no sprint atual) para cálculo.
 
-**Métricas:**
-- Quality Score: 95 (nota média 4.75)
-- Eficiência: 80%
-- Base Score: (0.50 × 95) + (0.50 × 80) = 47.5 + 40 = 87.5
-- Bonus Complexidade: +8 (80% tarefas complexas)
-- Bonus Senioridade: +12 (80% eficiência em tarefas complexas: features e bugs)
-- **Performance Score: 107.5** ⭐⭐⭐⭐⭐
+**Intervalos da Escala:**
+- [0, 0.5h): 0 pontos
+- [0.5h, 2h): 1 ponto
+- [2h, 4h): 2 pontos
+- [4h, 6h): 4 pontos
+- [6h, 8h): 5 pontos
+- [8h, 12h): 7 pontos
+- [12h, 16h): 9 pontos
+- [16h, ∞): 10 pontos (máximo)
 
-### Exemplo 2: Desenvolvedor Subestimando
+## Casos Especiais e Edge Cases
 
-**Métricas:**
-- Quality Score: 85
-- Eficiência: 45% (muitas tarefas fora dos limites)
-- Base Score: (0.50 × 85) + (0.50 × 45) = 42.5 + 22.5 = 65
-- **Performance Score: 65** ⭐⭐⭐
+### Tarefas sem Worklog
 
-**Ações:**
-- Adicionar buffer de 30% nas estimativas
-- Quebrar tarefas maiores em menores
-- Revisar definição de "pronto"
+**Comportamento:**
+- `tempoGastoTotal = 0`
+- `tempoGastoNoSprint = 0`
+- Todas as tarefas são consideradas ineficientes no cálculo de eficiência
+- Impacto: Eficiência de Execução = 0% se todas as tarefas não tiverem worklog
 
-### Exemplo 3: Desenvolvedor Ajudando Colegas
+### Tarefas de Backlog (sem sprint)
 
-**Métricas:**
-- Base Score: 80
-- Bonus Auxílio: +7 (8h de auxílio)
-- **Performance Score: 87** ⭐⭐⭐⭐
+**Comportamento:**
+- NÃO são processadas para cálculos híbridos
+- Worklog de tarefas sem sprint é ignorado
+- NÃO aparecem em métricas de performance
+- NÃO contam no cálculo de Performance Score
+- São exibidas apenas na análise de backlog (aba multi-sprint)
+- São contabilizadas nas horas de backlog (baseado na estimativa apenas)
 
-**Reconhecimento:** O sistema valoriza colaboração e mentoria!
+### Tarefas marcadas como "Reunião"
 
-## ❓ Perguntas Frequentes
+**Comportamento:**
+- Campo "Detalhes Ocultos" = "Reunião" ou "Reuniao" (normalização case-insensitive, sem acentos)
+- Identificação: normalização NFD + lowercase compara "reuniao" ou "reunioes"
+- Variantes aceitas: "Reunião", "reuniao", "Reuniao", "REUNIÃO", etc. (todos reconhecidos)
+- Não afetam Performance Score
+- Não são consideradas no cálculo de eficiência
+- Não são consideradas no cálculo de qualidade
+- São excluídas do conjunto de tarefas de trabalho (`workTasks`)
+- Horas de reunião são exibidas apenas como informação (campo `reunioesHours`)
+- Usa `tempoGastoNoSprint` para cálculo de horas de reunião
 
-### 1. É justo comparar desenvolvedores diretamente?
+### Tarefas sem Estimativa
 
-⚠️ **Cuidado!** Comparações diretas podem ser injustas porque:
-- Diferentes níveis de complexidade
-- Diferentes módulos (legado vs novo)
-- Diferentes contextos de trabalho
+**Comportamento:**
+- Aparecem em métricas informativas
+- NÃO são consideradas no cálculo de eficiência de execução
+- NÃO são consideradas no cálculo de Performance Score
 
-**Use comparações para:**
-- ✅ Identificar padrões da equipe
-- ✅ Celebrar excelência
-- ✅ Identificar necessidades de suporte
+### Tarefas que Atravessam Múltiplos Sprints
 
-**Não use para:**
-- ❌ Avaliação de desempenho isolada
-- ❌ Punição
-- ❌ Competição prejudicial
+**Comportamento:**
+- Worklog é separado por data do sprint
+- `tempoGastoNoSprint`: soma de worklogs dentro do período do sprint atual
+- `tempoGastoOutrosSprints`: soma de worklogs fora do período do sprint atual
+- `tempoGastoTotal`: soma de todos os worklogs
+- Para análise de sprint atual: usa `tempoGastoNoSprint` e `estimativaRestante`
+- Para análise de performance: usa `estimativa` original e `tempoGastoTotal`
 
-### 2. Por que executar mais rápido não reduz minha eficiência?
+## Referências
 
-Executar mais rápido é **POSITIVO**:
-- Mostra domínio técnico
-- Libera capacidade para mais tarefas
-- Aumenta previsibilidade
-
-**Limites:**
-- ✅ Até **+50% mais rápido** conta como eficiente
-- ✅ Até **-20% de atraso** ainda é aceitável (para simples)
-- ❌ Mais de **-30% de atraso** precisa atenção (para complexas)
-
-### 3. Como melhorar minha eficiência de execução?
-
-**Dicas:**
-1. Quebre tarefas grandes em menores
-2. Use técnicas de estimativa como Planning Poker
-3. Considere o todo: desenvolvimento + testes + review + deploy
-4. Aprenda com o passado: compare estimado vs real
-5. Inclua buffer realista: 20-30% para imprevistos
-6. Esclareça requisitos antes de estimar
-
-## ⚠️ O Que NÃO É Considerado
-
-### Tarefas Excluídas dos Cálculos de Performance
-
-**Tarefas de Backlog (sem sprint):**
-- ❌ **NÃO interferem** em métricas de performance, mesmo que tenham worklog e estejam concluídas
-- ❌ **NÃO são processadas** para cálculos híbridos (tempoGastoTotal, tempoGastoNoSprint, etc.)
-- ❌ **Worklog ignorado** - mesmo que a tarefa tenha registros de worklog, eles não são processados
-- ✅ **São exibidas** apenas na análise de backlog (aba multi-sprint)
-- ✅ **São contabilizadas** nas horas de backlog (baseado na estimativa apenas)
-
-**Por que isso?**
-- Tarefas sem sprint são usadas apenas para **análise de demandas futuras**
-- Para contabilizar em performance, a tarefa precisa estar **alocada em um sprint**
-- Isso mantém a consistência: métricas de performance refletem apenas trabalho em sprints definidos
-
-**Outras exclusões:**
-- Tarefas em progresso (status diferente de `teste`, `teste gap`, `compilar`, `concluído`, `concluido`)
-- Tarefas marcadas como "Reunião" (neutras, não afetam score)
-- Tarefas sem estimativa (mas podem aparecer em métricas informativas)
-- Tarefas sem worklog (tempo gasto = 0)
-
-## 🎓 Conclusão
-
-As métricas de performance são ferramentas para:
-- ✅ **Autoconhecimento** e melhoria contínua
-- ✅ **Planejamento** mais preciso
-- ✅ **Identificação** de necessidades de suporte
-- ✅ **Celebração** de conquistas
-
-**Não são:**
-- ❌ Ferramenta de punição
-- ❌ Único critério de avaliação
-- ❌ Métricas absolutas de "valor"
-- ❌ Comparação injusta sem considerar contexto
-
-**Use com sabedoria, contexto e empatia!** 🚀
-
+- [Configuração e Análise Híbrida](CONFIGURACAO.md) - Sistema híbrido de cálculo
+- [Formato dos Dados](FORMATO_DADOS.md) - Estrutura dos arquivos de entrada

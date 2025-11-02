@@ -370,12 +370,12 @@ export function calculateSprintPerformance(
   // Work tasks (exclude meetings and auxilio from main calculations)
   const workTasks = devTasks.filter(t => !isReuniaoTask(t));
   
-  // Calculate task-level metrics - use sprint-specific hours for single sprint analysis
-  const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, true));
+  // Calculate task-level metrics for performance - ALWAYS use total hours across all sprints
+  const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, false));
   
   // Separate completed and all tasks (exclude meetings from performance calculations)
   const completedTasks = workTasks.filter(t => isCompletedStatus(t.status));
-  const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, true));
+  const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, false));
   
   // Productivity metrics - use tempoGastoNoSprint for sprint-specific analysis - ALWAYS from worklog
   // IMPORTANT: For performance calculations, only completed tasks are considered
