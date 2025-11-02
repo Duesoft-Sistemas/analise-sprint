@@ -17,7 +17,17 @@ import {
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
-import { formatHours } from '../utils/calculations';
+import { formatHours, normalizeForComparison } from '../utils/calculations';
+import { TaskItem } from '../types';
+
+// Helper to check if task has DuvidaOculta in detalhesOcultos array
+function isDuvidaOcultaTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return normalized === 'duvidaoculta' || normalized === 'duvida oculta';
+  });
+}
 
 export const BacklogDashboard: React.FC = () => {
   const tasks = useSprintStore((state) => state.tasks);
@@ -37,9 +47,9 @@ export const BacklogDashboard: React.FC = () => {
 
     if (filterType && filterType !== 'all') {
       if (filterType === 'bugs') {
-        filtered = filtered.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta');
+        filtered = filtered.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
       } else if (filterType === 'dubidasOcultas') {
-        filtered = filtered.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta');
+        filtered = filtered.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
       } else {
         filtered = filtered.filter((t) => t.tipo === filterType);
       }

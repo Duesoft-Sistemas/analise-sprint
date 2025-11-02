@@ -20,6 +20,7 @@ export const exportTasksToExcel = (tasks: TaskItem[], sprintName: string) => {
       'Nota Teste': notaTeste.toFixed(1),
       'Estimado (h)': estimativaRestante,
       'Gasto (h)': tempoGasto,
+      'Detalhes Ocultos': task.detalhesOcultos.join(', ') || '',
       'Módulo': task.modulo || '',
       'Features': task.feature.join(', ') || '',
       'Categorias': task.categorias.join(', ') || '',
@@ -45,6 +46,7 @@ export const exportTasksToExcel = (tasks: TaskItem[], sprintName: string) => {
     { wch: 12 }, // Nota Teste
     { wch: 12 }, // Estimado (h)
     { wch: 12 }, // Gasto (h)
+    { wch: 20 }, // Detalhes Ocultos
     { wch: 15 }, // Módulo
     { wch: 30 }, // Features
     { wch: 20 }, // Categorias

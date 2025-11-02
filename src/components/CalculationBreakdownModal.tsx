@@ -1,16 +1,18 @@
 import React from 'react';
 import { X, Calculator, Info, Award, Target } from 'lucide-react';
-import { SprintPerformanceMetrics } from '../types';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { SprintPerformanceMetrics, TaskItem } from '../types';
+import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
-// Normalize text: remove accents and convert to lowercase for comparison
-function normalizeForComparison(text: string): string {
-  if (!text) return '';
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+// Helper functions for task types
+function isAuxilioTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
+}
+
+function isReuniaoTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'reuniao');
 }
 
 interface CalculationBreakdownModalProps {
@@ -137,9 +139,10 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
     });
 
     // 2. Qualidade
-    const testNotes = completedTasks.map(t => t.task.notaTeste ?? 5);
-    const avgTestNote = testNotes.length > 0 
-      ? testNotes.reduce((sum, n) => sum + n, 0) / testNotes.length 
+    const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t.task) && !isReuniaoTask(t.task));
+    const testNotes = qualityTasks.map(t => t.task.notaTeste ?? 5);
+    const avgTestNote = testNotes.length > 0
+      ? testNotes.reduce((sum, n) => sum + n, 0) / testNotes.length
       : 5;
 
     sections.push({
@@ -151,7 +154,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           label: 'Score de Qualidade',
           value: `${metrics.qualityScore.toFixed(1)}`,
           formula: `Nota de Teste Média × 20 = ${avgTestNote.toFixed(1)} × 20`,
-          explanation: 'Baseado exclusivamente na Nota de Teste (1-5). Vazio é tratado como 5.',
+          explanation: 'Baseado na Nota de Teste (1-5). Tarefas de "Auxílio" e "Reunião" são desconsideradas. Vazio é tratado como 5.',
           tasks: completedTasks.map(t => ({
             taskKey: t.task.chave || t.task.id,
             taskSummary: t.task.resumo || 'Sem resumo',
@@ -159,15 +162,19 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             hoursEstimated: t.hoursEstimated,
             hoursSpent: t.hoursSpent,
             status: t.task.status,
-            impact: `Nota: ${t.task.notaTeste ?? 5}/5 (contribui: ${((t.task.notaTeste ?? 5) * 20).toFixed(1)})`,
+            impact:
+              isAuxilioTask(t.task) || isReuniaoTask(t.task)
+                ? `Nota: ${t.task.notaTeste ?? 5}/5 (Ignorado)`
+                : `Nota: ${t.task.notaTeste ?? 5}/5 (contribui: ${((t.task.notaTeste ?? 5) * 20).toFixed(1)})`,
           })),
         },
         {
           label: 'Nota de Teste Média',
           value: `${avgTestNote.toFixed(1)}/5`,
-          formula: testNotes.length > 0
-            ? `Soma das notas / Total = ${testNotes.reduce((sum, n) => sum + n, 0)} / ${testNotes.length}`
-            : '5.0 (padrão)',
+          formula:
+            testNotes.length > 0
+              ? `Soma das notas / Total = ${testNotes.reduce((sum, n) => sum + n, 0)} / ${testNotes.length}`
+              : '5.0 (padrão)',
         },
       ],
     });
@@ -266,7 +273,10 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           label: 'Bonus de Auxílio',
           value: `+${metrics.auxilioBonus}`,
           formula: (() => {
-            const auxilioTasks = metrics.tasks.filter(t => normalizeForComparison(t.task.detalhesOcultos || '') === 'auxilio');
+            const auxilioTasks = metrics.tasks.filter(t => {
+              if (!t.task.detalhesOcultos || t.task.detalhesOcultos.length === 0) return false;
+              return t.task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
+            });
             if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
             const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
             return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
@@ -274,10 +284,73 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           explanation: `Recompensa ajudar outros desenvolvedores com tarefas de auxílio (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
         },
         {
+          label: 'Bonus de Horas Extras',
+          value: `+${metrics.overtimeBonus}`,
+          formula: (() => {
+            const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
+            
+            const totalWorkHours = workTasks.reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
+            const overtimeHours = Math.max(0, totalWorkHours - 40);
+
+            if (overtimeHours === 0) return 'Total de horas não excedeu 40h = 0 pontos';
+
+            const overtimeTasks = workTasks.filter(t => {
+              const task = t.task;
+              return task.detalhesOcultos.some(d => {
+                const normalized = normalizeForComparison(d);
+                return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
+              });
+            });
+
+            if (overtimeTasks.length === 0) return 'Horas extras trabalhadas, mas nenhuma tarefa marcada como "HoraExtra" = 0 pontos';
+
+            const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t.task) && !isReuniaoTask(t.task));
+
+            if (qualityOvertimeTasks.length === 0) {
+              return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras (apenas Auxílio/Reunião) → ${metrics.overtimeBonus} pontos`;
+            }
+
+            const avgNote = qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 5), 0) / qualityOvertimeTasks.length;
+
+            if (avgNote < 4) {
+              return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 4.0 = 0 pontos`;
+            }
+
+            return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 4.0 → ${metrics.overtimeBonus} pontos`;
+          })(),
+          explanation: `⚠️ IMPORTANTE: Este bônus reconhece esforço adicional com alta qualidade. O bônus é concedido se a MÉDIA das notas de teste das tarefas marcadas como "HoraExtra" (excluindo Auxílio/Reunião) for ≥ 4.0. Escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts.`,
+          tasks: (() => {
+            const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
+            const overtimeTasks = workTasks.filter(t => {
+              const task = t.task;
+              return task.detalhesOcultos.some(d => {
+                const normalized = normalizeForComparison(d);
+                return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
+              });
+            });
+
+            if (overtimeTasks.length === 0) return [];
+
+            return overtimeTasks.map(t => {
+              const testNote = t.task.notaTeste ?? 5;
+              const isIgnored = isAuxilioTask(t.task) || isReuniaoTask(t.task);
+              return {
+                taskKey: t.task.chave || t.task.id,
+                taskSummary: t.task.resumo || 'Sem resumo',
+                complexity: t.task.complexidade,
+                hoursEstimated: t.hoursEstimated,
+                hoursSpent: t.hoursSpent,
+                status: t.task.status,
+                impact: isIgnored ? `Nota: ${testNote}/5 (Ignorado p/ média)` : `Nota: ${testNote}/5`,
+              };
+            });
+          })(),
+        },
+        {
           label: 'Score Final',
           value: `${metrics.performanceScore.toFixed(1)}`,
-          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Complexidade 3 + Bonus Auxílio = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.intermediateComplexityBonus || 0} + ${metrics.auxilioBonus}`,
-          explanation: `Score máximo: 140 (100 base + 10 complexidade 4-5 + 15 senioridade + 5 complexidade 3 + 10 auxílio)`,
+          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Complexidade 3 + Bonus Auxílio + Bonus Horas Extras = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.intermediateComplexityBonus || 0} + ${metrics.auxilioBonus} + ${metrics.overtimeBonus}`,
+          explanation: `Score máximo: 150 (100 base + 10 complexidade 4-5 + 15 senioridade + 5 complexidade 3 + 10 auxílio + 10 horas extras)`,
         },
       ],
     });

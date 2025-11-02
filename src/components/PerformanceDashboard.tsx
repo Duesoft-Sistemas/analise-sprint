@@ -8,6 +8,7 @@ import {
   Award,
   Target,
   Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
@@ -15,7 +16,7 @@ import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
 import { DeveloperDetailedAnalysisModal } from './DeveloperDetailedAnalysisModal';
 import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics, CustomPeriodMetrics } from '../types';
 import { calculateDetailedDeveloperAnalytics } from '../services/detailedDeveloperAnalytics';
-import { isCompletedStatus } from '../utils/calculations';
+import { isCompletedStatus, formatHours } from '../utils/calculations';
 
 type ViewMode = 'sprint' | 'allSprints';
 type SortBy = 'overall' | 'accuracy' | 'quality' | 'productivity';
@@ -142,6 +143,7 @@ export const PerformanceDashboard: React.FC = () => {
             intermediateComplexityBonus: 0,
             seniorityEfficiencyBonus: 0,
             auxilioBonus: 0,
+            overtimeBonus: 0,
             tasks: [],
           };
           
@@ -279,6 +281,7 @@ export const PerformanceDashboard: React.FC = () => {
         totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
         totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
         avgAuxilioBonus: sprintMetrics.reduce((sum, m) => sum + m.auxilioBonus, 0) / sprintMetrics.length,
+        avgOvertimeBonus: sprintMetrics.reduce((sum, m) => sum + m.overtimeBonus, 0) / sprintMetrics.length,
       };
     }
   }, [sortedMetrics, viewMode]);
@@ -479,6 +482,47 @@ export const PerformanceDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Developers Working More Than 40h Alert */}
+      {viewMode === 'sprint' && (() => {
+        const overloadedDevs = sortedMetrics.filter(m => {
+          const sprintMetrics = m as SprintPerformanceMetrics;
+          return sprintMetrics.totalHoursWorked > 40;
+        });
+        
+        if (overloadedDevs.length === 0) return null;
+        
+        return (
+          <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Desenvolvedores com Sobrecarga (Horas Extras)
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Os seguintes desenvolvedores estão trabalhando mais de 40h neste sprint:
+                </p>
+                <div className="space-y-2">
+                  {overloadedDevs.map(m => {
+                    const sprintMetrics = m as SprintPerformanceMetrics;
+                    return (
+                      <div key={sprintMetrics.developerId} className="flex items-center justify-between bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {sprintMetrics.developerName}
+                        </span>
+                        <span className="text-orange-600 dark:text-orange-400 font-bold">
+                          {formatHours(sprintMetrics.totalHoursWorked)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Developer Performance Cards */}
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -568,6 +612,7 @@ export const PerformanceDashboard: React.FC = () => {
                           totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
                           performanceScore: summaryStats.avgPerformanceScore,
                           auxilioBonus: summaryStats.avgAuxilioBonus || 0,
+                          overtimeBonus: summaryStats.avgOvertimeBonus || 0,
                         }
                       : undefined
                   }

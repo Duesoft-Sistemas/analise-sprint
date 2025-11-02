@@ -11,7 +11,17 @@ import {
   isCompletedStatus,
   calculateRiskLevel,
   calculatePercentage,
+  normalizeForComparison,
 } from '../utils/calculations';
+
+// Helper to check if task has DuvidaOculta in detalhesOcultos array
+function isDuvidaOcultaTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return normalized === 'duvidaoculta' || normalized === 'duvida oculta';
+  });
+}
 
 // Calculate analytics for a specific sprint
 // IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint), never from sprint spreadsheet
@@ -120,8 +130,8 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
 // Calculate metrics by type (bugs, tarefas, histórias)
 function calculateTypeMetrics(tasks: TaskItem[]): SprintAnalytics['byType'] {
   const bugs = tasks.filter((t) => t.tipo === 'Bug');
-  const realBugs = bugs.filter((t) => t.detalhesOcultos !== 'DuvidaOculta');
-  const dubidasOcultas = bugs.filter((t) => t.detalhesOcultos === 'DuvidaOculta');
+  const realBugs = bugs.filter((t) => !isDuvidaOcultaTask(t));
+  const dubidasOcultas = bugs.filter((t) => isDuvidaOcultaTask(t));
   const tarefas = tasks.filter((t) => t.tipo === 'Tarefa');
   const historias = tasks.filter((t) => t.tipo === 'História');
   const outros = tasks.filter((t) => t.tipo === 'Outro');
@@ -438,10 +448,10 @@ export function calculateProblemAnalysisByFeature(tasks: TaskItem[]): ProblemAna
   for (const [feature, featureTasks] of featureMap.entries()) {
     // Separar bugs reais e dúvidas ocultas
     const realBugs = featureTasks.filter(
-      (t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta'
+      (t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t)
     );
     const dubidasOcultas = featureTasks.filter(
-      (t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta'
+      (t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t)
     );
     const tarefas = featureTasks.filter(
       (t) => t.tipo === 'Tarefa'
@@ -604,12 +614,12 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
 
   // Summary
-  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta');
-  const dubidasOcultas = backlogTasks.filter((t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta');
+  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
+  const dubidasOcultas = backlogTasks.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
   // Tarefas: tudo que não é bug ou dúvida oculta (inclui Tarefa, História, Outro, etc.)
   const tarefas = backlogTasks.filter(
-    (t) => !(t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta') && 
-           !(t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta')
+    (t) => !(t.tipo === 'Bug' && !isDuvidaOcultaTask(t)) && 
+           !(t.tipo === 'Bug' && isDuvidaOcultaTask(t))
   );
 
   const summary = {
@@ -719,10 +729,10 @@ export function calculateProblemAnalysisByClient(tasks: TaskItem[]): ProblemAnal
   for (const [client, clientTasks] of clientMap.entries()) {
     // Separar bugs reais e dúvidas ocultas
     const realBugs = clientTasks.filter(
-      (t) => t.tipo === 'Bug' && t.detalhesOcultos !== 'DuvidaOculta'
+      (t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t)
     );
     const dubidasOcultas = clientTasks.filter(
-      (t) => t.tipo === 'Bug' && t.detalhesOcultos === 'DuvidaOculta'
+      (t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t)
     );
     const tarefas = clientTasks.filter(
       (t) => t.tipo === 'Tarefa'

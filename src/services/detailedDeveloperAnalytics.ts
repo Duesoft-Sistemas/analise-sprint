@@ -1,5 +1,5 @@
 import { TaskItem, SprintMetadata } from '../types';
-import { isCompletedStatus } from '../utils/calculations';
+import { isCompletedStatus, normalizeForComparison } from '../utils/calculations';
 
 // =============================================================================
 // TYPES
@@ -32,17 +32,6 @@ export interface ComplexityDetailedAnalysis {
   tasks: TaskItem[];
 }
 
-export interface WorkloadCapacityAnalysis {
-  sprintName: string;
-  hoursWorked: number;
-  hoursEstimated: number;
-  utilizationRate: number;
-  qualityScore: number;
-  performanceScore: number;
-  overcapacity: boolean; // Se trabalhou mais de 45h
-  qualityImpact: number; // Diferença de qualidade vs média pessoal quando sobrecarregado
-}
-
 export interface DeveloperDetailedAnalytics {
   developerId: string;
   developerName: string;
@@ -56,12 +45,6 @@ export interface DeveloperDetailedAnalytics {
   bestComplexityLevel: number; // Nível onde performa melhor
   complexityPreference: 'simple' | 'medium' | 'complex' | 'mixed';
   
-  // Workload e Capacidade
-  workloadAnalysis: WorkloadCapacityAnalysis[];
-  averageOptimalHours: number; // Média de horas onde performa melhor
-  capacityThreshold: number; // Limite de horas onde qualidade começa a cair
-  overloadFrequency: number; // % de sprints onde trabalhou >45h
-  
   // Insights gerados
   insights: {
     type: 'positive' | 'negative' | 'neutral' | 'recommendation';
@@ -74,6 +57,21 @@ export interface DeveloperDetailedAnalytics {
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
+
+// Helper to identify auxilio tasks (normalized comparison)
+function isAuxilioTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
+}
+
+// Helper to identify reuniao (meetings) tasks (normalized comparison)
+function isReuniaoTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return normalized === 'reuniao' || normalized === 'reunioes';
+  });
+}
 
 function calculateTaskAccuracyRate(task: TaskItem): number {
   const estimated = task.estimativa;
@@ -256,78 +254,6 @@ function calculateComplexityDetailedAnalysis(
 }
 
 /**
- * Calculate workload and capacity analysis
- */
-function calculateWorkloadCapacityAnalysis(
-  tasks: TaskItem[],
-  sprints: SprintMetadata[]
-): WorkloadCapacityAnalysis[] {
-  const sprintMap = new Map<string, SprintMetadata>();
-  sprints.forEach(s => sprintMap.set(s.sprint, s));
-  
-  const sprintGroups = new Map<string, TaskItem[]>();
-  
-  tasks.forEach(task => {
-    if (!sprintGroups.has(task.sprint)) {
-      sprintGroups.set(task.sprint, []);
-    }
-    sprintGroups.get(task.sprint)!.push(task);
-  });
-  
-  const results: WorkloadCapacityAnalysis[] = [];
-  const sprintPerformanceScores: Map<string, number> = new Map();
-  
-  sprintGroups.forEach((taskList, sprintName) => {
-    // For workload analysis per sprint, use tempoGastoNoSprint (hours in that specific sprint)
-    // This is correct because we're grouping by sprint and analyzing each sprint separately
-    const hoursWorked = taskList.reduce((sum, t) => 
-      sum + (t.tempoGastoNoSprint ?? 0), 0
-    );
-    const hoursEstimated = taskList.reduce((sum, t) => 
-      sum + (t.estimativaRestante ?? t.estimativa), 0
-    );
-    
-    const utilizationRate = (hoursWorked / 40) * 100;
-    
-    const qualityScores = taskList.map(t => (t.notaTeste ?? 5) * 20);
-    const avgQualityScore = qualityScores.reduce((sum, q) => sum + q, 0) / qualityScores.length;
-    
-    const performanceScores = taskList.map(calculateTaskPerformanceScore);
-    const avgPerformanceScore = performanceScores.reduce((sum, p) => sum + p, 0) / performanceScores.length;
-    
-    sprintPerformanceScores.set(sprintName, avgPerformanceScore);
-    
-    results.push({
-      sprintName,
-      hoursWorked,
-      hoursEstimated,
-      utilizationRate,
-      qualityScore: avgQualityScore,
-      performanceScore: avgPerformanceScore,
-      overcapacity: hoursWorked > 45,
-      qualityImpact: 0, // Will be calculated after we have all data
-    });
-  });
-  
-  // Calculate quality impact (difference when overcapacity)
-  const avgQualityNormal = results
-    .filter(r => !r.overcapacity)
-    .reduce((sum, r) => sum + r.qualityScore, 0) / 
-    Math.max(1, results.filter(r => !r.overcapacity).length);
-  
-  results.forEach(r => {
-    if (r.overcapacity) {
-      r.qualityImpact = avgQualityNormal - r.qualityScore;
-    }
-  });
-  
-  return results.sort((a, b) => 
-    new Date(sprintMap.get(a.sprintName)?.dataInicio ?? 0).getTime() -
-    new Date(sprintMap.get(b.sprintName)?.dataInicio ?? 0).getTime()
-  );
-}
-
-/**
  * Generate insights based on detailed analytics
  */
 function generateDetailedInsights(analytics: Omit<DeveloperDetailedAnalytics, 'insights'>): DeveloperDetailedAnalytics['insights'] {
@@ -375,25 +301,6 @@ function generateDetailedInsights(analytics: Omit<DeveloperDetailedAnalytics, 'i
     }
   }
   
-  // Workload insights
-  if (analytics.overloadFrequency > 30) {
-      insights.push({
-        type: 'recommendation',
-        title: 'Alta Frequência de Sobrecarga',
-        description: `${analytics.overloadFrequency.toFixed(0)}% dos sprints você trabalhou mais de 45h/semana.`,
-        recommendation: `Considere melhorar o gerenciamento de carga. Sua qualidade média cai quando sobrecarregado.`,
-      });
-  }
-  
-  if (analytics.capacityThreshold > 0 && analytics.averageOptimalHours > 0) {
-    insights.push({
-      type: 'neutral',
-      title: 'Capacidade Ótima Identificada',
-      description: `Sua performance é melhor quando trabalha entre ${analytics.averageOptimalHours.toFixed(0)}h e ${analytics.capacityThreshold.toFixed(0)}h por sprint.`,
-      recommendation: `Mantenha sua carga de trabalho dentro desta faixa para otimizar performance e qualidade.`,
-    });
-  }
-  
   return insights;
 }
 
@@ -411,10 +318,13 @@ export function calculateDetailedDeveloperAnalytics(
   developerName: string
 ): DeveloperDetailedAnalytics {
   // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in detailed analytics
+  // IMPORTANT: Also exclude auxilio and reuniao tasks from detailed analysis
   const developerTasks = tasks.filter(t => 
     t.idResponsavel === developerId && 
     t.sprint && 
-    t.sprint.trim() !== ''
+    t.sprint.trim() !== '' &&
+    !isAuxilioTask(t) &&
+    !isReuniaoTask(t)
   );
   
   // Calculate by feature and module
@@ -446,25 +356,6 @@ export function calculateDetailedDeveloperAnalytics(
     else complexityPreference = 'mixed';
   }
   
-  // Calculate workload analysis
-  const workloadAnalysis = calculateWorkloadCapacityAnalysis(developerTasks, sprints);
-  
-  // Calculate optimal hours and capacity threshold
-  const normalWorkloads = workloadAnalysis.filter(w => !w.overcapacity && w.hoursWorked > 0);
-  const averageOptimalHours = normalWorkloads.length > 0
-    ? normalWorkloads.reduce((sum, w) => sum + w.hoursWorked, 0) / normalWorkloads.length
-    : 40;
-  
-  // Capacity threshold: where quality starts to drop
-  const overcapacityWorkloads = workloadAnalysis.filter(w => w.overcapacity);
-  const capacityThreshold = overcapacityWorkloads.length > 0 && normalWorkloads.length > 0
-    ? Math.min(...normalWorkloads.map(w => w.hoursWorked).filter(h => h > 0))
-    : 45;
-  
-  const overloadFrequency = workloadAnalysis.length > 0
-    ? (workloadAnalysis.filter(w => w.overcapacity).length / workloadAnalysis.length) * 100
-    : 0;
-  
   const analyticsWithoutInsights: Omit<DeveloperDetailedAnalytics, 'insights'> = {
     developerId,
     developerName,
@@ -473,10 +364,6 @@ export function calculateDetailedDeveloperAnalytics(
     byComplexity,
     bestComplexityLevel,
     complexityPreference,
-    workloadAnalysis,
-    averageOptimalHours,
-    capacityThreshold,
-    overloadFrequency,
   };
   
   const insights = generateDetailedInsights(analyticsWithoutInsights);

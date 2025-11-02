@@ -19,6 +19,7 @@ import {
   MAX_INTERMEDIATE_COMPLEXITY_BONUS,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_AUXILIO_BONUS,
+  MAX_OVERTIME_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
 } from '../config/performanceConfig';
 
@@ -288,6 +289,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         <p className="text-sm text-green-800 dark:text-green-200">
                           <Info className="w-4 h-4 inline mr-1" />
                           <strong>Bonus de Auxílio:</strong> até +{MAX_AUXILIO_BONUS} pontos por ajudar outros desenvolvedores (escala progressiva)
+                        </p>
+                      </div>
+                      <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          <strong>Bonus de Horas Extras:</strong> até +{MAX_OVERTIME_BONUS} pontos. Concedido se a <strong>média das notas (≥ 4.0)</strong> das tarefas marcadas como "HoraExtra" for alta.
                         </p>
                       </div>
                     </div>

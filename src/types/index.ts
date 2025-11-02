@@ -15,7 +15,8 @@ export interface TaskItem {
   modulo: string;
   feature: string[]; // Array de features - pode haver múltiplas colunas na planilha
   categorias: string[];
-  detalhesOcultos: string;
+  detalhesOcultos: string[]; // Array de detalhes ocultos - pode haver múltiplas colunas na planilha
+  // Valores aceitos (case-insensitive, normalizados): "DuvidaOculta", "Reuniao"/"Reunião", "Auxilio"/"Auxílio", "HoraExtra"/"Hora Extra"
   tipo: 'Bug' | 'Tarefa' | 'História' | 'Outro';
   complexidade: number; // 1 to 5
   notaTeste?: number; // 1-5 (default 5 if missing)
@@ -213,12 +214,13 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-140 weighted score (base + complexity bonus + intermediate complexity bonus + seniority bonus + auxilio bonus)
+  performanceScore: number; // 0-150 weighted score (base + complexity bonus + intermediate complexity bonus + seniority bonus + auxilio bonus + overtime bonus)
   baseScore: number; // 0-100 base score without bonuses
   complexityBonus: number; // 0-10 bonus for working on complex tasks (level 4-5)
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
   intermediateComplexityBonus: number; // 0-5 bonus for executing complexity 3 tasks with high efficiency
   auxilioBonus: number; // 0-10 bonus for helping other developers
+  overtimeBonus: number; // 0-10 bonus for working extra hours (>40h) with high quality
   
   // Raw data
   tasks: TaskPerformanceMetrics[];

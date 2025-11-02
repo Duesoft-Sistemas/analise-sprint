@@ -4,6 +4,11 @@ import {
   parseTimeToHours,
   determineTaskType,
   parseDate,
+  normalizeText,
+  parseComplexidade,
+  parseNotaTeste,
+  normalizeTaskType,
+  parseDetalhesOcultos,
 } from '../utils/calculations';
 
 export interface ParseResult {
@@ -183,9 +188,10 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
         // Primeira linha são os cabeçalhos
         const headers = rawData[0] as string[];
         
-        // Encontrar todas as colunas que correspondem a Feature e Categorias
+        // Encontrar todas as colunas que correspondem a Feature, Categorias e Detalhes Ocultos
         const featureColumnIndices: number[] = [];
         const categoriasColumnIndices: number[] = [];
+        const detalhesOcultosColumnIndices: number[] = [];
         
         headers.forEach((header, index) => {
           const headerStr = String(header || '').trim();
@@ -200,6 +206,11 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
           if (normalizedHeader.includes('categoria')) {
             categoriasColumnIndices.push(index);
           }
+          
+          // Verificar se é uma coluna de Detalhes Ocultos - usar contains para pegar variações
+          if (normalizedHeader.includes('detalhes ocultos') || normalizedHeader.includes('detalhesocultos')) {
+            detalhesOcultosColumnIndices.push(index);
+          }
         });
 
         // Converter para formato com objetos (para compatibilidade com código existente)
@@ -210,7 +221,7 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
         });
 
         // Processar dados linha por linha para capturar todas as colunas de features e categorias
-        const tasks = parseXlsDataWithMultipleColumns(jsonData, rawData, headers, featureColumnIndices, categoriasColumnIndices);
+        const tasks = parseXlsDataWithMultipleColumns(jsonData, rawData, headers, featureColumnIndices, categoriasColumnIndices, detalhesOcultosColumnIndices);
         resolve({ success: true, data: tasks });
       } catch (error) {
         resolve({
@@ -241,7 +252,8 @@ function parseXlsDataWithMultipleColumns(
   rawData: any[][],
   _headers: string[],
   featureColumnIndices: number[],
-  categoriasColumnIndices: number[]
+  categoriasColumnIndices: number[],
+  detalhesOcultosColumnIndices: number[]
 ): TaskItem[] {
   const tasks: TaskItem[] = [];
 
@@ -306,7 +318,40 @@ function parseXlsDataWithMultipleColumns(
       });
       const categorias = Array.from(categoriasSet);
       
-      const detalhesOcultos = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Detalhes Ocultos)'));
+      // Ler múltiplas colunas de Detalhes Ocultos diretamente dos índices
+      // Isso captura TODAS as colunas, mesmo que tenham o mesmo nome
+      const detalhesOcultosSet = new Set<string>();
+      detalhesOcultosColumnIndices.forEach(colIndex => {
+        if (rawRow && rawRow[colIndex] !== undefined && rawRow[colIndex] !== null) {
+          const value = rawRow[colIndex];
+          const valueStr = String(value).trim();
+          if (valueStr !== '' && valueStr !== 'undefined' && valueStr !== 'null') {
+            // Parse valores separados por vírgula/ponto-e-vírgula
+            const parsedValues = parseDetalhesOcultos(valueStr);
+            parsedValues.forEach(val => {
+              const normalizedValue = normalizeText(val);
+              if (normalizedValue && normalizedValue.trim() !== '') {
+                detalhesOcultosSet.add(normalizedValue.trim());
+              }
+            });
+          }
+        }
+      });
+      // Se não encontrou em múltiplas colunas, tentar coluna padrão (backward compatibility)
+      if (detalhesOcultosSet.size === 0) {
+        const detalhesOcultosRaw = getColumnValue(jsonRow, 'Campo personalizado (Detalhes Ocultos)');
+        if (detalhesOcultosRaw && detalhesOcultosRaw.trim() !== '') {
+          const parsedValues = parseDetalhesOcultos(detalhesOcultosRaw);
+          parsedValues.forEach(val => {
+            const normalizedValue = normalizeText(val);
+            if (normalizedValue && normalizedValue.trim() !== '') {
+              detalhesOcultosSet.add(normalizedValue.trim());
+            }
+          });
+        }
+      }
+      const detalhesOcultos = Array.from(detalhesOcultosSet);
+      
       const complexidadeRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Complexidade)');
       const notaTesteRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Nota Teste)');
       const qualidadeChamado = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Qualidade do Chamado)'));

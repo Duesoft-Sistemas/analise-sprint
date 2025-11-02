@@ -24,7 +24,7 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 | Campo personalizado (Modulo) | String | Módulo da aplicação | Autenticação | "Campo personalizado (Modulo)", "Campo personalizado (Módulo)" |
 | Campo personalizado (Feature) | String/Array | Feature relacionada | Login | "Campo personalizado (Feature)" (qualquer coluna contendo "feature") |
 | Categorias | String/Array | Cliente(s) | Cliente A, Cliente B | "Categorias" (qualquer coluna contendo "categoria") |
-| Campo personalizado (Detalhes Ocultos) | String | Informações adicionais | Auxilio, Reunião | "Campo personalizado (Detalhes Ocultos)" |
+| Campo personalizado (Detalhes Ocultos) | String/Array | Informações adicionais | Auxilio, Reunião, HoraExtra, DuvidaOculta | "Campo personalizado (Detalhes Ocultos)" (qualquer coluna contendo "detalhes ocultos") |
 
 ### Comportamento de Tarefas sem Sprint
 
@@ -39,17 +39,19 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 
 ### Suporte a Múltiplas Colunas
 
-Sistema suporta múltiplas colunas de "Feature" e "Categorias". Todas as colunas que correspondem ao padrão são lidas e combinadas em arrays.
+Sistema suporta múltiplas colunas de "Feature", "Categorias" e "Detalhes Ocultos". Todas as colunas que correspondem ao padrão são lidas e combinadas em arrays.
 
 **Exemplos de colunas suportadas:**
 - "Campo personalizado (Feature)", "Feature NFCE", "Feature Pedido de Venda"
 - "Categorias", "Cliente 1", "Cliente 2"
+- "Campo personalizado (Detalhes Ocultos)", "Detalhes Ocultos", "DetalhesOcultos"
 
 **Processamento:**
-- Sistema identifica colunas por padrão (header contém "feature" ou "categoria", case-insensitive, após normalização de encoding)
+- Sistema identifica colunas por padrão (header contém "feature", "categoria" ou "detalhes ocultos", case-insensitive, após normalização de encoding)
 - Processamento manual por índices de coluna (captura TODAS as colunas, mesmo com mesmo nome)
 - Valores de todas as colunas correspondentes são combinados em Set (estrutura de dados que remove duplicatas automaticamente)
 - Valores vazios são ignorados (trim, undefined, null, string "undefined", string "null")
+- Valores podem ser separados por vírgula, ponto-e-vírgula ou pipe na mesma célula (ex: "Auxilio, HoraExtra")
 - Após normalização de encoding, valores são adicionados ao Set
 - Resultado final: array único sem duplicatas, ordenado pela ordem de processamento
 
@@ -124,19 +126,47 @@ Sistema aceita os seguintes formatos para campos de tempo:
 - Adiciona bonus de auxílio ao Performance Score (0-10 pontos)
 - Usa `tempoGastoNoSprint` para cálculo do bonus
 - Escala progressiva: 0.5h+ = 1pt, 2h+ = 2pts, 4h+ = 4pts, 6h+ = 5pts, 8h+ = 7pts, 12h+ = 9pts, 16h+ = 10pts
+- **Qualidade Neutra:** Tarefas de auxílio não são consideradas no cálculo da média de qualidade.
 
-#### "Reunião" ou "Reuniao"
+#### "HoraExtra" ou "Hora Extra" ou "Horas Extras" ou "HorasExtras"
 
-**Propósito:** Identificar tarefas de reunião organizacional
+**Propósito:** Identificar tarefas realizadas em horas extras (acima de 40h/semana)
 
 **Identificação:**
-- Campo "Detalhes Ocultos" = "Reunião" ou "Reuniao" (case-insensitive, normalizado)
+- Campo "Detalhes Ocultos" = "HoraExtra", "Hora Extra", "Horas Extras" ou "HorasExtras" (case-insensitive, normalizado)
+- Variantes aceitas: "HoraExtra", "Hora Extra", "Horas Extras", "HorasExtras", "horaextra", etc.
 
 **Impacto:**
-- Neutro: não afeta nenhum cálculo de performance
-- Exibição: mostrado apenas como informação (campo `reunioesHours`)
-- Não é considerado no cálculo de eficiência
-- Não é considerado no cálculo de Performance Score
+- ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras.
+- Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
+- O bônus é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio" e "Reunião" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excedem 40h na semana.
+
+#### "DuvidaOculta" ou "Dúvida Oculta"
+
+**Propósito:** Identificar bugs que são na verdade dúvidas ocultas do cliente
+
+**Identificação:**
+- Campo "Detalhes Ocultos" = "DuvidaOculta" ou "Dúvida Oculta" (case-insensitive, normalizado)
+- Variantes aceitas: "DuvidaOculta", "Dúvida Oculta", "duvidaoculta", etc.
+
+**Impacto:**
+- Usado para separar bugs reais de dúvidas ocultas nas análises
+- Não afeta Performance Score diretamente
+- Aparece separadamente nas métricas de problemas (bugs vs dúvidas ocultas)
+
+### Suporte a Múltiplos Valores e Múltiplas Colunas
+
+**Múltiplos Valores na Mesma Célula:**
+- Valores podem ser separados por vírgula (`,`), ponto-e-vírgula (`;`) ou pipe (`|`)
+- Exemplo: `"Auxilio, HoraExtra"` ou `"Reunião; Auxilio"` ou `"HoraExtra|Auxilio"`
+- Todos os valores são processados e adicionados ao array de detalhes ocultos da tarefa
+
+**Múltiplas Colunas:**
+- Sistema suporta múltiplas colunas com nome "Detalhes Ocultos" (ou variações)
+- Todas as colunas correspondentes são lidas e combinadas
+- Valores de todas as colunas são combinados em um único array (duplicatas removidas automaticamente)
+- Exemplo: Se você tem colunas "Detalhes Ocultos" e "Detalhes Ocultos 2", valores de ambas são combinados
 
 ### Tratamento Automático de Encoding
 
@@ -155,9 +185,13 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 - Sistema usa normalização NFD (decomposição Unicode)
 - Remove diacríticos duplicados
 - Converte para lowercase
-- Usado para identificar "Auxilio" e "Reunião" (case-insensitive, sem acentos)
+- Usado para identificar valores (case-insensitive, sem acentos)
+- Valores aceitos: "Auxilio", "Reuniao"/"Reunião", "HoraExtra"/"Hora Extra"/"Horas Extras"/"HorasExtras", "DuvidaOculta"/"Dúvida Oculta"
 - Variantes aceitas: "Auxilio", "auxilio", "Auxílio" → todos reconhecidos como "auxilio"
 - Variantes aceitas: "Reunião", "Reuniao", "reunião", "reuniao" → todos reconhecidos
+- Variantes aceitas: "HoraExtra", "Hora Extra", "Horas Extras", "HorasExtras" → todos reconhecidos como "horaextra"
+- Variantes aceitas: "DuvidaOculta", "Dúvida Oculta", "duvidaoculta" → todos reconhecidos como "duvidaoculta"
+- Valores podem ser combinados: uma tarefa pode ter múltiplos valores separados por vírgula/ponto-e-vírgula
 
 ### Status Considerados "Concluídos"
 
@@ -330,6 +364,13 @@ Antes de processamento, sistema valida:
 - Não afetam Performance Score
 - Não são consideradas no cálculo de eficiência
 - Horas são exibidas apenas como informação
+- **Qualidade Neutra:** Tarefas de reunião não são consideradas no cálculo da média de qualidade.
+
+**Tarefas marcadas como "HoraExtra":**
+- Apenas tarefas marcadas explicitamente como "HoraExtra" no campo "Detalhes Ocultos" são consideradas para o bônus.
+- O bônus só é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio" e "Reunião" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus é calculado com base nas horas totais que excedem 40h na semana.
+- O total de horas para o cálculo (acima de 40h) considera **todas as tarefas concluídas**, não apenas as marcadas como "HoraExtra".
 
 ## Referências
 

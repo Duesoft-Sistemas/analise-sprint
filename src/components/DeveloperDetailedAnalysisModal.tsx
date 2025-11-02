@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { X, Package, Layers, TrendingUp, Zap, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { X, Package, TrendingUp, Zap, AlertTriangle, CheckCircle } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -9,9 +9,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Line,
-  AreaChart,
-  Area,
 } from 'recharts';
 import { DeveloperDetailedAnalytics } from '../services/detailedDeveloperAnalytics';
 import { formatHours } from '../utils/calculations';
@@ -41,18 +38,6 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
     }));
   }, [analytics.byFeature]);
 
-  // Prepare chart data for modules
-  const moduleChartData = useMemo(() => {
-    return analytics.byModule.slice(0, 10).map(m => ({
-      name: m.module || 'N/A',
-      performance: Math.round(m.avgPerformanceScore),
-      accuracy: Math.round(m.avgAccuracyRate),
-      quality: Math.round(m.avgQualityScore),
-      tasks: m.taskCount,
-      hours: Math.round(m.totalHoursWorked),
-    }));
-  }, [analytics.byModule]);
-
   // Prepare chart data for complexity
   const complexityChartData = useMemo(() => {
     return analytics.byComplexity
@@ -67,18 +52,6 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
         best: c.bestPerformance,
       }));
   }, [analytics.byComplexity]);
-
-  // Prepare chart data for workload
-  const workloadChartData = useMemo(() => {
-    return analytics.workloadAnalysis.map(w => ({
-      sprint: w.sprintName.split(' ').pop() || w.sprintName,
-      hours: Math.round(w.hoursWorked),
-      quality: Math.round(w.qualityScore),
-      performance: Math.round(w.performanceScore),
-      overcapacity: w.overcapacity,
-      threshold: analytics.capacityThreshold,
-    }));
-  }, [analytics.workloadAnalysis, analytics.capacityThreshold]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -123,7 +96,7 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
                 Análise Detalhada: {analytics.developerName}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Performance por Feature, Módulo, Complexidade e Capacidade
+                Performance por Feature e Complexidade
               </p>
             </div>
           </div>
@@ -250,76 +223,6 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
             </div>
           )}
 
-          {/* Performance by Module */}
-          {analytics.byModule.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Layers className="w-5 h-5" />
-                Performance por Módulo
-              </h3>
-              
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={moduleChartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                    tick={{ fill: 'currentColor' }}
-                    style={{ fill: 'currentColor', fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    domain={[0, 100]}
-                    tick={{ fill: 'currentColor' }}
-                    style={{ fill: 'currentColor' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Bar dataKey="performance" name="Performance Score" fill="#8b5cf6" />
-                  <Bar dataKey="accuracy" name="Acurácia" fill="#10b981" />
-                  <Bar dataKey="quality" name="Qualidade" fill="#f59e0b" />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {/* Module Table */}
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left p-2 text-gray-700 dark:text-gray-300">Módulo</th>
-                      <th className="text-right p-2 text-gray-700 dark:text-gray-300">Tarefas</th>
-                      <th className="text-right p-2 text-gray-700 dark:text-gray-300">Horas</th>
-                      <th className="text-right p-2 text-gray-700 dark:text-gray-300">Performance</th>
-                      <th className="text-right p-2 text-gray-700 dark:text-gray-300">Acurácia</th>
-                      <th className="text-right p-2 text-gray-700 dark:text-gray-300">Qualidade</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.byModule.slice(0, 10).map((module, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="p-2 text-gray-900 dark:text-white font-medium">{module.module || 'N/A'}</td>
-                        <td className="p-2 text-right text-gray-600 dark:text-gray-400">{module.taskCount}</td>
-                        <td className="p-2 text-right text-gray-600 dark:text-gray-400">{formatHours(module.totalHoursWorked)}</td>
-                        <td className="p-2 text-right">
-                          <span className={`font-semibold ${
-                            module.avgPerformanceScore >= 80 ? 'text-green-600 dark:text-green-400' :
-                            module.avgPerformanceScore >= 60 ? 'text-blue-600 dark:text-blue-400' :
-                            'text-orange-600 dark:text-orange-400'
-                          }`}>
-                            {module.avgPerformanceScore.toFixed(0)}%
-                          </span>
-                        </td>
-                        <td className="p-2 text-right text-gray-600 dark:text-gray-400">{module.avgAccuracyRate.toFixed(0)}%</td>
-                        <td className="p-2 text-right text-gray-600 dark:text-gray-400">{module.avgQualityScore.toFixed(0)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* Complexity Analysis */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -416,105 +319,6 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
             </div>
           </div>
 
-          {/* Workload and Capacity Analysis */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Análise de Capacidade e Workload
-            </h3>
-            
-            <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Horas Ideais por Sprint</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analytics.averageOptimalHours.toFixed(0)}h
-                </p>
-              </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Limite de Capacidade</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analytics.capacityThreshold.toFixed(0)}h
-                </p>
-              </div>
-              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Frequência de Sobrecarga</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analytics.overloadFrequency.toFixed(0)}%
-                </p>
-              </div>
-            </div>
-
-            <ResponsiveContainer width="100%" height={350}>
-              <AreaChart data={workloadChartData}>
-                <defs>
-                  <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorQuality" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
-                <XAxis 
-                  dataKey="sprint" 
-                  tick={{ fill: 'currentColor' }}
-                  style={{ fill: 'currentColor' }}
-                />
-                <YAxis 
-                  yAxisId="left"
-                  label={{ value: 'Horas', angle: -90, position: 'insideLeft', style: { fill: 'currentColor' } }}
-                  tick={{ fill: 'currentColor' }}
-                  style={{ fill: 'currentColor' }}
-                />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  domain={[0, 100]}
-                  label={{ value: 'Score', angle: 90, position: 'insideRight', style: { fill: 'currentColor' } }}
-                  tick={{ fill: 'currentColor' }}
-                  style={{ fill: 'currentColor' }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Area 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="hours" 
-                  name="Horas Trabalhadas"
-                  stroke="#3b82f6" 
-                  fill="url(#colorHours)"
-                  strokeWidth={2}
-                />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="threshold" 
-                  name="Limite Ideal"
-                  stroke="#f59e0b" 
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="quality" 
-                  name="Qualidade"
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="performance" 
-                  name="Performance"
-                  stroke="#8b5cf6" 
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
         {/* Footer */}

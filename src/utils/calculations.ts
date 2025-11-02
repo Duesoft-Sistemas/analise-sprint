@@ -33,6 +33,16 @@ export function parseTimeToHours(timeString: string | number): number {
   return hours + minutes / 60;
 }
 
+// Normalize text: remove accents and convert to lowercase for comparison
+export function normalizeForComparison(text: string): string {
+  if (!text) return '';
+  // Remove accents and convert to lowercase
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 // Format hours to readable string
 export function formatHours(hours: number): string {
   if (hours === 0) return '0h';
@@ -157,6 +167,21 @@ export function parseCategories(categoriesString: string): string[] {
   }
   
   return [categoriesString.trim()];
+}
+
+// Parse detalhes ocultos (may be comma-separated or semicolon-separated)
+// Similar to parseCategories but also normalizes values for comparison
+export function parseDetalhesOcultos(detalhesOcultosString: string): string[] {
+  if (!detalhesOcultosString || detalhesOcultosString.trim() === '') return [];
+  
+  const separators = [',', ';', '|'];
+  for (const sep of separators) {
+    if (detalhesOcultosString.includes(sep)) {
+      return detalhesOcultosString.split(sep).map(c => c.trim()).filter(c => c !== '');
+    }
+  }
+  
+  return [detalhesOcultosString.trim()];
 }
 
 // Calculate percentage safely

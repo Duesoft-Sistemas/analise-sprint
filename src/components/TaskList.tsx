@@ -2,8 +2,25 @@ import React, { useMemo, useState } from 'react';
 import { Search, Filter, X, FileDown } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
 import { exportTasksToExcel } from '../services/excelExportService';
+
+const getDetalheTagColor = (detalhe: string) => {
+  const normalized = normalizeForComparison(detalhe).replace(/\s/g, '');
+  if (normalized.includes('horaextra')) {
+    return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300';
+  }
+  if (normalized.includes('auxilio')) {
+    return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+  }
+  if (normalized.includes('reuniao')) {
+    return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+  }
+  if (normalized.includes('duvidaoculta')) {
+    return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
+  }
+  return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+};
 
 export const TaskList: React.FC = () => {
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
@@ -471,8 +488,19 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
   return (
     <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isOverTime ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{task.chave}</td>
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-md truncate" title={task.resumo}>
-        {task.resumo}
+      <td className="px-4 py-3 text-sm max-w-md">
+        <div className="text-gray-700 dark:text-gray-300 truncate" title={task.resumo}>
+          {task.resumo}
+        </div>
+        {task.detalhesOcultos && task.detalhesOcultos.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {task.detalhesOcultos.map(detalhe => (
+              <span key={detalhe} className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${getDetalheTagColor(detalhe)}`}>
+                {detalhe}
+              </span>
+            ))}
+          </div>
+        )}
       </td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {task.sprint || '-'}

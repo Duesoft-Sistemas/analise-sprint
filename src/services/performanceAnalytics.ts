@@ -9,13 +9,15 @@ import {
   MetricExplanation,
   CustomPeriodMetrics,
 } from '../types';
-import { formatHours } from '../utils/calculations';
-import { isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_INTERMEDIATE_COMPLEXITY_BONUS,
+  MAX_OVERTIME_BONUS,
+  MIN_OVERTIME_TEST_NOTE,
+  STANDARD_WEEKLY_HOURS,
 } from '../config/performanceConfig';
 
 // =============================================================================
@@ -73,10 +75,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS COMPLEXIDADE 3: Executar tarefas complexidade 3 com alta eficiência adiciona até +5 pontos. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). Score máximo: 140. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas (4-5): 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se executou complexidade 3 com alta eficiência (80%): 99.5 + 4 (complexidade 3) = 103.5. Se ajudou 8h: 103.5 + 7 (auxílio) = 110.5 🏆⭐',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS COMPLEXIDADE 3: Executar tarefas complexidade 3 com alta eficiência adiciona até +5 pontos. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). BONUS HORAS EXTRAS: Trabalhar horas extras (>40h/semana) com qualidade alta (nota ≥ 4) adiciona até +10 pontos (escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras - ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta. Score máximo: 150. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas. Bonus de horas extras reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota ≥ 4) - apenas horas acima de 40h em tarefas concluídas com qualidade alta contam.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas (4-5): 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se executou complexidade 3 com alta eficiência (80%): 99.5 + 4 (complexidade 3) = 103.5. Se ajudou 8h: 103.5 + 7 (auxílio) = 110.5. Se trabalhou 8h extras com qualidade alta: 110.5 + 7 (horas extras) = 117.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -283,15 +285,90 @@ function calculateAuxilioBonus(auxilioHours: number): number {
 
 // Helper to identify auxilio tasks (normalized comparison)
 function isAuxilioTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos) return false;
-  return normalizeForComparison(task.detalhesOcultos) === 'auxilio';
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
 }
 
 // Helper to identify reuniao (meetings) tasks (normalized comparison)
 function isReuniaoTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos) return false;
-  const normalized = normalizeForComparison(task.detalhesOcultos);
-  return normalized === 'reuniao' || normalized === 'reunioes';
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return normalized === 'reuniao' || normalized === 'reunioes';
+  });
+}
+
+// Helper to identify hora extra tasks (normalized comparison)
+function isHoraExtraTask(task: TaskItem): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
+  });
+}
+
+/**
+ * Calculate overtime bonus for performance score
+ * Rewards developers who work extra hours (>40h/week) with high quality work
+ * 
+ * ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras.
+ * Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
+ * 
+ * Regras:
+ * - Considera apenas horas trabalhadas acima de 40h no sprint
+ * - Apenas tarefas concluídas são consideradas
+ * - Apenas tarefas com nota de teste ≥ 4 contam
+ * - Reuniões e auxílio são excluídos
+ * - Escala progressiva similar ao bônus de auxílio
+ */
+function calculateOvertimeBonus(
+  tasks: TaskItem[]
+): number {
+  // Considera TODAS as tarefas concluídas para o total de horas
+  const workTasks = tasks.filter(t => isCompletedStatus(t.status));
+  
+  // Calcular o total de horas trabalhadas nessas tarefas
+  const totalWorkHours = workTasks.reduce(
+    (sum, t) => sum + (t.tempoGastoNoSprint ?? 0),
+    0
+  );
+
+  // Apenas horas acima de 40h contam
+  const overtimeHours = Math.max(0, totalWorkHours - STANDARD_WEEKLY_HOURS);
+
+  if (overtimeHours <= 0) return 0;
+
+  // Encontrar todas as tarefas marcadas como HoraExtra
+  const overtimeTasks = workTasks.filter(isHoraExtraTask);
+
+  if (overtimeTasks.length === 0) return 0;
+
+  // Para a média de qualidade, ignorar auxílio e reuniões
+  const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t) && !isReuniaoTask(t));
+
+  if (qualityOvertimeTasks.length === 0) {
+    // Se só houver auxílios/reuniões marcados como HE, o bônus é concedido sem validação de nota.
+    return 1; // Retorna pontuação mínima ou pode ser ajustado
+  }
+
+  // Calcular a nota média das tarefas de hora extra que são "testáveis"
+  const totalNotes = qualityOvertimeTasks.reduce(
+    (sum, t) => sum + (t.notaTeste ?? 5),
+    0
+  );
+  const averageNote = totalNotes / qualityOvertimeTasks.length;
+
+  // O bônus só é concedido se a qualidade média for alta
+  if (averageNote < MIN_OVERTIME_TEST_NOTE) return 0;
+  
+  // Aplicar escala progressiva com base nas horas extras totais
+  if (overtimeHours >= 16) return MAX_OVERTIME_BONUS; // 16h+ = 10 pontos (máximo)
+  if (overtimeHours >= 12) return 9; // 12h+ = 9 pontos
+  if (overtimeHours >= 8) return 7; // 8h+ = 7 pontos
+  if (overtimeHours >= 6) return 5; // 6h+ = 5 pontos
+  if (overtimeHours >= 4) return 4; // 4h+ = 4 pontos
+  if (overtimeHours >= 2) return 2; // 2h+ = 2 pontos
+  return 1; // 1h+ = 1 ponto
 }
 
 // =============================================================================
@@ -444,8 +521,9 @@ export function calculateSprintPerformance(
   const featureTasks = completedTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
   const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
   
-  // Test-based quality
-  const testNotes = completedTasks.map(t => (t.notaTeste ?? 5)); // 1-5, default 5
+  // Test-based quality - Exclui Auxílio e Reunião
+  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isReuniaoTask(t));
+  const testNotes = qualityTasks.map(t => (t.notaTeste ?? 5)); // 1-5, default 5
   const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 5;
   const testScore = Math.max(0, Math.min(100, avgTestNote * 20));
   const qualityScore = testScore;
@@ -527,8 +605,11 @@ export function calculateSprintPerformance(
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + intermediate complexity bonus (0-5) + auxilio bonus (0-10) = max 140
-  const performanceScore = Math.min(140, baseScore + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus);
+  // Overtime Bonus: 0-10 points based on extra hours worked (>40h) with high quality
+  const overtimeBonus = calculateOvertimeBonus(devTasks);
+  
+  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + intermediate complexity bonus (0-5) + auxilio bonus (0-10) + overtime bonus (0-10) = max 150
+  const performanceScore = Math.min(150, baseScore + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus + overtimeBonus);
   
   return {
     developerId,
@@ -562,6 +643,7 @@ export function calculateSprintPerformance(
     seniorityEfficiencyBonus,
     intermediateComplexityBonus,
     auxilioBonus,
+    overtimeBonus,
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
     complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
       ? `${tasksImpactedByComplexityZone} tarefa(s) ${tasksImpactedByComplexityZone === 1 ? 'foi' : 'foram'} avaliada(s) pela zona de eficiência por complexidade (horas excessivas para a complexidade)`
@@ -605,6 +687,7 @@ function createEmptySprintMetrics(
     seniorityEfficiencyBonus: 0,
     intermediateComplexityBonus: 0,
     auxilioBonus: 0,
+    overtimeBonus: 0,
     tasks: [],
   };
 }
