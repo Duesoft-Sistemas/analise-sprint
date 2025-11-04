@@ -63,6 +63,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
     // 1. Eficiência de Execução
     const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
+    const deviationTasks = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
     const efficientTasks = completedWithEstimates.filter(t => {
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
         return t.efficiencyImpact.isEfficient;
@@ -91,13 +92,36 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             let impact = '';
             
             if (zone && zone.type === 'complexity_zone') {
-              impact = `${zone.description} → ${isEfficient ? '✅ Eficiente' : '❌ Ineficiente'}`;
+              let statusLabel = '';
+              let statusIcon = '';
+
+              switch (zone.zone) {
+                case 'efficient':
+                  statusLabel = 'Eficiente';
+                  statusIcon = '✅';
+                  break;
+                case 'acceptable':
+                  statusLabel = 'Aceitável';
+                  statusIcon = '⚠️';
+                  break;
+                case 'inefficient':
+                  statusLabel = 'Fora da Zona';
+                  statusIcon = '❌';
+                  break;
+                default:
+                  statusLabel = isEfficient ? 'Eficiente' : 'Não Eficiente';
+                  statusIcon = isEfficient ? '✅' : '❌';
+              }
+              impact = `${zone.description} → ${statusIcon} ${statusLabel}`;
             } else {
               const threshold = getEfficiencyThreshold(t.complexityScore);
+              const efficientLabel = '✅ Eficiente';
+              const inefficientLabel = '❌ Não Eficiente';
+              
               if (t.estimationAccuracy > 0) {
-                impact = `Desvio: +${t.estimationAccuracy.toFixed(1)}% (limite: +${threshold.faster}%) → ${isEfficient ? '✅ Eficiente' : '❌ Ineficiente'}`;
+                impact = `Desvio: +${t.estimationAccuracy.toFixed(1)}% (limite: +${threshold.faster}%) → ${isEfficient ? efficientLabel : inefficientLabel}`;
               } else {
-                impact = `Desvio: ${t.estimationAccuracy.toFixed(1)}% (limite: ${threshold.slower}%) → ${isEfficient ? '✅ Eficiente' : '❌ Ineficiente'}`;
+                impact = `Desvio: ${t.estimationAccuracy.toFixed(1)}% (limite: ${threshold.slower}%) → ${isEfficient ? efficientLabel : inefficientLabel}`;
               }
             }
             
@@ -116,15 +140,13 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
         {
           label: 'Desvio Médio de Estimativa',
           value: `${metrics.estimationAccuracy > 0 ? '+' : ''}${metrics.estimationAccuracy.toFixed(1)}%`,
-          formula: completedWithEstimates.length > 0
-            ? `Soma dos desvios / Total = ${completedWithEstimates.reduce((sum, t) => sum + t.estimationAccuracy, 0).toFixed(1)}% / ${completedWithEstimates.length}`
-            : '0%',
-          explanation: metrics.tendsToUnderestimate 
+          formula: 'Média do desvio percentual para todas as tarefas com estimativa (incluindo Bugs).',
+          explanation: (metrics.tendsToUnderestimate 
             ? 'Tendência a subestimar (gastou mais que estimado)' 
             : metrics.tendsToOverestimate 
             ? 'Tendência a superestimar (gastou menos que estimado)'
-            : 'Estimativas balanceadas',
-          tasks: completedWithEstimates.map(t => ({
+            : 'Estimativas balanceadas') + '. A lista abaixo detalha apenas tarefas avaliadas por desvio.',
+          tasks: deviationTasks.map(t => ({
             taskKey: t.task.chave || t.task.id,
             taskSummary: t.task.resumo || 'Sem resumo',
             complexity: t.task.complexidade,
@@ -132,7 +154,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             hoursSpent: t.hoursSpent,
             deviation: t.estimationAccuracy,
             status: t.task.status,
-            impact: `Desvio: ${t.estimationAccuracy > 0 ? '+' : ''}${t.estimationAccuracy.toFixed(1)}% ${t.estimationAccuracy > 0 ? '(acelerou)' : '(atrasou)'}`,
+            impact: `Desvio: ${t.estimationAccuracy > 0 ? '+' : ''}${t.estimationAccuracy.toFixed(1)}% ${t.estimationAccuracy > 0 ? '(acelerou)' : t.estimationAccuracy < 0 ? '(atrasou)' : ''}`,
           })),
         },
       ],
@@ -510,6 +532,8 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                                     <div className={`px-2 py-1 rounded ${
                                       task.impact.includes('✅') 
                                         ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                                        : task.impact.includes('⚠️')
+                                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
                                         : task.impact.includes('❌')
                                         ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'

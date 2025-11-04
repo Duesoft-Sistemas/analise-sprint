@@ -339,7 +339,7 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 - Complexidade 2: até 4h eficiente, 4h-8h aceitável, acima de 8h ineficiente
 - Complexidade 3: até 8h eficiente, 8h-16h aceitável, acima de 16h ineficiente
 - Complexidade 4: até 16h eficiente, 16h-32h aceitável, acima de 32h ineficiente
-- Complexidade 5: até 16h eficiente, 16h-24h aceitável, acima de 24h ineficiente
+- Complexidade 5: até 32h eficiente, 32h-40h aceitável, acima de 40h ineficiente
 ```
 
 **Status:** ✅ **CONSISTENTE** - O código implementa exatamente o sistema descrito na documentação.

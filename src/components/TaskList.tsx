@@ -4,6 +4,7 @@ import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
 import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
 import { exportTasksToExcel } from '../services/excelExportService';
+import { MultiSelectDropdown } from './MultiSelectDropdown';
 
 const getDetalheTagColor = (detalhe: string) => {
   const normalized = normalizeForComparison(detalhe).replace(/\s/g, '');
@@ -32,7 +33,7 @@ export const TaskList: React.FC = () => {
   const [filterFeature, setFilterFeature] = useState('');
   const [filterModule, setFilterModule] = useState('');
   const [filterClient, setFilterClient] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterNoEstimate, setFilterNoEstimate] = useState(false);
 
   // Get base filtered tasks (by sprint, developer and global filters)
@@ -101,8 +102,8 @@ export const TaskList: React.FC = () => {
     if (filterClient) {
       result = result.filter((t) => t.categorias.includes(filterClient));
     }
-    if (filterStatus) {
-      result = result.filter((t) => t.status === filterStatus);
+    if (filterStatus.length > 0) {
+      result = result.filter((t) => filterStatus.includes(t.status));
     }
     if (filterNoEstimate) {
       result = result.filter((t) => t.estimativa === 0);
@@ -142,15 +143,21 @@ export const TaskList: React.FC = () => {
   }, [baseFilteredTasks]);
 
   const hasFilters =
-    searchTerm || filterFeature || filterModule || filterClient || filterStatus || filterNoEstimate;
+    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate;
 
   const clearFilters = () => {
     setSearchTerm('');
     setFilterFeature('');
     setFilterModule('');
     setFilterClient('');
-    setFilterStatus('');
+    setFilterStatus([]);
     setFilterNoEstimate(false);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setFilterStatus((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
   };
 
   const handleExport = () => {
@@ -298,18 +305,12 @@ export const TaskList: React.FC = () => {
             ))}
           </select>
 
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Todos os status</option>
-            {uniqueStatuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+          <MultiSelectDropdown
+            options={uniqueStatuses}
+            selectedOptions={filterStatus}
+            onToggleOption={handleStatusChange}
+            placeholder="Todos os status"
+          />
         </div>
 
         <div className="flex items-center gap-2 pt-2">

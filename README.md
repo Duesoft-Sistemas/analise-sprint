@@ -72,7 +72,7 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 | 2 | até 4h | 4h a 8h | acima de 8h |
 | 3 | até 8h | 8h a 16h | acima de 16h |
 | 4 | até 16h | 16h a 32h | acima de 32h |
-| 5 | até 16h | 16h a 24h | acima de 24h |
+| 5 | até 32h | 32h a 40h | acima de 40h |
 
 **💡 Importante sobre Bugs:**
 - Apenas a **Zona Eficiente** conta como eficiente no cálculo da eficiência geral
@@ -345,4 +345,6 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 ## 🎯 Resumo Final
 
 **Fórmula Completa:**
+```
+
 ```

@@ -154,7 +154,7 @@ Score Máximo: 140
 | 2 | ≤ 4h | 4h < x ≤ 8h | > 8h |
 | 3 | ≤ 8h | 8h < x ≤ 16h | > 16h |
 | 4 | ≤ 16h | 16h < x ≤ 32h | > 32h |
-| 5 | ≤ 16h | 16h < x ≤ 24h | > 24h |
+| 5 | ≤ 32h | 32h < x ≤ 40h | > 40h |
 
 **Cálculo de eficiência para Bugs:**
 - Se horas gastas ≤ maxEfficientHours: Eficiente = true (zona eficiente)
@@ -166,8 +166,8 @@ Score Máximo: 140
 **Exemplo:**
 - Bug complexidade 1 gastou 2h = ✅ eficiente (≤2h)
 - Bug complexidade 1 gastou 3h = ❌ ineficiente (zona aceitável não conta)
-- Bug complexidade 5 gastou 15h = ✅ eficiente (≤16h)
-- Bug complexidade 5 gastou 20h = ❌ ineficiente (zona aceitável não conta mais)
+- Bug complexidade 5 gastou 30h = ✅ eficiente (≤32h)
+- Bug complexidade 5 gastou 35h = ❌ ineficiente (zona aceitável não conta mais)
 
 **FEATURES/OUTROS (Todas complexidades):**
 - Usa desvio percentual entre estimativa original vs tempo gasto total

@@ -58,8 +58,8 @@ export const COMPLEXITY_EFFICIENCY_ZONES: ComplexityEfficiencyZone[] = [
   {
     complexity: 5,
     name: 'Muito Complexa',
-    maxEfficientHours: 16,
-    maxAcceptableHours: 24,
+    maxEfficientHours: 32,
+    maxAcceptableHours: 40,
   },
 ];
 
