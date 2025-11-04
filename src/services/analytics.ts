@@ -192,7 +192,7 @@ function calculateDimensionMetrics(
     totalizers.push(createTotalizer(label, groupTasks));
   }
 
-  return totalizers.sort((a, b) => b.hours - a.hours);
+  return totalizers.sort((a, b) => b.count - a.count);
 }
 
 // Calculate metrics by client (categorias)
@@ -218,7 +218,7 @@ function calculateClientMetrics(tasks: TaskItem[]): Totalizer[] {
     totalizers.push(createTotalizer(label, groupTasks));
   }
 
-  return totalizers.sort((a, b) => b.hours - a.hours);
+  return totalizers.sort((a, b) => b.count - a.count);
 }
 
 // Helper to create totalizer object

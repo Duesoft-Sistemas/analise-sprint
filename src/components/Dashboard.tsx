@@ -13,6 +13,7 @@ import { QualityDashboard } from './QualityDashboard';
 import { InconsistenciesDashboard } from './InconsistenciesDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
 import { SettingsPanel } from './SettingsPanel';
+import SprintAnalysisDetails from './SprintAnalysisDetails';
 
 type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog';
 
@@ -251,6 +252,10 @@ export const Dashboard: React.FC = () => {
               Resumo do Sprint
             </h2>
             <TotalizerCards analytics={sprintAnalytics} />
+          </div>
+
+          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+            <SprintAnalysisDetails analytics={sprintAnalytics} />
           </div>
 
           {/* Developer Cards */}

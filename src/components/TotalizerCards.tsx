@@ -112,34 +112,6 @@ export const TotalizerCards: React.FC<TotalizerCardsProps> = ({ analytics }) => 
           />
         </div>
       </div>
-
-      {/* By Feature */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-          <Layers className="w-5 h-5" />
-          Por Feature
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {analytics.byFeature.slice(0, 6).map((totalizer) => (
-            <DimensionCard key={totalizer.label} totalizer={totalizer} />
-          ))}
-        </div>
-      </div>
-
-      
-
-      {/* By Client */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-          <Users className="w-5 h-5" />
-          Por Cliente
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {analytics.byClient.slice(0, 6).map((totalizer) => (
-            <DimensionCard key={totalizer.label} totalizer={totalizer} />
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
@@ -202,27 +174,6 @@ const TypeCard: React.FC<TypeCardProps> = ({ label, count, hours, estimatedHours
       <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{count}</p>
       <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
         {formatHours(hours)} / {formatHours(estimatedHours)} estimadas
-      </p>
-    </div>
-  );
-};
-
-interface DimensionCardProps {
-  totalizer: { label: string; count: number; hours: number; estimatedHours: number };
-}
-
-const DimensionCard: React.FC<DimensionCardProps> = ({ totalizer }) => {
-  return (
-    <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 p-4">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={totalizer.label}>
-        {totalizer.label}
-      </p>
-      <div className="flex items-baseline gap-2 mt-2">
-        <span className="text-xl font-bold text-gray-900 dark:text-white">{totalizer.count}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
-      </div>
-      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-        {formatHours(totalizer.hours)} / {formatHours(totalizer.estimatedHours)}
       </p>
     </div>
   );
