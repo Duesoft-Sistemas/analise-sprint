@@ -15,5 +15,3 @@ bugs
 009 - ineficiente compl 1 4.5h
 
 
-aceitável para features tb????
-
