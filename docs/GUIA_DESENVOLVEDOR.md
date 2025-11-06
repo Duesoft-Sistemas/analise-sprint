@@ -56,12 +56,12 @@ Mede se você **entregou conforme esperado**. O sistema funciona diferente para 
 
 **🚀 Features (Tarefas, Histórias):**
 - Compara: **estimativa original** vs **tempo gasto total** (de todos os sprints)
-- **Fazer até 50% mais rápido** = sempre eficiente! ✅
+- **Qualquer tempo mais rápido** = sempre eficiente! ✅
 - **Se gastou mais que estimado**, tolerância por complexidade:
-  - Complexidade 1: até +15% (ex: estimou 10h, gastou até 11.5h = OK)
-  - Complexidade 2: até +18% (ex: estimou 10h, gastou até 11.8h = OK)
-  - Complexidade 3: até +20% (ex: estimou 10h, gastou até 12h = OK)
-  - Complexidade 4: até +30% (ex: estimou 10h, gastou até 13h = OK)
+  - Complexidade 1: até +20% (ex: estimou 10h, gastou até 12h = OK)
+  - Complexidade 2: até +25% (ex: estimou 10h, gastou até 12.5h = OK)
+  - Complexidade 3: até +30% (ex: estimou 10h, gastou até 13h = OK)
+  - Complexidade 4: até +35% (ex: estimou 10h, gastou até 13.5h = OK)
   - Complexidade 5: até +40% (ex: estimou 10h, gastou até 14h = OK)
 
 **🐛 Bugs:**
@@ -76,10 +76,11 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 | 5 | até 32h | 32h a 40h | acima de 40h |
 
 **💡 Importante sobre Bugs:**
-- **Zona Eficiente** = **1.0 ponto**
-- **Zona Aceitável** = **0.5 pontos** (contribui para a eficiência, mas não para bônus)
-- **Zona Ineficiente** = **0 pontos**
-- **Por que diferente?** Bugs são imprevisíveis, então não penaliza se a estimativa original foi ruim!
+- **Zona Eficiente** = **1.0 ponto** para o cálculo da sua eficiência.
+- **Zona Aceitável** = **0.5 pontos** (ainda contribui para a eficiência, mas com metade da pontuação).
+- **Zona Ineficiente** = **0 pontos**.
+- **Importante:** Para os **bônus** de Senioridade e Complexidade 3, apenas bugs na **Zona Eficiente** contam. A Zona Aceitável não contribui para os bônus.
+- **Por que diferente?** Bugs são imprevisíveis, então o sistema foca em se o tempo gasto foi razoável para a complexidade, sem penalizar por uma estimativa inicial ruim.
 
 ### Os Bônus (0-50 pontos)
 
@@ -100,7 +101,7 @@ Você ganha pontos extras por:
    - **Cálculo:**
      - **Altamente eficiente** = conta 1.0 (dentro dos limites esperados)
      - **Ineficiente** = não conta (0)
-     - **Importante:** Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
+     - **Importante:** Apenas tarefas altamente eficientes contam (Bugs na zona aceitável **NÃO** contam para este bônus).
    - **Exemplo prático:**
      ```
      Você tem 4 tarefas complexas (2 features + 2 bugs):
@@ -116,7 +117,7 @@ Você ganha pontos extras por:
 3. **Fazer tarefas complexidade 3 bem** (+0 a 5 pontos) 🎯
    - Recompensa executar tarefas complexidade 3 com alta eficiência
    - **Cálculo:** % de tarefas complexidade 3 eficientes × 5 pontos
-   - **Critério:** Features dentro da tolerância (+20%), Bugs apenas zona eficiente
+   - **Critério:** Features dentro da tolerância (+30%), Bugs apenas zona eficiente
    - **Exemplo:** 4 tarefas complexidade 3, 3 eficientes = 75% × 5 = +3.75 → +4 pontos
 
 4. **Ajudar os colegas** (+0 a 10 pontos) 🤝
@@ -303,10 +304,10 @@ O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "Ho
 ## ❓ Perguntas Frequentes
 
 **Q: Executar mais rápido é ruim?**  
-A: Não! Fazer até **50% mais rápido** é **sempre bom**! ✅
+A: Não! Fazer **mais rápido que o estimado é sempre considerado bom** e eficiente! ✅
 
 **Q: Por que bugs são avaliados diferente?**  
-A: Bugs são imprevisíveis! O sistema verifica se você gastou tempo excessivo para a complexidade (não penaliza por estimativa ruim).
+A: Bugs são imprevisíveis! O sistema não compara com a estimativa. Ele apenas verifica se você gastou um tempo razoável para a complexidade da tarefa. Um bug na "zona aceitável" ainda soma pontos para sua eficiência (0.5 pts), mas não conta para bônus de senioridade, que exige alta eficiência.
 
 **Q: Bugs complexos contam para senioridade?**  
 A: Sim! Bugs complexos (4-5) também contam para o bônus de senioridade. Apenas bugs na zona eficiente contam (zona aceitável não conta mais). 🐛✨
@@ -337,7 +338,7 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 5. **Bonus Senioridade:** Eficiência em tarefas complexas (4-5) × 15
    - Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
 6. **Bonus Complexidade 3:** Eficiência em tarefas complexidade 3 × 5
-   - Features: dentro da tolerância (+20%)
+   - Features: dentro da tolerância (+30%)
    - Bugs: zona eficiente apenas
 7. **Bonus Auxílio:** Escala progressiva (2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts)
 8. **Bonus Horas Extras:** Escala progressiva baseada em horas extras trabalhadas com qualidade alta
@@ -353,4 +354,5 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 ## 🎯 Resumo Final
 
 **Fórmula Completa:**
+```
 ```

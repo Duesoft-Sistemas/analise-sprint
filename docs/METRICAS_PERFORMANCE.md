@@ -47,9 +47,9 @@ Score geral combinando qualidade e eficiência de execução.
 ```
 Base Score (0-100) = (Qualidade × 0.50) + (Eficiência de Execução × 0.50)
 
-Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10)
+Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
 
-Score Máximo: 140
+Score Máximo: 150
 ```
 
 ### Componentes
@@ -58,6 +58,7 @@ Score Máximo: 140
 - Fórmula: `Nota de Teste Média × 20`
 - Range: 0-100 pontos
 - Nota de teste: 1-5. Tarefas sem nota de teste são excluídas do cálculo de qualidade.
+- **Caso Especial:** Se um desenvolvedor não tiver NENHUMA tarefa com nota de teste no sprint, a componente de Qualidade não é considerada no cálculo do `Base Score`. Nesse caso, `Base Score = Eficiência de Execução`.
 
 **2. Eficiência de Execução (50%):**
 - Fórmula: `(Pontuação Ponderada de Eficiência / Total de Tarefas) × 100`
@@ -100,11 +101,15 @@ Score Máximo: 140
   auxilioHours < 0.5: 0 pontos
   ```
 
+**7. Bonus de Horas Extras (0-10):**
+- Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
+- Escala progressiva similar ao bônus de auxílio, baseada nas horas totais que excedem 40h/semana.
+
 ### Classificações de Score
 
 | Range | Classificação |
 |-------|--------------|
-| 115-140 | Excepcional |
+| 115-150 | Excepcional |
 | 90-114 | Excelente |
 | 75-89 | Muito Bom |
 | 60-74 | Bom |
@@ -124,6 +129,10 @@ Score Máximo: 140
 - Nota 3: 60 pontos
 - Nota 2: 40 pontos
 - Nota 1: 20 pontos
+
+**Caso Especial (Sem Nota de Teste):**
+- Se um desenvolvedor não tiver NENHUMA tarefa com nota de teste, a componente de Qualidade não é utilizada no cálculo do `Base Score`.
+- Nesse cenário, `Base Score = Eficiência de Execução`. A qualidade não é penalizada (considerada 0), mas sim desconsiderada, para não prejudicar o desenvolvedor por falta de dados de teste.
 
 ### Taxa de Retrabalho
 
@@ -184,24 +193,24 @@ Score Máximo: 140
 
 image.png| Complexidade | Limite Inferior (atraso permitido) |
 |--------------|----------------------------------|
-| 1            | -15%                             |
-| 2            | -18%                             |
-| 3            | -20%                             |
-| 4            | -30%                             |
+| 1            | -20%                             |
+| 2            | -25%                             |
+| 3            | -30%                             |
+| 4            | -35%                             |
 | 5            | -40%                             |
 
 **Cálculo de eficiência para Features:**
 - Se desvio > 0 (executou mais rápido): Eficiente = **1.0 ponto**
-- Se desvio ≤ 0 e desvio >= limite inferior (ex: -20% para complexidade 3): Eficiente = **1.0 ponto**
+- Se desvio ≤ 0 e desvio >= limite inferior (ex: -30% para complexidade 3): Eficiente = **1.0 ponto**
 - Se desvio < limite inferior: Ineficiente = **0 pontos**
 
 **Regra:** Executar mais rápido que o estimado é sempre considerado eficiente. Apenas o atraso além da tolerância é ineficiente.
 
 **Exemplo:**
 - Feature complexidade 1: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.0 pt)
-- Feature complexidade 1: estimou 10h, gastou 11h = -10% (≥-15%) = ✅ eficiente (1.0 pt)
-- Feature complexidade 1: estimou 10h, gastou 12h = -20% (<-15%) = ❌ ineficiente (0 pts)
-- Feature complexidade 5: estimou 30h, gastou 35h = -16.67% (≥-40%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 12h = -20% (≥-20%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 12.5h = -25% (< -20%) = ❌ ineficiente (0 pts)
+- Feature complexidade 5: estimou 30h, gastou 42h = -40% (≥-40%) = ✅ eficiente (1.0 pt)
 
 ### Taxa de Conclusão
 
@@ -332,6 +341,21 @@ Função calculateAuxilioBonus(auxilioHours):
 - [8h, 12h): 7 pontos
 - [12h, 16h): 9 pontos
 - [16h, ∞): 10 pontos (máximo)
+
+### Bonus de Horas Extras
+
+**Range:** 0-10 pontos
+
+**Identificação:**
+- Campo "Detalhes Ocultos" contém "HoraExtra", "Hora Extra", "Horas Extras" ou "HorasExtras".
+
+**Regra de Qualidade:**
+- O bônus só é concedido se a **nota média de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta.
+- Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra não entram no cálculo dessa média de qualidade.
+
+**Cálculo:**
+- O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excederem 40h na semana.
+- A escala é progressiva e idêntica à do Bônus de Auxílio.
 
 ## Casos Especiais e Edge Cases
 

@@ -87,7 +87,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 <div className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    Zona de Eficiência por Complexidade
+                    Zona de Eficiência por Complexidade (para Bugs)
                   </span>
                 </div>
                 {expandedSections.has('complexity-zones') ? (
@@ -171,7 +171,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 <div className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    Limites de Tolerância (Desvio Estimativa vs Tempo Gasto) - Complexidade 5
+                    Limites de Tolerância (para Features)
                   </span>
                 </div>
                 {expandedSections.has('efficiency-thresholds') ? (
@@ -183,14 +183,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               {expandedSections.has('efficiency-thresholds') && (
                 <div className="p-4 bg-white dark:bg-gray-800">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Limites de tolerância para desvios entre estimativa e tempo gasto.
-                    <strong>USADO APENAS PARA COMPLEXIDADE 5.</strong>
+                    Limites de tolerância para desvios entre estimativa e tempo gasto. 
+                    <strong>USADO APENAS PARA FEATURES (TAREFAS, HISTÓRIAS, ETC).</strong> 
                     Valores positivos = executou mais rápido. Valores negativos = executou mais devagar.
                   </p>
                   <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <p className="text-sm text-orange-800 dark:text-orange-200">
                       <Info className="w-4 h-4 inline mr-1" />
-                      <strong>IMPORTANTE:</strong> Para bugs, todas as complexidades (1-5) usam zona de eficiência (APENAS horas gastas, não usa estimativa). Features sempre usam desvio percentual.
+                      <strong>Lembrete:</strong> Bugs são avaliados pela Zona de Eficiência por Complexidade, não por estes percentuais.
                     </p>
                   </div>
                   <div className="overflow-x-auto">
@@ -198,8 +198,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <thead>
                         <tr className="bg-gray-100 dark:bg-gray-700">
                           <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Complexidade</th>
-                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-100 dark:bg-green-900/20">Mais Rápido (máx)</th>
-                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-yellow-100 dark:bg-yellow-900/20">Mais Devagar (mín)</th>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-yellow-100 dark:bg-yellow-900/20">Tolerância de Atraso</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -207,9 +206,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                           <tr key={threshold.complexity} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold text-center">
                               {threshold.complexity}
-                            </td>
-                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-50 dark:bg-green-900/10 font-semibold text-green-700 dark:text-green-400">
-                              +{threshold.faster}%
                             </td>
                             <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-yellow-50 dark:bg-yellow-900/10 font-semibold text-yellow-700 dark:text-yellow-400">
                               {threshold.slower}%
@@ -330,7 +326,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <div key={key} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <span className="font-medium text-gray-900 dark:text-white">{classification.label}</span>
                         <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-                          Score ≥ {classification.min}
+                          Score: {classification.min}{classification.max ? ` - ${classification.max}` : '+'}
                         </span>
                       </div>
                     ))}

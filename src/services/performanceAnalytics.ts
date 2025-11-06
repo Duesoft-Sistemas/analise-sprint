@@ -522,9 +522,7 @@ export function calculateSprintPerformance(
         const deviation = t.estimationAccuracy;
         const threshold = getEfficiencyThreshold(t.complexityScore);
         
-        const isEfficient = deviation > 0
-          ? deviation <= threshold.faster
-          : deviation >= threshold.slower;
+        const isEfficient = deviation > 0 || (deviation >= threshold.slower && deviation <= 0);
         
         if (isEfficient) {
           weightedEfficientScore += 1; // Efficient feature = 1 point

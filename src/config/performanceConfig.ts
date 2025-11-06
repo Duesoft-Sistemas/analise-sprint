@@ -86,11 +86,11 @@ export interface EfficiencyThreshold {
 }
 
 export const EFFICIENCY_THRESHOLDS: EfficiencyThreshold[] = [
-  { complexity: 1, faster: 50, slower: -15 },  // Simples: mais rigoroso
-  { complexity: 2, faster: 50, slower: -18 },
-  { complexity: 3, faster: 50, slower: -20 },  // Média (padrão)
-  { complexity: 4, faster: 50, slower: -30 },  // Complexa: mais tolerante
-  { complexity: 5, faster: 50, slower: -40 },  // Muito complexa: muito tolerante
+  { complexity: 1, faster: Infinity, slower: -20 },
+  { complexity: 2, faster: Infinity, slower: -25 },
+  { complexity: 3, faster: Infinity, slower: -30 },
+  { complexity: 4, faster: Infinity, slower: -35 },
+  { complexity: 5, faster: Infinity, slower: -40 },
 ];
 
 // Função auxiliar para obter o threshold de uma complexidade
@@ -141,12 +141,12 @@ export const STANDARD_WEEKLY_HOURS = 40;
 // =============================================================================
 
 export const PERFORMANCE_SCORE_CLASSIFICATIONS = {
-  exceptional: { min: 115, label: '🏆 Excepcional', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
-  excellent: { min: 90, label: '⭐⭐⭐⭐⭐ Excelente', color: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-300 dark:border-green-700' },
-  veryGood: { min: 75, label: '⭐⭐⭐⭐ Muito Bom', color: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-300 dark:border-blue-700' },
-  good: { min: 60, label: '⭐⭐⭐ Bom', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
-  adequate: { min: 45, label: '⭐⭐ Adequado', color: 'from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-300 dark:border-orange-700' },
-  needsAttention: { min: 0, label: '⭐ Precisa Atenção', color: 'from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-300 dark:border-red-700' },
+  exceptional: { min: 115, max: 150, label: '🏆 Excepcional', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
+  excellent: { min: 90, max: 114, label: '⭐⭐⭐⭐⭐ Excelente', color: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-300 dark:border-green-700' },
+  veryGood: { min: 75, max: 89, label: '⭐⭐⭐⭐ Muito Bom', color: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-300 dark:border-blue-700' },
+  good: { min: 60, max: 74, label: '⭐⭐⭐ Bom', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
+  adequate: { min: 45, max: 59, label: '⭐⭐ Adequado', color: 'from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-300 dark:border-orange-700' },
+  needsAttention: { min: 0, max: 44, label: '⭐ Precisa Atenção', color: 'from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-300 dark:border-red-700' },
 };
 
 // =============================================================================
