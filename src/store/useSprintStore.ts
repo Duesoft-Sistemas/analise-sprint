@@ -8,6 +8,7 @@ import {
   WorklogEntry,
   SprintPeriod,
   SprintMetadata,
+  DeveloperMetrics,
 } from '../types';
 import {
   calculateSprintAnalytics,
@@ -47,6 +48,10 @@ interface SprintStore {
   selectedDeveloper: string | null;
   analyticsFilter: { type: 'feature' | 'client'; value: string } | null;
   
+  // State for breakdown modal
+  isBreakdownModalOpen: boolean;
+  developerForBreakdown: DeveloperMetrics | null;
+
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => void;
   addTasks: (tasks: TaskItem[], fileName?: string) => void; // Adiciona tarefas sem substituir
@@ -63,6 +68,8 @@ interface SprintStore {
   setSelectedDeveloper: (developer: string | null) => void;
   clearData: () => void;
   setAnalyticsFilter: (filter: { type: 'feature' | 'client'; value: string } | null) => void;
+  openBreakdownModal: (developer: DeveloperMetrics) => void;
+  closeBreakdownModal: () => void;
   
   // Computed getters
   getFilteredTasks: () => TaskItem[];
@@ -88,6 +95,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   taskFilters: {},
   selectedDeveloper: null,
   analyticsFilter: null,
+  isBreakdownModalOpen: false,
+  developerForBreakdown: null,
 
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => {
@@ -794,7 +803,17 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       taskFilters: {},
       selectedDeveloper: null,
       analyticsFilter: null,
+      isBreakdownModalOpen: false,
+      developerForBreakdown: null,
     });
+  },
+
+  openBreakdownModal: (developer: DeveloperMetrics) => {
+    set({ isBreakdownModalOpen: true, developerForBreakdown: developer });
+  },
+
+  closeBreakdownModal: () => {
+    set({ isBreakdownModalOpen: false, developerForBreakdown: null });
   },
 
   // Computed getter for filtered tasks

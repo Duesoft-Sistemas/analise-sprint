@@ -6,7 +6,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 
 **Seu score = 50% Qualidade + 50% Eficiência + Bônus (máximo 150 pontos)**
 
-- **Qualidade:** Nota de teste (1-5). Sem nota = 5 (perfeito!)
+- **Qualidade:** Nota de teste (1-5). Tarefas sem nota são desconsideradas no cálculo.
 - **Eficiência:** Features compara estimativa vs tempo gasto. Bugs verifica horas gastas (não usa estimativa).
 - **Bônus:** Complexidade 4-5 (+10), Complexidade 3 (+5), Senioridade (fazer tarefas complexas bem, +15), Auxílio (+10), Horas Extras (+10)
 
@@ -42,11 +42,12 @@ Depende da sua **nota de teste** média (1-5):
 
 | Nota | Pontos | Significado |
 |------|--------|-------------|
-| 5 | 100 pontos ✨ | Perfeito (padrão quando não há nota) |
+| 5 | 100 pontos ✨ | Perfeito |
 | 4 | 80 pontos ✅ | Aceitável |
 | 3 | 60 pontos ⚠️ | Problema |
 | 2 | 40 pontos ❌ | Crítico |
 | 1 | 20 pontos 🔥 | Catastrófico |
+| Vazio| N/A | Não entra no cálculo de qualidade |
 
 **💡 Nota:** Tarefas marcadas como "Auxílio", "Reunião" ou "Treinamento" são **neutras** e não entram no cálculo da média de qualidade.
 
@@ -75,13 +76,14 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 | 5 | até 32h | 32h a 40h | acima de 40h |
 
 **💡 Importante sobre Bugs:**
-- Apenas a **Zona Eficiente** conta como eficiente no cálculo da eficiência geral
-- A **Zona Aceitável** NÃO conta como eficiente na eficiência geral e também NÃO conta nos bônus de senioridade e complexidade 3
+- **Zona Eficiente** = **1.0 ponto**
+- **Zona Aceitável** = **0.5 pontos** (contribui para a eficiência, mas não para bônus)
+- **Zona Ineficiente** = **0 pontos**
 - **Por que diferente?** Bugs são imprevisíveis, então não penaliza se a estimativa original foi ruim!
 
-### Os Bônus (0-40 pontos)
+### Os Bônus (0-50 pontos)
 
-**Total máximo de bônus:** 10 (Complexidade 4-5) + 15 (Senioridade) + 5 (Complexidade 3) + 10 (Auxílio) = 40 pontos
+**Total máximo de bônus:** 10 (Complexidade 4-5) + 15 (Senioridade) + 5 (Complexidade 3) + 10 (Auxílio) + 10 (Horas Extras) = 50 pontos
 
 Você ganha pontos extras por:
 
@@ -98,13 +100,13 @@ Você ganha pontos extras por:
    - **Cálculo:**
      - **Altamente eficiente** = conta 1.0 (dentro dos limites esperados)
      - **Ineficiente** = não conta (0)
-     - **Importante:** Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
+     - **Importante:** Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
    - **Exemplo prático:**
      ```
      Você tem 4 tarefas complexas (2 features + 2 bugs):
      - 2 features altamente eficientes = 2 × 1.0 = 2.0
      - 1 bug altamente eficiente = 1 × 1.0 = 1.0
-     - 1 bug na zona aceitável = não conta (0)
+     - 1 bug na zona aceitável = não conta (0 pts)
      
      Score: (2.0 + 1.0) / 4 = 75% eficiência
      Bônus: 75% × 15 = +11 pontos! 🏆
@@ -152,18 +154,20 @@ Performance Score: 102 pontos ⭐⭐⭐⭐⭐
 ### Exemplo 2: Maria - Trabalhando com Bugs 🐛
 ```
 Maria fez 8 bugs neste sprint:
-- 4 bugs ficaram na zona eficiente ✅ (complexidade 1 gastou 1.5h, complexidade 2 gastou 3h, etc)
-- 4 bugs ficaram na zona aceitável ⚠️ (não contam como eficientes)
+- 4 bugs ficaram na zona eficiente ✅ (4 x 1.0 = 4.0 pts)
+- 2 bugs ficaram na zona aceitável ⚠️ (2 x 0.5 = 1.0 pt)
+- 2 bugs na zona ineficiente ❌ (0 pts)
 - Nota média: 4.5
 
 Cálculo:
 → Qualidade: 90 pontos (nota 4.5 média)
-→ Eficiência: 50 pontos (4/8 eficientes - só zona eficiente conta!)
-→ Base: (90 + 50) / 2 = 70 pontos
+→ Pontos de Eficiência: 4.0 + 1.0 = 5.0
+→ Eficiência: (5.0 / 8) * 100 = 62.5 pontos
+→ Base: (90 * 0.5) + (62.5 * 0.5) = 45 + 31.25 = 76.25 pontos
 → Bonus Complexidade (4-5): +3 pontos (25% tarefas complexas)
 → Bonus Senioridade: +15 pontos (2 bugs complexos eficientes)
 
-Performance Score: 88 pontos ⭐⭐⭐⭐
+Performance Score: 94.25 pontos ⭐⭐⭐⭐
 ```
 
 ### Exemplo 3: Pedro - Features Complexas 🏆
@@ -204,11 +208,11 @@ Sofia fez 3 tarefas, mas esqueceu de registrar o tempo no worklog:
 - Todas as tarefas: sem worklog = sistema considera 0h ❌
 
 Cálculo:
-→ Qualidade: 100 pontos (nota 5, sem nota = 5)
+→ Qualidade: N/A (nenhuma tarefa com nota)
 → Eficiência: 0 pontos (todas tarefas com 0h vs estimativas = ineficientes)
-→ Base: (100 + 0) / 2 = 50 pontos
+→ Base: (0) / 1 = 0 pontos (qualidade não entra no cálculo)
 
-Performance Score: 50 pontos ⭐⭐
+Performance Score: 0 pontos ⭐⭐
 
 ⚠️ LEMBRE-SE: Sem worklog = 0 horas = todas tarefas ineficientes!
 Sempre registre seu tempo no worklog! ⏱️
@@ -293,7 +297,7 @@ O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "Ho
 - **Para treinamentos:** Coloque "Treinamento" no campo "Detalhes Ocultos" da tarefa (não afeta score)
 
 **📝 Sobre Nota de Teste:**
-- Sem nota = assume **nota 5** (perfeito!)
+- Sem nota = não entra no cálculo de qualidade
 - Sempre preencha quando houver problemas
 
 ## ❓ Perguntas Frequentes
@@ -310,6 +314,9 @@ A: Sim! Bugs complexos (4-5) também contam para o bônus de senioridade. Apenas
 **Q: O que acontece sem worklog?**  
 A: ⚠️ **Sem worklog = 0 horas = todas tarefas ineficientes!** O sistema usa worklog, NUNCA a planilha. Sempre registre seu tempo!
 
+**Q: E se a tarefa não tiver nota de teste?**
+A: Tarefas sem nota de teste são ignoradas no cálculo de qualidade. Elas não prejudicam nem ajudam sua média. Apenas tarefas com nota (1 a 5) são consideradas.
+
 **Q: Como marcar tarefas como horas extras?**  
 A: No campo "Detalhes Ocultos" da tarefa, coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras"). O sistema aceita variações e múltiplos valores separados por vírgula (ex: "Auxilio, HoraExtra"). ⏰
 
@@ -321,14 +328,14 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 
 ## 🔢 Como É Calculado (Passo a Passo)
 
-1. **Qualidade:** Nota média × 20 (sem nota = 5)
-2. **Eficiência:** % de tarefas eficientes × 100
-   - Features: compara estimativa vs tempo gasto total
-   - Bugs: verifica se horas estão na zona eficiente da complexidade
+1. **Qualidade:** Apenas para tarefas com nota. Média das notas × 20.
+2. **Eficiência:** Pontuação Ponderada de Eficiência
+   - Features: 1.0 pt se eficiente, 0 se ineficiente
+   - Bugs: 1.0 pt (zona eficiente), 0.5 pts (zona aceitável), 0 pts (ineficiente)
 3. **Base:** (50% × Qualidade) + (50% × Eficiência)
 4. **Bonus Complexidade (4-5):** % tarefas complexas (4-5) × 10
 5. **Bonus Senioridade:** Eficiência em tarefas complexas (4-5) × 15
-   - Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
+   - Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
 6. **Bonus Complexidade 3:** Eficiência em tarefas complexidade 3 × 5
    - Features: dentro da tolerância (+20%)
    - Bugs: zona eficiente apenas

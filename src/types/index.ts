@@ -186,6 +186,11 @@ export interface SprintPerformanceMetrics {
   // Accuracy
   estimationAccuracy: number; // Average % deviation
   accuracyRate: number; // % of tasks executed efficiently (bugs: all complexities 1-5 use hours spent zone, features: all use deviation percentage)
+  
+  // Breakdown-specific metrics
+  bugAccuracyRate: number;
+  featureEstimationAccuracy: number;
+  
   tendsToOverestimate: boolean;
   tendsToUnderestimate: boolean;
   // Information about tasks impacted by complexity zone rule (hours exceeding complexity limits)

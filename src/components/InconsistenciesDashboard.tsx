@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, Clock, FileWarning, User, CheckCircle2, Calendar, Hash } from 'lucide-react';
+import { AlertTriangle, Clock, FileWarning, User, CheckCircle2, Calendar, Hash, Star } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, WorklogEntry, SprintMetadata } from '../types';
 import { formatHours, isCompletedStatus } from '../utils/calculations';
@@ -224,20 +224,15 @@ export const InconsistenciesDashboard: React.FC = () => {
     });
   }, [filteredTasks]);
 
-  // 14. Inconsistência entre tempo gasto deprecated e worklog
-  const tasksWithDeprecatedTimeMismatch = useMemo(() => {
+  // 15. Tarefas complexas (nível >= 3) concluídas sem nota de teste
+  const tasksWithHighComplexityAndMissingTestScore = useMemo(() => {
     return filteredTasks.filter(task => {
-      const tempoGastoDeprecated = task.tempoGasto || 0;
-      const tempoGastoTotal = task.tempoGastoTotal ?? 0;
+      const isComplex = task.complexidade >= 3;
+      // Nota de teste pode ser 0, então checamos se é nulo ou undefined
+      const isMissingTestScore = task.notaTeste === null || task.notaTeste === undefined;
+      const isDone = isCompletedStatus(task.status);
       
-      if (tempoGastoDeprecated > 0 && tempoGastoTotal > 0) {
-        const diff = Math.abs(tempoGastoDeprecated - tempoGastoTotal);
-        const percentage = (diff / Math.max(tempoGastoDeprecated, tempoGastoTotal)) * 100;
-        // Diferença > 10%
-        return percentage > 10;
-      }
-      
-      return false;
+      return isDone && isComplex && isMissingTestScore;
     });
   }, [filteredTasks]);
 
@@ -407,17 +402,17 @@ export const InconsistenciesDashboard: React.FC = () => {
       });
     }
 
-    // 14. Inconsistência entre tempo deprecated e worklog
-    if (tasksWithDeprecatedTimeMismatch.length > 0) {
+    // 15. Tarefas complexas sem nota de teste
+    if (tasksWithHighComplexityAndMissingTestScore.length > 0) {
       all.push({
-        id: 'deprecated-time-mismatch',
-        type: 'deprecated-time-mismatch',
-        category: 'Worklog',
-        severity: 'low',
-        title: 'Inconsistência entre Tempo Deprecated e Worklog',
-        description: 'Diferença significativa entre tempo gasto na planilha (deprecated) e tempo calculado do worklog. Indica possível desatualização da planilha.',
-        count: tasksWithDeprecatedTimeMismatch.length,
-        items: tasksWithDeprecatedTimeMismatch,
+        id: 'complex-task-missing-test-score',
+        type: 'complex-task-missing-test-score',
+        category: 'Qualidade',
+        severity: 'medium',
+        title: 'Tarefas Complexas sem Nota de Teste',
+        description: 'Tarefas com complexidade 3 ou superior que foram concluídas mas não possuem nota de teste. A ausência da nota impede o cálculo correto do score de qualidade e performance.',
+        count: tasksWithHighComplexityAndMissingTestScore.length,
+        items: tasksWithHighComplexityAndMissingTestScore,
       });
     }
 
@@ -440,7 +435,7 @@ export const InconsistenciesDashboard: React.FC = () => {
     worklogsWithMissingFields,
     tasksWithoutSprint,
     tasksWithInconsistentEstimates,
-    tasksWithDeprecatedTimeMismatch,
+    tasksWithHighComplexityAndMissingTestScore,
   ]);
 
   const totalInconsistencies = inconsistencies.reduce((sum, inc) => sum + inc.count, 0);
@@ -502,6 +497,8 @@ export const InconsistenciesDashboard: React.FC = () => {
         return <Calendar className="w-5 h-5" />;
       case 'Estimativa':
         return <Hash className="w-5 h-5" />;
+      case 'Qualidade':
+        return <Star className="w-5 h-5" />;
       default:
         return <AlertTriangle className="w-5 h-5" />;
     }

@@ -60,34 +60,63 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
     // Filter completed tasks (used for performance calculations)
     const completedTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
-
-    // 1. Eficiência de Execução
     const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
-    const deviationTasks = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
-    const efficientTasks = completedWithEstimates.filter(t => {
-      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
-        return t.efficiencyImpact.isEfficient;
-      }
+
+    // Separate bugs and features
+    const bugs = completedWithEstimates.filter(t => t.task.tipo === 'Bug');
+    const features = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
+
+    // Calculate efficient tasks for each category
+    const efficientBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'efficient');
+    const acceptableBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'acceptable');
+    const efficientFeatures = features.filter(t => {
       const deviation = t.estimationAccuracy;
       const threshold = getEfficiencyThreshold(t.complexityScore);
-      if (deviation > 0) {
-        return deviation <= threshold.faster;
-      }
-      return deviation >= threshold.slower;
+      return deviation > 0 ? true : deviation >= threshold.slower;
     });
 
+    const weightedScore = efficientBugs.length + (acceptableBugs.length * 0.5) + efficientFeatures.length;
+
+    // 1. Eficiência de Execução
     sections.push({
       title: 'Eficiência de Execução',
       icon: <Target className="w-5 h-5" />,
       color: 'green',
       items: [
         {
-          label: 'Taxa de Eficiência',
+          label: 'Eficiência Geral (para Performance Score)',
           value: `${metrics.accuracyRate.toFixed(1)}%`,
-          formula: `(Tarefas Eficientes / Total com Estimativa) × 100 = (${efficientTasks.length} / ${completedWithEstimates.length}) × 100`,
-          explanation: 'Percentual de tarefas executadas de forma eficiente. Bugs usam zona de complexidade para todas as complexidades (1-5). Features usam apenas desvio percentual.',
-          tasks: completedWithEstimates.map(t => {
-            const isEfficient = efficientTasks.includes(t);
+          formula: `(Pontos de Eficiência / Total de Tarefas) × 100 = (${weightedScore} / ${completedWithEstimates.length}) × 100`,
+          explanation: 'Esta é a métrica de eficiência consolidada usada no cálculo do seu Performance Score. Bugs aceitáveis valem 0.5 pontos.',
+          subItems: [
+            {
+              label: 'Bugs Eficientes',
+              value: `${efficientBugs.length} de ${bugs.length}`,
+              formula: `(${efficientBugs.length} × 1.0) + (${acceptableBugs.length} × 0.5) = ${efficientBugs.length + (acceptableBugs.length * 0.5)} pts`
+            },
+            {
+              label: 'Features Eficientes',
+              value: `${efficientFeatures.length} de ${features.length}`,
+            },
+            {
+              label: 'Pontuação Total de Eficiência',
+              value: `${weightedScore} de ${completedWithEstimates.length}`,
+            },
+            {
+              label: 'Contribuição para Score Base',
+              value: `${(metrics.accuracyRate * 0.5).toFixed(1)} pontos`,
+              formula: `50% de ${metrics.accuracyRate.toFixed(1)}%`
+            }
+          ]
+        },
+        {
+          label: 'Taxa de Eficiência (Bugs)',
+          value: `${metrics.bugAccuracyRate.toFixed(1)}%`,
+          formula: `(Bugs Eficientes / Total de Bugs) × 100 = (${efficientBugs.length} / ${bugs.length}) × 100`,
+          explanation: 'Percentual de BUGS executados de forma eficiente, usando a zona de complexidade (baseado apenas nas horas gastas).',
+          tasks: bugs.map(t => {
+            const isEfficient = efficientBugs.includes(t);
+            const isAcceptable = acceptableBugs.includes(t);
             const zone = t.efficiencyImpact;
             let impact = '';
             
@@ -97,11 +126,11 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
               switch (zone.zone) {
                 case 'efficient':
-                  statusLabel = 'Eficiente';
+                  statusLabel = 'Eficiente (1.0 pts)';
                   statusIcon = '✅';
                   break;
                 case 'acceptable':
-                  statusLabel = 'Aceitável';
+                  statusLabel = 'Aceitável (0.5 pts)';
                   statusIcon = '⚠️';
                   break;
                 case 'inefficient':
@@ -114,15 +143,8 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
               }
               impact = `${zone.description} → ${statusIcon} ${statusLabel}`;
             } else {
-              const threshold = getEfficiencyThreshold(t.complexityScore);
-              const efficientLabel = '✅ Eficiente';
-              const inefficientLabel = '❌ Não Eficiente';
-              
-              if (t.estimationAccuracy > 0) {
-                impact = `Desvio: +${t.estimationAccuracy.toFixed(1)}% (limite: +${threshold.faster}%) → ${isEfficient ? efficientLabel : inefficientLabel}`;
-              } else {
-                impact = `Desvio: ${t.estimationAccuracy.toFixed(1)}% (limite: ${threshold.slower}%) → ${isEfficient ? efficientLabel : inefficientLabel}`;
-              }
+              // Fallback if not evaluated by zone (should not happen for bugs)
+              impact = `Avaliado por desvio: ${t.estimationAccuracy.toFixed(1)}%`;
             }
             
             return {
@@ -138,34 +160,57 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           }),
         },
         {
-          label: 'Desvio Médio de Estimativa',
-          value: `${metrics.estimationAccuracy > 0 ? '+' : ''}${metrics.estimationAccuracy.toFixed(1)}%`,
-          formula: 'Média do desvio percentual para todas as tarefas com estimativa (incluindo Bugs).',
-          explanation: (metrics.tendsToUnderestimate 
+          label: 'Desvio Médio de Estimativa (Features)',
+          value: `${metrics.featureEstimationAccuracy > 0 ? '+' : ''}${metrics.featureEstimationAccuracy.toFixed(1)}%`,
+          formula: 'Média do desvio percentual para TAREFAS e HISTÓRIAS com estimativa.',
+          explanation: `Média do desvio de todas as features e histórias. ${
+            metrics.featureEstimationAccuracy < -10
             ? 'Tendência a subestimar (gastou mais que estimado)' 
-            : metrics.tendsToOverestimate 
+            : metrics.featureEstimationAccuracy > 10
             ? 'Tendência a superestimar (gastou menos que estimado)'
-            : 'Estimativas balanceadas') + '. A lista abaixo detalha apenas tarefas avaliadas por desvio.',
-          tasks: deviationTasks.map(t => ({
-            taskKey: t.task.chave || t.task.id,
-            taskSummary: t.task.resumo || 'Sem resumo',
-            complexity: t.task.complexidade,
-            hoursEstimated: t.hoursEstimated,
-            hoursSpent: t.hoursSpent,
-            deviation: t.estimationAccuracy,
-            status: t.task.status,
-            impact: `Desvio: ${t.estimationAccuracy > 0 ? '+' : ''}${t.estimationAccuracy.toFixed(1)}% ${t.estimationAccuracy > 0 ? '(acelerou)' : t.estimationAccuracy < 0 ? '(atrasou)' : ''}`,
-          })),
+            : 'Estimativas balanceadas'}. A lista abaixo detalha o desvio de cada tarefa.`,
+          tasks: features.map(t => {
+            const isEfficient = efficientFeatures.includes(t);
+            const threshold = getEfficiencyThreshold(t.complexityScore);
+            const efficientLabel = '✅ Eficiente';
+            const inefficientLabel = '❌ Não Eficiente';
+            let impact = '';
+            const deviation = t.estimationAccuracy;
+            const complexity = t.task.complexidade;
+
+            if (deviation >= 0) { // No prazo ou mais rápido
+              impact = `Desvio de +${deviation.toFixed(1)}% para complexidade ${complexity}. → ${efficientLabel}`;
+            } else { // Mais lento
+              const limit = threshold.slower;
+              if (isEfficient) {
+                impact = `Desvio de ${deviation.toFixed(1)}% para complexidade ${complexity} está dentro da tolerância (${limit}%). → ${efficientLabel}`;
+              } else {
+                impact = `Desvio de ${deviation.toFixed(1)}% para complexidade ${complexity} excede a tolerância de atraso (${limit}%). → ${inefficientLabel}`;
+              }
+            }
+            
+            return {
+              taskKey: t.task.chave || t.task.id,
+              taskSummary: t.task.resumo || 'Sem resumo',
+              complexity: t.task.complexidade,
+              hoursEstimated: t.hoursEstimated,
+              hoursSpent: t.hoursSpent,
+              deviation: t.estimationAccuracy,
+              status: t.task.status,
+              impact,
+            };
+          }),
         },
       ],
     });
 
-    // 2. Qualidade
-    const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task));
-    const testNotes = qualityTasks.map(t => t.task.notaTeste ?? 5);
-    const avgTestNote = testNotes.length > 0
-      ? testNotes.reduce((sum, n) => sum + n, 0) / testNotes.length
-      : 5;
+    // =============================================================================
+    // 4. CALCULAR MÉTRICAS DE QUALIDADE (baseado em nota de teste)
+    // =============================================================================
+    const qualityTasks = completedTasks.filter(t => !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined);
+    const testNotes = qualityTasks.map(t => t.task.notaTeste as number);
+    const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 0;
+    const qualityScore = testNotes.length > 0 ? Math.max(0, Math.min(100, avgTestNote * 20)) : 0;
 
     sections.push({
       title: 'Qualidade',
@@ -174,9 +219,9 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       items: [
         {
           label: 'Score de Qualidade',
-          value: `${metrics.qualityScore.toFixed(1)}`,
-          formula: `Nota de Teste Média × 20 = ${avgTestNote.toFixed(1)} × 20`,
-          explanation: 'Baseado na Nota de Teste (1-5). Tarefas de "Auxílio" e "Reunião" são desconsideradas. Vazio é tratado como 5.',
+          value: qualityScore > 0 ? qualityScore.toFixed(1) : 'N/A',
+          formula: qualityScore > 0 ? `Nota de Teste Média × 20 = ${avgTestNote.toFixed(1)} × 20` : 'Nenhuma tarefa com nota de teste.',
+          explanation: 'Baseado na Nota de Teste (1-5). Tarefas sem nota, de "Auxílio" ou "Reunião" são desconsideradas.',
           tasks: completedTasks.map(t => ({
             taskKey: t.task.chave || t.task.id,
             taskSummary: t.task.resumo || 'Sem resumo',
@@ -185,196 +230,184 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             hoursSpent: t.hoursSpent,
             status: t.task.status,
             impact:
-              isAuxilioTask(t.task) || isNeutralTask(t.task)
-                ? `Nota: ${t.task.notaTeste ?? 5}/5 (Ignorado)`
-                : `Nota: ${t.task.notaTeste ?? 5}/5 (contribui: ${((t.task.notaTeste ?? 5) * 20).toFixed(1)})`,
+              isNeutralTask(t.task) || t.task.notaTeste === null || t.task.notaTeste === undefined
+                ? `Nota: N/A (Ignorado)`
+                : `Nota: ${t.task.notaTeste}/5 (contribui: ${(t.task.notaTeste * 20).toFixed(1)})`,
           })),
         },
         {
           label: 'Nota de Teste Média',
-          value: `${avgTestNote.toFixed(1)}/5`,
+          value: avgTestNote > 0 ? `${avgTestNote.toFixed(1)}/5` : 'N/A',
           formula:
             testNotes.length > 0
               ? `Soma das notas / Total = ${testNotes.reduce((sum, n) => sum + n, 0)} / ${testNotes.length}`
-              : '5.0 (padrão)',
+              : 'Nenhuma tarefa com nota.',
         },
       ],
     });
 
-    // 3. Performance Score
+    // =============================================================================
+    // 5. CALCULAR PERFORMANCE SCORE
+    // =============================================================================
+    const executionEfficiency = metrics.accuracyRate;
+
+    const scoreHasQuality = qualityTasks.length > 0;
+
+    const baseScore = scoreHasQuality
+        ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
+        : executionEfficiency;
+    
     sections.push({
-      title: 'Score de Performance',
-      icon: <Calculator className="w-5 h-5" />,
-      color: 'yellow',
-      items: [
-        {
-          label: 'Score Base',
-          value: `${metrics.baseScore.toFixed(1)}`,
-          formula: `(50% × Qualidade) + (50% × Eficiência) = (0.5 × ${metrics.qualityScore.toFixed(1)}) + (0.5 × ${metrics.accuracyRate.toFixed(1)})`,
-          subItems: [
+        title: 'Score de Performance',
+        icon: <Calculator className="w-5 h-5" />,
+        color: 'yellow',
+        items: [
             {
-              label: 'Componente Qualidade',
-              value: `${(metrics.qualityScore * 0.5).toFixed(1)}`,
-              formula: `50% × ${metrics.qualityScore.toFixed(1)}`,
+                label: 'Score Base',
+                value: baseScore.toFixed(1),
+                formula: scoreHasQuality
+                    ? `(50% × Qualidade) + (50% × Eficiência) = (0.5 × ${qualityScore.toFixed(1)}) + (0.5 × ${metrics.accuracyRate.toFixed(1)})`
+                    : `Eficiência = ${metrics.accuracyRate.toFixed(1)} (sem componente de qualidade)`,
+                subItems: scoreHasQuality ? [
+                    {
+                        label: 'Componente Qualidade',
+                        value: `${(qualityScore * 0.5).toFixed(1)}`,
+                        formula: `50% × ${qualityScore.toFixed(1)}`,
+                    },
+                    {
+                        label: 'Componente Eficiência',
+                        value: `${(metrics.accuracyRate * 0.5).toFixed(1)}`,
+                        formula: `50% × ${metrics.accuracyRate.toFixed(1)}`,
+                    },
+                ] : [],
             },
             {
-              label: 'Componente Eficiência',
-              value: `${(metrics.accuracyRate * 0.5).toFixed(1)}`,
-              formula: `50% × ${metrics.accuracyRate.toFixed(1)}`,
+                label: 'Bonus de Complexidade (4-5)',
+                value: `+${metrics.complexityBonus}`,
+                formula: (() => {
+                    const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
+                    const complex = metrics.complexityDistribution
+                        .filter(d => d.level >= 4)
+                        .reduce((sum, d) => sum + d.count, 0);
+                    const pct = total > 0 ? ((complex / total) * 100).toFixed(1) : '0';
+                    return `% de tarefas complexas (4-5) × 10 = ${pct}% × 10 = ${metrics.complexityBonus}`;
+                })(),
+                explanation: `Recompensa trabalhar em tarefas complexas (níveis 4-5). ${metrics.complexityBonus === 0 ? 'Nenhuma tarefa complexa (4-5) identificada.' : `${metrics.complexityDistribution.filter(d => d.level >= 4).reduce((sum, d) => sum + d.count, 0)} tarefa(s) de complexidade 4-5.`}`,
             },
-          ],
-        },
-        {
-          label: 'Bonus de Complexidade (4-5)',
-          value: `+${metrics.complexityBonus}`,
-          formula: (() => {
-            const total = metrics.complexityDistribution.reduce((sum, d) => sum + d.count, 0);
-            const complex = metrics.complexityDistribution
-              .filter(d => d.level >= 4)
-              .reduce((sum, d) => sum + d.count, 0);
-            const pct = total > 0 ? ((complex / total) * 100).toFixed(1) : '0';
-            return `% de tarefas complexas (4-5) × 10 = ${pct}% × 10 = ${metrics.complexityBonus}`;
-          })(),
-          explanation: `Recompensa trabalhar em tarefas complexas (níveis 4-5). ${metrics.complexityBonus === 0 ? 'Nenhuma tarefa complexa (4-5) identificada.' : `${metrics.complexityDistribution.filter(d => d.level >= 4).reduce((sum, d) => sum + d.count, 0)} tarefa(s) de complexidade 4-5.`}`,
-        },
-        {
-          label: 'Bonus de Senioridade',
-          value: `+${metrics.seniorityEfficiencyBonus}`,
-          formula: (() => {
-            const complexTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
-            if (complexTasks.length === 0) return 'Nenhuma tarefa complexa executada';
-            
-            let highlyEfficient = 0;
-            
-            complexTasks.forEach(t => {
-              if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
-                if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
-                // Removed: zona aceitável não conta mais
-              } else {
-                // Features: avaliar por desvio percentual (limites de tolerância)
-                const threshold = getEfficiencyThreshold(t.complexityScore);
-                if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
-                  highlyEfficient++;
-                }
-              }
-            });
-            
-            if (complexTasks.length === 0) return '0 (sem tarefas complexas)';
-            const efficiencyScore = highlyEfficient / complexTasks.length;
-            return `${highlyEfficient} eficientes / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
-          })(),
-          explanation: `Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência dentro dos limites esperados. Apenas tarefas altamente eficientes contam (zona aceitável não conta mais). ${metrics.seniorityEfficiencyBonus === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexas!'}`,
-        },
-        {
-          label: 'Bonus de Complexidade 3',
-          value: `+${metrics.intermediateComplexityBonus || 0}`,
-          formula: (() => {
-            const complexity3Tasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
-            if (complexity3Tasks.length === 0) return 'Nenhuma tarefa complexidade 3 executada';
-            
-            let highlyEfficient = 0;
-            
-            complexity3Tasks.forEach(t => {
-              if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
-                if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
-              } else {
-                const threshold = getEfficiencyThreshold(t.complexityScore);
-                if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
-                  highlyEfficient++;
-                }
-              }
-            });
-            
-            if (complexity3Tasks.length === 0) return '0 (sem tarefas complexidade 3)';
-            const efficiencyScore = highlyEfficient / complexity3Tasks.length;
-            return `${highlyEfficient} eficientes / ${complexity3Tasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 5`;
-          })(),
-          explanation: `Recompensa executar tarefas complexidade 3 com alta eficiência. Features: dentro da tolerância de eficiência (+20%). Bugs: zona eficiente apenas. ${(metrics.intermediateComplexityBonus || 0) === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexidade 3!'}`,
-        },
-        {
-          label: 'Bonus de Auxílio',
-          value: `+${metrics.auxilioBonus}`,
-          formula: (() => {
-            const auxilioTasks = metrics.tasks.filter(t => {
-              if (!t.task.detalhesOcultos || t.task.detalhesOcultos.length === 0) return false;
-              return t.task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
-            });
-            if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
-            const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
-            return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
-          })(),
-          explanation: `Recompensa ajudar outros desenvolvedores com tarefas de auxílio (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
-        },
-        {
-          label: 'Bonus de Horas Extras',
-          value: `+${metrics.overtimeBonus}`,
-          formula: (() => {
-            const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
-            
-            const totalWorkHours = workTasks.reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
-            const overtimeHours = Math.max(0, totalWorkHours - 40);
+            {
+                label: 'Bonus de Senioridade',
+                value: `+${metrics.seniorityEfficiencyBonus}`,
+                formula: (() => {
+                    const complexTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
+                    if (complexTasks.length === 0) return 'Nenhuma tarefa complexa executada';
+                    
+                    let highlyEfficient = 0;
+                    
+                    complexTasks.forEach(t => {
+                        if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+                            if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
+                        } else {
+                            const threshold = getEfficiencyThreshold(t.complexityScore);
+                            if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
+                                highlyEfficient++;
+                            }
+                        }
+                    });
+                    
+                    if (complexTasks.length === 0) return '0 (sem tarefas complexas)';
+                    const efficiencyScore = highlyEfficient / complexTasks.length;
+                    return `${highlyEfficient} eficientes / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
+                })(),
+                explanation: `Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência. Apenas tarefas altamente eficientes contam. ${metrics.seniorityEfficiencyBonus === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexas!'}`,
+            },
+            {
+                label: 'Bonus de Complexidade 3',
+                value: `+${metrics.intermediateComplexityBonus || 0}`,
+                formula: (() => {
+                    const complexity3Tasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+                    if (complexity3Tasks.length === 0) return 'Nenhuma tarefa complexidade 3 executada';
+                    
+                    let highlyEfficient = 0;
+                    
+                    complexity3Tasks.forEach(t => {
+                        if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+                            if (t.efficiencyImpact.zone === 'efficient') highlyEfficient++;
+                        } else {
+                            const threshold = getEfficiencyThreshold(t.complexityScore);
+                            if (t.estimationAccuracy > 0 || (t.estimationAccuracy < 0 && t.estimationAccuracy >= threshold.slower)) {
+                                highlyEfficient++;
+                            }
+                        }
+                    });
+                    
+                    if (complexity3Tasks.length === 0) return '0 (sem tarefas complexidade 3)';
+                    const efficiencyScore = highlyEfficient / complexity3Tasks.length;
+                    return `${highlyEfficient} eficientes / ${complexity3Tasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 5`;
+                })(),
+                explanation: `Recompensa executar tarefas complexidade 3 com alta eficiência. Features: dentro da tolerância (+20%). Bugs: zona eficiente. ${(metrics.intermediateComplexityBonus || 0) === 0 ? 'Nenhum bonus aplicado.' : 'Excelente execução em tarefas complexidade 3!'}`,
+            },
+            {
+                label: 'Bonus de Auxílio',
+                value: `+${metrics.auxilioBonus}`,
+                formula: (() => {
+                    const auxilioTasks = metrics.tasks.filter(t => isAuxilioTask(t.task));
+                    if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
+                    const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
+                    return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
+                })(),
+                explanation: `Recompensa ajudar outros desenvolvedores (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
+            },
+            {
+                label: 'Bonus de Horas Extras',
+                value: `+${metrics.overtimeBonus}`,
+                formula: (() => {
+                    const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
+                    
+                    const totalWorkHours = workTasks.reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
+                    const overtimeHours = Math.max(0, totalWorkHours - 40);
 
-            if (overtimeHours === 0) return 'Total de horas não excedeu 40h = 0 pontos';
+                    if (overtimeHours === 0) return 'Total de horas não excedeu 40h = 0 pontos';
 
-            const overtimeTasks = workTasks.filter(t => {
-              const task = t.task;
-              return task.detalhesOcultos.some(d => {
-                const normalized = normalizeForComparison(d);
-                return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
-              });
-            });
+                    const overtimeTasks = workTasks.filter(t => t.task.detalhesOcultos.some(d => ['horaextra', 'hora extra', 'horas extras', 'horasextras'].includes(normalizeForComparison(d))));
 
-            if (overtimeTasks.length === 0) return 'Horas extras trabalhadas, mas nenhuma tarefa marcada como "HoraExtra" = 0 pontos';
+                    if (overtimeTasks.length === 0) return 'Horas extras trabalhadas, mas nenhuma tarefa marcada como "HoraExtra" = 0 pontos';
 
-            const qualityOvertimeTasks = workTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task));
+                    const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined);
 
-            if (qualityOvertimeTasks.length === 0) {
-              return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras (apenas Auxílio/Reunião) → ${metrics.overtimeBonus} pontos`;
-            }
+                    if (qualityOvertimeTasks.length === 0) {
+                        return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras (sem tarefas com nota) → ${metrics.overtimeBonus} pontos`;
+                    }
 
-            const avgNote = qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 5), 0) / qualityOvertimeTasks.length;
+                    const avgNote = qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 0), 0) / qualityOvertimeTasks.length;
 
-            if (avgNote < 4) {
-              return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 4.0 = 0 pontos`;
-            }
+                    if (avgNote < 4) {
+                        return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 4.0 = 0 pontos`;
+                    }
 
-            return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 4.0 → ${metrics.overtimeBonus} pontos`;
-          })(),
-          explanation: `⚠️ IMPORTANTE: Este bônus reconhece esforço adicional com alta qualidade. O bônus é concedido se a MÉDIA das notas de teste das tarefas marcadas como "HoraExtra" (excluindo Auxílio/Reunião) for ≥ 4.0. Escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts.`,
-          tasks: (() => {
-            const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
-            const overtimeTasks = workTasks.filter(t => {
-              const task = t.task;
-              return task.detalhesOcultos.some(d => {
-                const normalized = normalizeForComparison(d);
-                return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
-              });
-            });
-
-            if (overtimeTasks.length === 0) return [];
-
-            return overtimeTasks.map(t => {
-              const testNote = t.task.notaTeste ?? 5;
-              const isIgnored = isAuxilioTask(t.task) || isNeutralTask(t.task);
-              return {
-                taskKey: t.task.chave || t.task.id,
-                taskSummary: t.task.resumo || 'Sem resumo',
-                complexity: t.task.complexidade,
-                hoursEstimated: t.hoursEstimated,
-                hoursSpent: t.hoursSpent,
-                status: t.task.status,
-                impact: isIgnored ? `Nota: ${testNote}/5 (Ignorado p/ média)` : `Nota: ${testNote}/5`,
-              };
-            });
-          })(),
-        },
-        {
-          label: 'Score Final',
-          value: `${metrics.performanceScore.toFixed(1)}`,
-          formula: `Score Base + Bonus Complexidade + Bonus Senioridade + Bonus Complexidade 3 + Bonus Auxílio + Bonus Horas Extras = ${metrics.baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.intermediateComplexityBonus || 0} + ${metrics.auxilioBonus} + ${metrics.overtimeBonus}`,
-          explanation: `Score máximo: 150 (100 base + 10 complexidade 4-5 + 15 senioridade + 5 complexidade 3 + 10 auxílio + 10 horas extras)`,
-        },
-      ],
+                    return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 4.0 → ${metrics.overtimeBonus} pontos`;
+                })(),
+                explanation: `Reconhece esforço adicional com alta qualidade (média de nota ≥ 4.0).`,
+                tasks: (() => {
+                    const overtimeTasks = metrics.tasks.filter(t => t.task.detalhesOcultos.some(d => ['horaextra', 'hora extra', 'horas extras', 'horasextras'].includes(normalizeForComparison(d))));
+                    if (overtimeTasks.length === 0) return [];
+                    return overtimeTasks.map(t => ({
+                        taskKey: t.task.chave || t.task.id,
+                        taskSummary: t.task.resumo || 'Sem resumo',
+                        complexity: t.task.complexidade,
+                        hoursEstimated: t.hoursEstimated,
+                        hoursSpent: t.hoursSpent,
+                        status: t.task.status,
+                        impact: isNeutralTask(t.task) ? `Nota: N/A (Ignorado)` : `Nota: ${t.task.notaTeste !== null ? t.task.notaTeste : 'N/A'}/5`,
+                    }));
+                })(),
+            },
+            {
+                label: 'Score Final',
+                value: `${metrics.performanceScore.toFixed(1)}`,
+                formula: `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.complexityBonus} + ${metrics.seniorityEfficiencyBonus} + ${metrics.intermediateComplexityBonus || 0} + ${metrics.auxilioBonus} + ${metrics.overtimeBonus}`,
+                explanation: `Score máximo: 150.`,
+            },
+        ],
     });
 
     // 4. Métricas Informativas
@@ -428,7 +461,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">

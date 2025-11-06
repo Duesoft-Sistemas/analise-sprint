@@ -70,7 +70,7 @@ Sistema suporta múltiplas colunas de "Feature", "Categorias" e "Detalhes Oculto
 - Valor padrão: 1 (complexidade baixa)
 
 **Parsing de Nota de Teste:**
-- Se valor é undefined, null ou string vazia: retorna 5 (padrão)
+- Se valor é undefined, null ou string vazia: retorna null (não aplicável)
 - Se valor é número: garante range 1-5 (clamp)
 - Se valor é string com vírgula: substitui por ponto antes de parseFloat
 - Valores fora do range são automaticamente ajustados para 1-5

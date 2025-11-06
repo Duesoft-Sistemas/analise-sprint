@@ -47,10 +47,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   qualityScore: {
-    formula: 'Nota de Teste × 20 (nota 1–5 escalada para 0–100)',
-    description: 'Score de qualidade baseado exclusivamente na Nota de Teste informada em cada tarefa (1–5). Vazio = 5. Representa 50% do Performance Score. Sistema de "detecção de falhas": nota 5 é o padrão inicial, diminuindo conforme problemas são detectados nos testes.',
-    interpretation: 'Quanto maior, melhor a qualidade percebida nos testes. 100 = Perfeito (todas tarefas nota 5). 80-99 = Excelente (problemas leves aceitáveis). 60-79 = Bom (alguns problemas). <60 = Precisa Atenção (problemas graves).',
-    example: 'Nota média 5.0 → 100 de quality score; Nota média 4.0 → 80; Nota média 3.0 → 60',
+    formula: 'Nota de Teste Média × 20 (nota 1–5 escalada para 0–100)',
+    description: 'Score de qualidade baseado na Nota de Teste. Tarefas sem nota são desconsideradas. Representa 50% do Performance Score.',
+    interpretation: 'Quanto maior, melhor a qualidade. 100 = Perfeito. <60 = Precisa Atenção.',
+    example: 'Nota média 4.0 → 80 de quality score. Tarefa sem nota não entra no cálculo.',
   },
   
   utilizationRate: {
@@ -343,11 +343,16 @@ function calculateOvertimeBonus(
   }
 
   // Calcular a nota média das tarefas de hora extra que são "testáveis"
-  const totalNotes = qualityOvertimeTasks.reduce(
-    (sum, t) => sum + (t.notaTeste ?? 5),
+  const tasksWithGrades = qualityOvertimeTasks.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
+  if (tasksWithGrades.length === 0) {
+    return 1; // Bônus mínimo se não houver tarefas com nota
+  }
+
+  const totalNotes = tasksWithGrades.reduce(
+    (sum, t) => sum + (t.notaTeste as number),
     0
   );
-  const averageNote = totalNotes / qualityOvertimeTasks.length;
+  const averageNote = totalNotes / tasksWithGrades.length;
 
   // O bônus só é concedido se a qualidade média for alta
   if (averageNote < MIN_OVERTIME_TEST_NOTE) return 0;
@@ -468,37 +473,66 @@ export function calculateSprintPerformance(
   let accuracyRate = 0;
   let tasksImpactedByComplexityZone = 0;
   
+  // ===========================================================================
+  // BREAKDOWN-SPECIFIC METRICS
+  // ===========================================================================
+  
+  // Filter for bugs and features separately
+  const bugMetrics = completedWithEstimates.filter(t => t.task.tipo === 'Bug');
+  const featureMetrics = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
+  
+  // Calculate Bug Efficiency Rate
+  const efficientBugs = bugMetrics.filter(t => {
+    if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+      return t.efficiencyImpact.isEfficient;
+    }
+    // Fallback for bugs that might not have complexity zone (shouldn't happen but safe)
+    const deviation = t.estimationAccuracy;
+    const threshold = getEfficiencyThreshold(t.complexityScore);
+    return deviation > 0 ? deviation <= threshold.faster : deviation >= threshold.slower;
+  }).length;
+  const bugAccuracyRate = bugMetrics.length > 0 ? (efficientBugs / bugMetrics.length) * 100 : 0;
+  
+  // Calculate Feature Estimation Accuracy (Average Deviation)
+  const featureDeviations = featureMetrics.map(t => t.estimationAccuracy);
+  const featureEstimationAccuracy = featureDeviations.length > 0
+    ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
+    : 0;
+  
+  // ===========================================================================
+  
   if (completedWithEstimates.length > 0) {
-    // Average deviation percentage
+    // Average deviation percentage (overall)
     const deviations = completedWithEstimates.map(t => t.estimationAccuracy);
     estimationAccuracy = deviations.reduce((sum, d) => sum + d, 0) / deviations.length;
     
-    // Tasks with good execution efficiency
-    // SISTEMA SEPARADO: Bugs usam zona OU desvio, Features usam apenas desvio
-    // Se a tarefa foi avaliada pela zona de complexidade (bugs), usa esse resultado
-    // Caso contrário, usa desvio percentual (limites de tolerância para todos)
-    const tasksWithinRange = completedWithEstimates.filter(t => {
+    // Weighted efficiency score
+    let weightedEfficientScore = 0;
+    completedWithEstimates.forEach(t => {
       // Check if this task was evaluated by complexity zone (bugs only)
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
         tasksImpactedByComplexityZone++;
-        // Use complexity zone evaluation result
-        return t.efficiencyImpact.isEfficient;
+        if (t.efficiencyImpact.zone === 'efficient') {
+          weightedEfficientScore += 1; // Efficient bug = 1 point
+        } else if (t.efficiencyImpact.zone === 'acceptable') {
+          weightedEfficientScore += 0.5; // Acceptable bug = 0.5 points
+        }
+      } else {
+        // Normal evaluation for features: use deviation from estimate
+        const deviation = t.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(t.complexityScore);
+        
+        const isEfficient = deviation > 0
+          ? deviation <= threshold.faster
+          : deviation >= threshold.slower;
+        
+        if (isEfficient) {
+          weightedEfficientScore += 1; // Efficient feature = 1 point
+        }
       }
-      
-      // Normal evaluation: use deviation from estimate (limites de tolerância)
-      // Applies to: features and bugs without zone evaluation
-      const deviation = t.estimationAccuracy;
-      const threshold = getEfficiencyThreshold(t.complexityScore);
-      
-      // If faster than estimated (positive), very good!
-      if (deviation > 0) {
-        return deviation <= threshold.faster;
-      }
-      // If slower than estimated (negative), check against complexity-adjusted limit
-      // Simple tasks: stricter (-15%), Complex tasks: more tolerant (-40%)
-      return deviation >= threshold.slower;
-    }).length;
-    accuracyRate = (tasksWithinRange / completedWithEstimates.length) * 100;
+    });
+
+    accuracyRate = (weightedEfficientScore / completedWithEstimates.length) * 100;
   }
   
   const tendsToOverestimate = estimationAccuracy > 10;
@@ -513,10 +547,10 @@ export function calculateSprintPerformance(
   const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
   
   // Test-based quality - Exclui Auxílio e tarefas neutras (reunião, treinamento)
-  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
-  const testNotes = qualityTasks.map(t => (t.notaTeste ?? 5)); // 1-5, default 5
-  const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 5;
-  const testScore = Math.max(0, Math.min(100, avgTestNote * 20));
+  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t) && t.notaTeste !== null && t.notaTeste !== undefined);
+  const testNotes = qualityTasks.map(t => t.notaTeste as number);
+  const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 0;
+  const testScore = testNotes.length > 0 ? Math.max(0, Math.min(100, avgTestNote * 20)) : 0;
   const qualityScore = testScore;
   
   // Efficiency metrics
@@ -581,6 +615,12 @@ export function calculateSprintPerformance(
     (executionEfficiency * 0.50)
   );
   
+  const scoreHasQuality = qualityTasks.length > 0;
+
+  const baseScoreFinal = scoreHasQuality
+  ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
+  : executionEfficiency;
+  
   // Complexity Bonus: 0-10 points based on % of complex tasks (level 4-5)
   const complexityBonus = calculateComplexityBonus(complexityDistribution);
   
@@ -600,7 +640,7 @@ export function calculateSprintPerformance(
   const overtimeBonus = calculateOvertimeBonus(devTasks);
   
   // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + intermediate complexity bonus (0-5) + auxilio bonus (0-10) + overtime bonus (0-10) = max 150
-  const performanceScore = Math.min(150, baseScore + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus + overtimeBonus);
+  const performanceScore = Math.min(150, baseScoreFinal + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus + overtimeBonus);
   
   return {
     developerId,
@@ -613,6 +653,8 @@ export function calculateSprintPerformance(
     averageHoursPerTask,
     estimationAccuracy,
     accuracyRate,
+    bugAccuracyRate,
+    featureEstimationAccuracy,
     tendsToOverestimate,
     tendsToUnderestimate,
     bugRate,
@@ -629,7 +671,7 @@ export function calculateSprintPerformance(
     complexityDistribution,
     performanceByComplexity,
     performanceScore,
-    baseScore,
+    baseScore: baseScoreFinal,
     complexityBonus,
     seniorityEfficiencyBonus,
     intermediateComplexityBonus,
@@ -659,11 +701,13 @@ function createEmptySprintMetrics(
     averageHoursPerTask: 0,
     estimationAccuracy: 0,
     accuracyRate: 0,
+    bugAccuracyRate: 0,
+    featureEstimationAccuracy: 0,
     tendsToOverestimate: false,
     tendsToUnderestimate: false,
     bugRate: 0,
     bugsVsFeatures: 0,
-    qualityScore: 100,
+    qualityScore: 0,
     reunioesHours: 0,
     utilizationRate: 0,
     completionRate: 0,

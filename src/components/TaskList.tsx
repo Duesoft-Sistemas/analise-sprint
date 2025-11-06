@@ -44,6 +44,7 @@ export const TaskList: React.FC = () => {
   const [filterDelayed, setFilterDelayed] = useState(false);
   const [filterAhead, setFilterAhead] = useState(false);
   const [filterType, setFilterType] = useState('');
+  const [filterTestNote, setFilterTestNote] = useState('all'); // 'all', 'with', 'without'
 
   // Get base filtered tasks (by sprint, developer and global filters)
   // IMPORTANT: Always exclude tasks without sprint (backlog) when no sprint is selected
@@ -120,6 +121,11 @@ export const TaskList: React.FC = () => {
     if (filterNoEstimate) {
       result = result.filter((t) => t.estimativa === 0);
     }
+    if (filterTestNote === 'with') {
+      result = result.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
+    } else if (filterTestNote === 'without') {
+      result = result.filter(t => t.notaTeste === null || t.notaTeste === undefined);
+    }
     if (filterDelayed) {
       result = result.filter(t => {
         const tempoGasto = t.tempoGastoNoSprint ?? 0;
@@ -161,7 +167,7 @@ export const TaskList: React.FC = () => {
     }
 
     return result;
-  }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate, filterDelayed, filterAhead, analyticsFilter, filterType]);
+  }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate, filterDelayed, filterAhead, analyticsFilter, filterType, filterTestNote]);
 
   // Get unique values for filters - BASED ON CURRENT SPRINT TASKS
   const uniqueFeatures = useMemo(() => {
@@ -199,7 +205,7 @@ export const TaskList: React.FC = () => {
   }, [baseFilteredTasks]);
 
   const hasFilters =
-    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate || filterDelayed || filterAhead || filterType;
+    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate || filterDelayed || filterAhead || filterType || filterTestNote !== 'all';
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -211,6 +217,7 @@ export const TaskList: React.FC = () => {
     setFilterDelayed(false);
     setFilterAhead(false);
     setFilterType('');
+    setFilterTestNote('all');
   };
 
   const handleStatusChange = (status: string) => {
@@ -265,8 +272,9 @@ export const TaskList: React.FC = () => {
     let totalEstimated = 0;
     let totalSpent = 0;
     let totalComplexity = 0;
-    let totalTestNote = 0;
-    let testNoteCount = 0;
+    
+    const tasksWithGrades = filteredTasks.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
+    const totalTestNote = tasksWithGrades.reduce((sum, task) => sum + (task.notaTeste ?? 0), 0);
 
     filteredTasks.forEach((task) => {
       // Use hybrid fields for calculations
@@ -276,10 +284,6 @@ export const TaskList: React.FC = () => {
       totalEstimated += estimativaRestante;
       totalSpent += tempoGasto;
       totalComplexity += task.complexidade ?? 0;
-
-      const notaTeste = task.notaTeste ?? 5; // Default to 5 if missing
-      totalTestNote += notaTeste;
-      testNoteCount++;
     });
 
     return {
@@ -287,7 +291,7 @@ export const TaskList: React.FC = () => {
       totalEstimated,
       totalSpent,
       avgComplexity: totalComplexity / filteredTasks.length,
-      avgTestNote: totalTestNote / testNoteCount,
+      avgTestNote: tasksWithGrades.length > 0 ? totalTestNote / tasksWithGrades.length : 0,
     };
   }, [filteredTasks]);
 
@@ -331,6 +335,8 @@ export const TaskList: React.FC = () => {
         setFilterDelayed={setFilterDelayed}
         filterAhead={filterAhead}
         setFilterAhead={setFilterAhead}
+        filterTestNote={filterTestNote}
+        setFilterTestNote={setFilterTestNote}
         hasFilters={hasFilters}
         clearFilters={clearFilters}
         onExport={handleExport}
@@ -429,9 +435,9 @@ export const TaskList: React.FC = () => {
                           ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'
                           : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
                       }`}
-                      title={`Média de Nota de Teste: ${totals.avgTestNote.toFixed(2)}/5`}
+                      title={`Média de Nota de Teste: ${totals.avgTestNote > 0 ? totals.avgTestNote.toFixed(2) : 'N/A'}/5`}
                     >
-                      {totals.avgTestNote.toFixed(1)}/5
+                      {totals.avgTestNote > 0 ? `${totals.avgTestNote.toFixed(1)}/5` : 'N/A'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right font-semibold">
@@ -561,7 +567,10 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
       </td>
       <td className="px-4 py-3 text-center">
         {(() => {
-          const note = task.notaTeste ?? 5;
+          const note = task.notaTeste;
+          if (note === null || note === undefined) {
+            return <span className="text-gray-400 dark:text-gray-500 italic">N/A</span>;
+          }
           return (
             <span
               className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getTestNoteColor(note)}`}

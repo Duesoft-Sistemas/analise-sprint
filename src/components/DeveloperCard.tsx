@@ -3,7 +3,6 @@ import { User, TrendingUp, AlertTriangle, Calculator, ChevronDown, ChevronUp } f
 import { DeveloperMetrics, TaskItem } from '../types';
 import { formatHours } from '../utils/calculations';
 import { useSprintStore } from '../store/useSprintStore';
-import { AvailableHoursBreakdownModal } from './AvailableHoursBreakdownModal';
 
 interface DeveloperCardProps {
   developer: DeveloperMetrics;
@@ -14,7 +13,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
   const setSelectedDeveloper = useSprintStore(
     (state) => state.setSelectedDeveloper
   );
-  const [isBreakdownModalOpen, setIsBreakdownModalOpen] = useState(false);
+  const openBreakdownModal = useSprintStore((state) => state.openBreakdownModal);
   const [isComplexityExpanded, setIsComplexityExpanded] = useState(false);
 
   const isSelected = selectedDeveloper === developer.name;
@@ -140,7 +139,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                setIsBreakdownModalOpen(true);
+                openBreakdownModal(developer);
               }}
               className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
               title="Ver detalhe do cálculo"
@@ -216,11 +215,6 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         </div>
       )}
 
-      <AvailableHoursBreakdownModal
-        isOpen={isBreakdownModalOpen}
-        onClose={() => setIsBreakdownModalOpen(false)}
-        developer={developer}
-      />
     </div>
   );
 };

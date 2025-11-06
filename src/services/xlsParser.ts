@@ -74,11 +74,20 @@ function getRawColumnValue(row: XlsRow, columnName: string): any {
   return '';
 }
 
-function parseNotaTeste(value: any): number {
-  if (value === undefined || value === null || value === '') return 5;
-  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
-  if (isNaN(num)) return 5;
-  // clamp to 1-5, default already handled
+function parseNotaTeste(value: any): number | null {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return null;
+  }
+
+  // Lidar com números em formato de string com vírgula (ex: "4,5")
+  let numStr = String(value).replace(',', '.');
+  const num = parseFloat(numStr);
+
+  if (isNaN(num)) {
+    return null;
+  }
+
+  // Garantir que a nota está no range 1-5
   return Math.max(1, Math.min(5, num));
 }
 
@@ -140,7 +149,9 @@ function normalizeTaskType(tipo: string): 'Bug' | 'Tarefa' | 'História' | 'Outr
  * Converte o valor de Complexidade para número (1-5)
  */
 function parseComplexidade(value: any): number {
-  if (!value) return 1; // Default para complexidade baixa
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 1; // Default para complexidade baixa
+  }
   
   // Se já for número, garantir que está no range 1-5
   if (typeof value === 'number') {
@@ -352,9 +363,9 @@ function parseXlsDataWithMultipleColumns(
       }
       const detalhesOcultos = Array.from(detalhesOcultosSet);
       
-      const complexidadeRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Complexidade)');
-      const notaTesteRaw = getRawColumnValue(jsonRow, 'Campo personalizado (Nota Teste)');
-      const qualidadeChamado = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Qualidade do Chamado)'));
+      const complexidade = parseComplexidade(getColumnValue(jsonRow, 'Campo personalizado (Complexidade)'));
+      const notaTeste = parseNotaTeste(getColumnValue(jsonRow, 'Campo personalizado (Nota Teste)'));
+      const qualidadeChamado = getColumnValue(jsonRow, 'Campo personalizado (Qualidade do Chamado)');
       
       // Ler o tipo diretamente da coluna, se existir
       const tipoRaw = getColumnValue(jsonRow, 'Tipo de item');
@@ -384,8 +395,8 @@ function parseXlsDataWithMultipleColumns(
         categorias: categorias,
         detalhesOcultos,
         tipo,
-        complexidade: parseComplexidade(complexidadeRaw),
-        notaTeste: parseNotaTeste(notaTesteRaw),
+        complexidade: complexidade,
+        notaTeste: notaTeste,
         qualidadeChamado: qualidadeChamado || undefined,
       };
 

@@ -1,5 +1,7 @@
-import { TaskItem, SprintMetadata } from '../types';
+import { TaskItem, TaskPerformanceMetrics } from '../types';
 import { isCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
+import { getEfficiencyThreshold } from '../config/performanceConfig';
+import { calculateTaskMetrics } from './performanceAnalytics';
 
 // =============================================================================
 // TYPES
@@ -11,12 +13,18 @@ export interface FeatureModulePerformance {
   taskCount: number;
   totalHoursWorked: number;
   totalHoursEstimated: number;
-  avgAccuracyRate: number;
+  avgAccuracyRate: number; // Overall, for backward compatibility
   avgQualityScore: number;
   avgPerformanceScore: number;
   avgComplexity: number;
   completionRate: number;
   tasks: TaskItem[];
+  
+  // Breakdown metrics
+  bugAccuracyRate: number;
+  featureEstimationAccuracy: number;
+  bugs: TaskPerformanceMetrics[];
+  features: TaskPerformanceMetrics[];
 }
 
 export interface ComplexityDetailedAnalysis {
@@ -24,12 +32,18 @@ export interface ComplexityDetailedAnalysis {
   taskCount: number;
   totalHoursWorked: number;
   totalHoursEstimated: number;
-  avgAccuracyRate: number;
+  avgAccuracyRate: number; // Overall
   avgQualityScore: number;
   avgPerformanceScore: number;
   avgHoursPerTask: number;
-  bestPerformance: boolean; // Se este é o nível onde o dev performa melhor
+  bestPerformance: boolean;
   tasks: TaskItem[];
+  
+  // Breakdown metrics
+  bugAccuracyRate: number;
+  featureEstimationAccuracy: number;
+  bugs: TaskPerformanceMetrics[];
+  features: TaskPerformanceMetrics[];
 }
 
 export interface DeveloperDetailedAnalytics {
@@ -62,15 +76,6 @@ export interface DeveloperDetailedAnalytics {
 function isAuxilioTask(task: TaskItem): boolean {
   if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
   return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
-}
-
-// Helper to identify reuniao (meetings) tasks (normalized comparison)
-function isReuniaoTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  return task.detalhesOcultos.some(d => {
-    const normalized = normalizeForComparison(d);
-    return normalized === 'reuniao' || normalized === 'reunioes';
-  });
 }
 
 function calculateTaskAccuracyRate(task: TaskItem): number {
@@ -143,11 +148,52 @@ function calculateFeatureModulePerformance(
       sum + (t.estimativaRestante ?? t.estimativa), 0
     );
     
-    const accuracyRates = taskList.map(calculateTaskAccuracyRate);
-    const avgAccuracyRate = accuracyRates.reduce((sum, a) => sum + a, 0) / accuracyRates.length;
-    
-    const qualityScores = taskList.map(t => (t.notaTeste ?? 5) * 20);
-    const avgQualityScore = qualityScores.reduce((sum, q) => sum + q, 0) / qualityScores.length;
+    // Reworked accuracy calculation
+    const taskMetrics = taskList.map(t => calculateTaskMetrics(t, false));
+    const completedMetrics = taskMetrics.filter(t => isCompletedStatus(t.task.status) && t.hoursEstimated > 0);
+
+    const bugs = completedMetrics.filter(t => t.task.tipo === 'Bug');
+    const features = completedMetrics.filter(t => t.task.tipo !== 'Bug');
+
+    const efficientBugs = bugs.filter(t => t.efficiencyImpact?.isEfficient).length;
+    const bugAccuracyRate = bugs.length > 0 ? (efficientBugs / bugs.length) * 100 : 0;
+
+    const featureDeviations = features.map(t => t.estimationAccuracy);
+    const featureEstimationAccuracy = featureDeviations.length > 0
+      ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
+      : 0;
+      
+    // NEW weighted calculation for overall accuracy
+    let weightedEfficientScore = 0;
+    completedMetrics.forEach(t => {
+      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+        if (t.efficiencyImpact.zone === 'efficient') {
+          weightedEfficientScore += 1;
+        } else if (t.efficiencyImpact.zone === 'acceptable') {
+          weightedEfficientScore += 0.5;
+        }
+      } else {
+        const deviation = t.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(t.complexityScore);
+        const isEfficient = deviation > 0 ? true : deviation >= threshold.slower;
+        if (isEfficient) {
+          weightedEfficientScore += 1;
+        }
+      }
+    });
+
+    const avgAccuracyRate = completedMetrics.length > 0
+      ? (weightedEfficientScore / completedMetrics.length) * 100
+      : 0;
+
+    // =============================================================================
+    // 5. CALCULAR MÉTRICAS DERIVADAS (Qualidade, Eficiência, etc.)
+    // =============================================================================
+    const tasksWithGrades = taskList.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
+    const qualityScores = tasksWithGrades.map(t => (t.notaTeste ?? 0) * 20);
+    const avgQualityScore = qualityScores.length > 0 ? qualityScores.reduce((sum, q) => sum + q, 0) / qualityScores.length : 0;
+
+    taskList.map(t => calculateTaskMetrics(t, false));
     
     const performanceScores = taskList.map(calculateTaskPerformanceScore);
     const avgPerformanceScore = performanceScores.reduce((sum, p) => sum + p, 0) / performanceScores.length;
@@ -169,6 +215,11 @@ function calculateFeatureModulePerformance(
       avgComplexity,
       completionRate,
       tasks: taskList,
+      // Add new breakdown metrics
+      bugAccuracyRate,
+      featureEstimationAccuracy,
+      bugs,
+      features,
     });
   });
   
@@ -204,6 +255,10 @@ function calculateComplexityDetailedAnalysis(
         avgHoursPerTask: 0,
         bestPerformance: false,
         tasks: [],
+        bugAccuracyRate: 0,
+        featureEstimationAccuracy: 0,
+        bugs: [],
+        features: [],
       });
       return;
     }
@@ -217,13 +272,54 @@ function calculateComplexityDetailedAnalysis(
     );
     
     const avgHoursPerTask = totalHoursWorked / taskList.length;
+
+    // Reworked accuracy calculation
+    const taskMetrics = taskList.map(t => calculateTaskMetrics(t, false));
+    const completedMetrics = taskMetrics.filter(t => isCompletedStatus(t.task.status) && t.hoursEstimated > 0);
+
+    const bugs = completedMetrics.filter(t => t.task.tipo === 'Bug');
+    const features = completedMetrics.filter(t => t.task.tipo !== 'Bug');
+
+    const efficientBugs = bugs.filter(t => t.efficiencyImpact?.isEfficient).length;
+    const bugAccuracyRate = bugs.length > 0 ? (efficientBugs / bugs.length) * 100 : 0;
+
+    const featureDeviations = features.map(t => t.estimationAccuracy);
+    const featureEstimationAccuracy = featureDeviations.length > 0
+      ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
+      : 0;
     
-    const accuracyRates = taskList.map(calculateTaskAccuracyRate);
-    const avgAccuracyRate = accuracyRates.reduce((sum, a) => sum + a, 0) / accuracyRates.length;
+    // NEW weighted calculation for overall accuracy
+    let weightedEfficientScore = 0;
+    completedMetrics.forEach(t => {
+      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
+        if (t.efficiencyImpact.zone === 'efficient') {
+          weightedEfficientScore += 1;
+        } else if (t.efficiencyImpact.zone === 'acceptable') {
+          weightedEfficientScore += 0.5;
+        }
+      } else {
+        const deviation = t.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(t.complexityScore);
+        const isEfficient = deviation > 0 ? true : deviation >= threshold.slower;
+        if (isEfficient) {
+          weightedEfficientScore += 1;
+        }
+      }
+    });
+
+    const avgAccuracyRate = completedMetrics.length > 0
+      ? (weightedEfficientScore / completedMetrics.length) * 100
+      : 0;
     
-    const qualityScores = taskList.map(t => (t.notaTeste ?? 5) * 20);
-    const avgQualityScore = qualityScores.reduce((sum, q) => sum + q, 0) / qualityScores.length;
-    
+    // =============================================================================
+    // 5. CALCULAR MÉTRICAS DERIVADAS (Qualidade, Eficiência, etc.)
+    // =============================================================================
+    const tasksWithGrades = taskList.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
+    const qualityScores = tasksWithGrades.map(t => (t.notaTeste ?? 0) * 20);
+    const avgQualityScore = qualityScores.length > 0 ? qualityScores.reduce((sum, q) => sum + q, 0) / qualityScores.length : 0;
+
+    taskList.map(t => calculateTaskMetrics(t, false));
+
     const performanceScores = taskList.map(calculateTaskPerformanceScore);
     const avgPerformanceScore = performanceScores.reduce((sum, p) => sum + p, 0) / performanceScores.length;
     
@@ -238,6 +334,10 @@ function calculateComplexityDetailedAnalysis(
       avgHoursPerTask,
       bestPerformance: false, // Will be set later
       tasks: taskList,
+      bugAccuracyRate,
+      featureEstimationAccuracy,
+      bugs,
+      features,
     });
   });
   
@@ -313,7 +413,6 @@ function generateDetailedInsights(analytics: Omit<DeveloperDetailedAnalytics, 'i
  */
 export function calculateDetailedDeveloperAnalytics(
   tasks: TaskItem[],
-  sprints: SprintMetadata[],
   developerId: string,
   developerName: string
 ): DeveloperDetailedAnalytics {

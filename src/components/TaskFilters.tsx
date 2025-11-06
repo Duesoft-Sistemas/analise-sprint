@@ -26,6 +26,8 @@ interface TaskFiltersProps {
   setFilterDelayed: (value: boolean) => void;
   filterAhead: boolean;
   setFilterAhead: (value: boolean) => void;
+  filterTestNote: string;
+  setFilterTestNote: (value: string) => void;
   hasFilters: boolean;
   clearFilters: () => void;
   onExport: () => void;
@@ -55,6 +57,8 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   setFilterDelayed,
   filterAhead,
   setFilterAhead,
+  filterTestNote,
+  setFilterTestNote,
   hasFilters,
   clearFilters,
   onExport,
@@ -128,6 +132,17 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
               {type}
             </option>
           ))}
+        </select>
+
+        {/* Test Note Filter */}
+        <select
+          value={filterTestNote}
+          onChange={(e) => setFilterTestNote(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+        >
+          <option value="all">Todos (Nota de Teste)</option>
+          <option value="with">Com nota de teste</option>
+          <option value="without">Sem nota de teste</option>
         </select>
 
         {/* Status Filter */}

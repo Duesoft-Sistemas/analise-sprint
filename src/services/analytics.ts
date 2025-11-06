@@ -307,6 +307,7 @@ export function calculateCrossSprintAnalytics(
         name,
         sprints: sprintsData,
         totalHours: sprintsData.reduce((sum, s) => sum + s.hours, 0),
+        totalEstimatedHours: sprintsData.reduce((sum, s) => sum + s.estimatedHours, 0),
       };
     }
   );

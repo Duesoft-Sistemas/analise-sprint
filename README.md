@@ -347,3 +347,11 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 
 **Fórmula Completa:**
 ```
+
+```
+
+- [x] **Eficiência de Execução:** Atualizado para refletir o novo sistema de pontuação ponderada, onde bugs "aceitáveis" contribuem com 0.5 pontos para o score de eficiência.
+- [x] **Interface do Breakdown:** O modal de "Breakdown de Cálculos" agora exibe a fórmula ponderada e a pontuação parcial para bugs aceitáveis, garantindo total transparência.
+- [x] **Documentação:** Os guias `METRICAS_PERFORMANCE.md` e `GUIA_DESENVOLVEDOR.md` foram atualizados com as novas regras de cálculo.
+
+A separação entre a avaliação de **Bugs** (por zona de complexidade) e **Features** (por desvio de estimativa) continua, mas agora com uma abordagem mais granular para recompensar o esforço mesmo quando um bug excede ligeiramente o tempo ideal.

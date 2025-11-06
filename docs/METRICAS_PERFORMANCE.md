@@ -21,7 +21,7 @@ Sistema fornece três níveis de análise:
 - Tipo de item (Bug, Tarefa, História, Outro)
 - Retrabalho (Sim/Não)
 - Complexidade (1 a 5)
-- Nota de Teste (1 a 5, vazio = 5)
+- Nota de Teste (1 a 5, vazio = não aplicável para o cálculo)
 
 ## Critérios de Inclusão
 
@@ -57,12 +57,16 @@ Score Máximo: 140
 **1. Qualidade (50%):**
 - Fórmula: `Nota de Teste Média × 20`
 - Range: 0-100 pontos
-- Nota de teste: 1-5, vazio = 5 (padrão)
+- Nota de teste: 1-5. Tarefas sem nota de teste são excluídas do cálculo de qualidade.
 
 **2. Eficiência de Execução (50%):**
-- Fórmula: `(Tarefas eficientes / Total de Tarefas) × 100`
+- Fórmula: `(Pontuação Ponderada de Eficiência / Total de Tarefas) × 100`
 - Range: 0-100 pontos
 - Sistema de avaliação separado para Bugs e Features (ver seção Eficiência de Execução)
+- **Pontuação Ponderada:**
+  - Tarefa Eficiente (Feature ou Bug na zona eficiente) = **1.0 ponto**
+  - Bug na Zona Aceitável = **0.5 pontos**
+  - Tarefa Ineficiente = **0 pontos**
 
 **3. Bonus de Complexidade (0-10):**
 - Fórmula: `(% de tarefas complexas nível 4-5 / 100) × 10`
@@ -114,7 +118,8 @@ Score Máximo: 140
 **Fórmula:** `Nota de Teste Média × 20`
 
 **Sistema de Nota de Teste:**
-- Nota 5: 100 pontos (padrão quando vazio)
+- Apenas tarefas com nota de teste preenchida são consideradas no cálculo
+- Nota 5: 100 pontos
 - Nota 4: 80 pontos
 - Nota 3: 60 pontos
 - Nota 2: 40 pontos
@@ -157,17 +162,17 @@ Score Máximo: 140
 | 5 | ≤ 32h | 32h < x ≤ 40h | > 40h |
 
 **Cálculo de eficiência para Bugs:**
-- Se horas gastas ≤ maxEfficientHours: Eficiente = true (zona eficiente)
-- Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: Eficiente = false (zona aceitável não conta mais)
-- Se horas gastas > maxAcceptableHours: Eficiente = false (zona ineficiente)
+- Se horas gastas ≤ maxEfficientHours: **Eficiente = 1.0 ponto** (zona eficiente)
+- Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: **Aceitável = 0.5 pontos**
+- Se horas gastas > maxAcceptableHours: **Ineficiente = 0 pontos**
 
-**IMPORTANTE:** A "Zona Aceitável" existe como uma classificação para identificar tarefas que excederam o tempo ideal, mas não de forma crítica. No entanto, para todos os cálculos de pontuação (Eficiência de Execução e bônus), as tarefas na Zona Aceitável são consideradas **ineficientes**. Apenas a "Zona Eficiente" contribui positivamente para o score.
+**IMPORTANTE:** A "Zona Aceitável" agora concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para os bônus de Senioridade e Complexidade 3, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
 
 **Exemplo:**
-- Bug complexidade 1 gastou 2h = ✅ eficiente (≤2h)
-- Bug complexidade 1 gastou 3h = ❌ ineficiente (zona aceitável não conta)
-- Bug complexidade 5 gastou 30h = ✅ eficiente (≤32h)
-- Bug complexidade 5 gastou 35h = ❌ ineficiente (zona aceitável não conta mais)
+- Bug complexidade 1 gastou 2h = ✅ eficiente (1.0 pt)
+- Bug complexidade 1 gastou 3h = ⚠️ aceitável (0.5 pts)
+- Bug complexidade 5 gastou 30h = ✅ eficiente (1.0 pt)
+- Bug complexidade 5 gastou 35h = ⚠️ aceitável (0.5 pts)
 
 **FEATURES/OUTROS (Todas complexidades):**
 - Usa desvio percentual entre estimativa original vs tempo gasto total
@@ -177,26 +182,26 @@ Score Máximo: 140
 
 **Limites de tolerância por complexidade:**
 
-| Complexidade | Limite Superior (mais rápido) | Limite Inferior (atraso permitido) |
-|--------------|----------------------------|----------------------------------|
-| 1 | +50% | -15% |
-| 2 | +50% | -18% |
-| 3 | +50% | -20% |
-| 4 | +50% | -30% |
-| 5 | +50% | -40% |
+image.png| Complexidade | Limite Inferior (atraso permitido) |
+|--------------|----------------------------------|
+| 1            | -15%                             |
+| 2            | -18%                             |
+| 3            | -20%                             |
+| 4            | -30%                             |
+| 5            | -40%                             |
 
 **Cálculo de eficiência para Features:**
-- Se desvio > 0 (executou mais rápido): Eficiente = true SE desvio ≤ +50%
-- Se desvio ≤ 0 e desvio >= limite inferior (ex: -20% para complexidade 3): Eficiente = true
-- Se desvio < limite inferior: Eficiente = false
+- Se desvio > 0 (executou mais rápido): Eficiente = **1.0 ponto**
+- Se desvio ≤ 0 e desvio >= limite inferior (ex: -20% para complexidade 3): Eficiente = **1.0 ponto**
+- Se desvio < limite inferior: Ineficiente = **0 pontos**
 
-**Regra:** Executar até 50% mais rápido = sempre eficiente (até o limite superior).
+**Regra:** Executar mais rápido que o estimado é sempre considerado eficiente. Apenas o atraso além da tolerância é ineficiente.
 
 **Exemplo:**
-- Feature complexidade 1: estimou 10h, gastou 8h = +20% (≤+50%) = ✅ eficiente
-- Feature complexidade 1: estimou 10h, gastou 11h = -10% (≥-15%) = ✅ eficiente
-- Feature complexidade 1: estimou 10h, gastou 12h = -20% (<-15%) = ❌ ineficiente
-- Feature complexidade 5: estimou 30h, gastou 35h = -16.67% (≥-40%) = ✅ eficiente
+- Feature complexidade 1: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 11h = -10% (≥-15%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 12h = -20% (<-15%) = ❌ ineficiente (0 pts)
+- Feature complexidade 5: estimou 30h, gastou 35h = -16.67% (≥-40%) = ✅ eficiente (1.0 pt)
 
 ### Taxa de Conclusão
 

@@ -4,6 +4,7 @@ import { useSprintStore } from './store/useSprintStore';
 import { XlsUploader } from './components/XlsUploader';
 import { Dashboard } from './components/Dashboard';
 import { useTheme } from './contexts/ThemeContext';
+import { AvailableHoursBreakdownModal } from './components/AvailableHoursBreakdownModal';
 
 function App() {
   const tasks = useSprintStore((state) => state.tasks);
@@ -16,6 +17,11 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const [showDashboard, setShowDashboard] = useState(false);
   const canAnalyze = tasks.length > 0 && worklogs.length > 0 && sprintMetadata.length > 0;
+
+  // State for breakdown modal from store
+  const isBreakdownModalOpen = useSprintStore((state) => state.isBreakdownModalOpen);
+  const developerForBreakdown = useSprintStore((state) => state.developerForBreakdown);
+  const closeBreakdownModal = useSprintStore((state) => state.closeBreakdownModal);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
@@ -59,14 +65,6 @@ function App() {
                       <BarChart3 className="w-4 h-4" />
                       Ver Análise
                       <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-                  {showDashboard && (
-                    <button
-                      onClick={() => setShowDashboard(false)}
-                      className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors"
-                    >
-                      Voltar ao Upload
                     </button>
                   )}
                   <button
@@ -136,6 +134,15 @@ function App() {
           </p>
         </div>
       </footer>
+
+      {/* Global Modal */}
+      {developerForBreakdown && (
+        <AvailableHoursBreakdownModal
+          isOpen={isBreakdownModalOpen}
+          onClose={closeBreakdownModal}
+          developer={developerForBreakdown}
+        />
+      )}
     </div>
   );
 }

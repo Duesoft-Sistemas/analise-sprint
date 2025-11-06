@@ -115,6 +115,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
           name,
           sprints: sprintsData,
           totalHours: sprintsData.reduce((sum, s) => sum + s.hours, 0),
+          totalEstimatedHours: sprintsData.reduce((sum, s) => sum + s.estimatedHours, 0),
         };
       }
     );
@@ -288,17 +289,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   {sprint.tasks} tarefa{sprint.tasks !== 1 ? 's' : ''}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
-                    {formatHours(sprint.hours)}
-                  </span>
-                  <span className="text-xs text-gray-400">/</span>
                   <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
                     {formatHours(sprint.estimatedHours)}
                   </span>
                 </div>
               </div>
               <div className="flex-shrink-0 text-right">
-                <span className="text-xs text-gray-500 dark:text-gray-400">gasto / estimado</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">horas estimadas</span>
               </div>
             </div>
           ))}
@@ -331,7 +328,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         </div>
         <div className="space-y-2">
           {filteredAnalytics.developerAllocation
-            .sort((a, b) => b.totalHours - a.totalHours)
+            .sort((a, b) => b.totalEstimatedHours - a.totalEstimatedHours)
             .slice(0, topDeveloperLimit ?? undefined)
             .map((dev, index) => (
               <div 
@@ -349,20 +346,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                     <div
                       key={sprint.sprintName}
                       className="inline-flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1 text-xs"
-                      title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
+                      title={`${sprint.sprintName}: ${formatHours(sprint.estimatedHours)}`}
                     >
                       <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
                         {sprint.sprintName}
                       </span>
                       <span className="text-blue-700 dark:text-blue-400 font-semibold whitespace-nowrap">
-                        {formatHours(sprint.hours)}
+                        {formatHours(sprint.estimatedHours)}
                       </span>
                     </div>
                   ))}
                 </div>
                 <div className="flex-shrink-0">
                   <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
-                    {formatHours(dev.totalHours)} total
+                    {formatHours(dev.totalEstimatedHours)} total
                   </span>
                 </div>
               </div>
@@ -394,44 +391,42 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             </select>
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredAnalytics.clientAllocation
             .sort((a, b) => b.totalHours - a.totalHours)
             .slice(0, topClientLimit ?? undefined)
-            .map((client, index) => (
-              <div 
-                key={client.client} 
-                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-              >
-                <div className="flex-shrink-0 w-8 text-center">
-                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
+            .map((client) => (
+              <div key={client.client} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-green-500/50 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{client.client}</h4>
+                  <div className="mt-2">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                      {formatHours(client.totalHours)} total
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-shrink-0 min-w-[180px]">
-                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{client.client}</h4>
-                </div>
-                <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
-                  {client.sprints.map((sprint) => (
-                    <div
-                      key={sprint.sprintName}
-                      className="inline-flex items-center gap-1.5 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-400/20 dark:to-green-500/20 border border-green-200/50 dark:border-green-700/50 rounded-md px-2 py-1 text-xs"
-                      title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
-                    >
-                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
-                        {sprint.sprintName}
-                      </span>
-                      <span className="text-green-700 dark:text-green-400 font-semibold whitespace-nowrap">
-                        {formatHours(sprint.hours)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex-shrink-0">
-                  <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
-                    {formatHours(client.totalHours)} total
-                  </span>
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Distribuição por Sprint:</p>
+                  <div className="flex flex-wrap items-center gap-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                    {client.sprints.map((sprint) => (
+                      <div
+                        key={sprint.sprintName}
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-400/20 dark:to-green-500/20 border border-green-200/50 dark:border-green-700/50 rounded-md px-2 py-1 text-xs"
+                        title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
+                      >
+                        <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
+                          {sprint.sprintName}
+                        </span>
+                        <span className="text-green-700 dark:text-green-400 font-semibold whitespace-nowrap">
+                          {formatHours(sprint.hours)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
+            ))
+          }
         </div>
       </div>
 
@@ -462,68 +457,58 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Distribuição de tarefas, bugs e dúvidas ocultas por feature
         </p>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredAnalytics.byFeature.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhuma feature registrada.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4 col-span-full">Nenhuma feature registrada.</p>
           ) : (
             filteredAnalytics.byFeature
               .slice(0, topFeatureLimit ?? undefined)
-              .map((feature, index) => {
-                return (
-              <div 
-                key={feature.label} 
-                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-              >
-                <div className="flex-shrink-0 w-8 text-center">
-                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
-                </div>
-                <div className="flex-shrink-0 min-w-[200px]">
-                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{feature.label}</h4>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                      {feature.totalTasks} tarefa{feature.totalTasks !== 1 ? 's' : ''}
-                    </span>
-                    <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
-                      {formatHours(feature.totalHours)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex-1 flex items-center gap-3 min-w-0">
-                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1.5">
-                    <CheckSquare className="w-3 h-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{feature.totalTarefas}</span>
-                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
-                      ({feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}%)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-red-500/10 to-red-600/10 dark:from-red-400/20 dark:to-red-500/20 border border-red-200/50 dark:border-red-700/50 rounded-md px-2 py-1.5">
-                    <Bug className="w-3 h-3 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-red-600 dark:text-red-400">{feature.realBugs}</span>
-                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
-                      ({feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}%)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 dark:from-yellow-400/20 dark:to-yellow-500/20 border border-yellow-200/50 dark:border-yellow-700/50 rounded-md px-2 py-1.5">
-                    <HelpCircle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400">{feature.dubidasOcultas}</span>
-                    <span className="text-[10px] text-gray-600 dark:text-gray-400">
-                      ({feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}%)
-                    </span>
-                  </div>
-                </div>
-                {feature.realBugs + feature.dubidasOcultas > 0 && (
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center gap-1.5 text-[10px] text-orange-600 dark:text-orange-400">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span className="font-medium whitespace-nowrap">
-                        {feature.realBugs + feature.dubidasOcultas} problema{(feature.realBugs + feature.dubidasOcultas) !== 1 ? 's' : ''}
+              .map((feature) => (
+                <div key={feature.label} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-indigo-500/50 flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{feature.label}</h4>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                        <CheckSquare className="w-3 h-3" />
+                        {feature.totalTasks} tarefa{feature.totalTasks !== 1 ? 's' : ''}
+                      </span>
+                      <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                        <Calendar className="w-3 h-3" />
+                        {formatHours(feature.totalHours)}
                       </span>
                     </div>
                   </div>
-                )}
-              </div>
-              );
-              })
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <CheckSquare className="w-4 h-4 text-blue-500" />
+                        Tarefas
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {feature.totalTarefas} ({feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}%)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <Bug className="w-4 h-4 text-red-500" />
+                        Bugs
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {feature.realBugs} ({feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}%)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <HelpCircle className="w-4 h-4 text-yellow-500" />
+                        Dúvidas Ocultas
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {feature.dubidasOcultas} ({feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
           )}
         </div>
       </div>
