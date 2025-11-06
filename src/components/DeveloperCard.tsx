@@ -1,8 +1,9 @@
-import React from 'react';
-import { User, TrendingUp, AlertTriangle } from 'lucide-react';
-import { DeveloperMetrics } from '../types';
+import React, { useState } from 'react';
+import { User, TrendingUp, AlertTriangle, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
+import { DeveloperMetrics, TaskItem } from '../types';
 import { formatHours } from '../utils/calculations';
 import { useSprintStore } from '../store/useSprintStore';
+import { AvailableHoursBreakdownModal } from './AvailableHoursBreakdownModal';
 
 interface DeveloperCardProps {
   developer: DeveloperMetrics;
@@ -10,11 +11,15 @@ interface DeveloperCardProps {
 
 export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
-  const setSelectedDeveloper = useSprintStore((state) => state.setSelectedDeveloper);
+  const setSelectedDeveloper = useSprintStore(
+    (state) => state.setSelectedDeveloper
+  );
+  const [isBreakdownModalOpen, setIsBreakdownModalOpen] = useState(false);
+  const [isComplexityExpanded, setIsComplexityExpanded] = useState(false);
 
   const isSelected = selectedDeveloper === developer.name;
 
-  const handleClick = () => {
+  const handleCardClick = () => {
     if (isSelected) {
       setSelectedDeveloper(null);
     } else {
@@ -57,17 +62,17 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
   return (
     <div
       className={`
-        rounded-xl border-2 p-5 cursor-pointer transition-all duration-300
-        ${isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 shadow-xl scale-105' : 'shadow-md hover:shadow-lg'}
+        rounded-xl border p-4 cursor-pointer transition-all duration-300
+        ${isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 shadow-lg scale-105' : 'shadow-md hover:shadow-lg'}
         ${colors.bg} ${colors.border}
       `}
-      onClick={handleClick}
+      onClick={handleCardClick}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className={`p-2 rounded-full ${colors.badge}`}>
-            <User className="w-4 h-4" />
+            <User className="w-5 h-5" />
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white">{developer.name}</h3>
@@ -80,7 +85,7 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
       </div>
 
       {/* Utilization Bar - Allocation for the current sprint */}
-      <div className="mb-3">
+      <div className="mb-4">
         <div className="flex justify-between items-center mb-1">
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-600 dark:text-gray-400">Alocado no sprint</span>
@@ -90,9 +95,9 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
             {developer.utilizationPercent}%
           </span>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
           <div
-            className={`h-2.5 rounded-full transition-all duration-500 ${
+            className={`h-2 rounded-full transition-all duration-500 ${
               developer.riskLevel === 'high'
                 ? 'bg-gradient-to-r from-red-500 to-red-600'
                 : developer.riskLevel === 'medium'
@@ -102,59 +107,46 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
             style={{ width: `${Math.min(developer.utilizationPercent, 100)}%` }}
           />
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {formatHours(developer.totalAllocatedHours)} de 40h (capacidade semanal)
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+          {formatHours(developer.totalAllocatedHours)} de 40h (semanal)
         </p>
       </div>
 
       {/* Sprint Current Status */}
-      <div className="space-y-2">
+      <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-            <TrendingUp className="w-3 h-3" />
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <TrendingUp className="w-4 h-4" />
             <span>Gasto</span>
             <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs">
               ⓘ
             </span>
           </div>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <span className="font-medium text-gray-900 dark:text-white">
             {formatHours(developer.totalSpentHours)}
           </span>
         </div>
 
-        {/* Sprint Balance - most important metric for planning */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Saldo do sprint</span>
-            <span className="text-[9px] opacity-60" title="Status atual: se já gastou tudo ou falta trabalhar. Negativo = ultrapassou alocação, Positivo = ainda falta trabalhar">
-              ⓘ
-            </span>
-          </div>
-          <span className={`text-sm font-bold ${
-            developer.totalAllocatedHours - developer.totalSpentHours > 0
-              ? 'text-gray-700 dark:text-gray-300'
-              : 'text-red-600 dark:text-red-400'
-          }`}>
-            {formatHours(developer.totalAllocatedHours - developer.totalSpentHours)}
-          </span>
-        </div>
-
-        {/* Show worklog context if tasks from previous sprints */}
-        {developer.tasks.some(t => t.tempoGastoOutrosSprints !== undefined && t.tempoGastoOutrosSprints > 0) && (
-          <div className="mt-2 text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
-            ℹ️ Algumas tarefas já tinham trabalho em sprints anteriores (isso está sendo considerado no cálculo de alocação)
-          </div>
-        )}
       </div>
 
       {/* Available Hours */}
-      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
             <span className="text-[9px] opacity-60" title="Capacidade restante da semana (40h). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa">
               ⓘ
             </span>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsBreakdownModalOpen(true);
+              }}
+              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+              title="Ver detalhe do cálculo"
+            >
+              <Calculator className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+            </button>
           </div>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {formatHours(developer.totalAvailableHours)}
@@ -163,8 +155,14 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
       </div>
 
       {/* Complexity Distribution */}
-      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-        <div className="mb-2">
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsComplexityExpanded(!isComplexityExpanded);
+          }}
+          className="w-full flex justify-between items-center text-left"
+        >
           <div className="flex items-center gap-1">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
               Distribuição por Complexidade
@@ -173,46 +171,56 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
               ⓘ
             </span>
           </div>
-        </div>
-        <div className="space-y-1.5">
-          {complexityDistribution.map(({ level, count }) => {
-            const percentage = totalTasks > 0 ? (count / totalTasks) * 100 : 0;
-            const barWidth = maxComplexityCount > 0 ? (count / maxComplexityCount) * 100 : 0;
-            
-            // Cores por nível de complexidade
-            const getComplexityColor = (lvl: number) => {
-              if (lvl <= 2) return 'bg-green-500 dark:bg-green-400';
-              if (lvl === 3) return 'bg-yellow-500 dark:bg-yellow-400';
-              return 'bg-red-500 dark:bg-red-400';
-            };
+          {isComplexityExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
 
-            return (
-              <div key={level} className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-4">
-                  {level}
-                </span>
-                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${getComplexityColor(level)}`}
-                    style={{ width: `${barWidth}%` }}
-                  />
+        {isComplexityExpanded && (
+          <div className="mt-2 space-y-1.5 animate-in fade-in-50">
+            {complexityDistribution.map(({ level, count }) => {
+              const percentage = totalTasks > 0 ? (count / totalTasks) * 100 : 0;
+              const barWidth = maxComplexityCount > 0 ? (count / maxComplexityCount) * 100 : 0;
+              
+              // Cores por nível de complexidade
+              const getComplexityColor = (lvl: number) => {
+                if (lvl <= 2) return 'bg-green-500 dark:bg-green-400';
+                if (lvl === 3) return 'bg-yellow-500 dark:bg-yellow-400';
+                return 'bg-red-500 dark:bg-red-400';
+              };
+
+              return (
+                <div key={level} className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-4">
+                    {level}
+                  </span>
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${getComplexityColor(level)}`}
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 w-12 text-right">
+                    {count > 0 ? `${count} (${Math.round(percentage)}%)` : '-'}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-600 dark:text-gray-400 w-12 text-right">
-                  {count > 0 ? `${count} (${Math.round(percentage)}%)` : '-'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {isSelected && (
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium animate-pulse">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium text-center animate-pulse">
             Clique novamente para fechar • Ver tarefas abaixo
           </p>
         </div>
       )}
+
+      <AvailableHoursBreakdownModal
+        isOpen={isBreakdownModalOpen}
+        onClose={() => setIsBreakdownModalOpen(false)}
+        developer={developer}
+      />
     </div>
   );
 };

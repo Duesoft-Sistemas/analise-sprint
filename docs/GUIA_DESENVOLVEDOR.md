@@ -48,7 +48,7 @@ Depende da sua **nota de teste** média (1-5):
 | 2 | 40 pontos ❌ | Crítico |
 | 1 | 20 pontos 🔥 | Catastrófico |
 
-**💡 Nota:** Tarefas marcadas como "Auxílio" ou "Reunião" são **neutras** e não entram no cálculo da média de qualidade.
+**💡 Nota:** Tarefas marcadas como "Auxílio", "Reunião" ou "Treinamento" são **neutras** e não entram no cálculo da média de qualidade.
 
 #### Eficiência (50%)
 Mede se você **entregou conforme esperado**. O sistema funciona diferente para **Bugs** e **Features**:
@@ -279,17 +279,18 @@ O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "Ho
 **❌ O que NÃO entra:**
 - Tarefas sem sprint (backlog) - mesmo que tenham worklog e estejam concluídas
 - Tarefas em progresso ou sem estimativa
-- Tarefas marcadas como "Reunião" (neutras)
+- Tarefas marcadas como "Reunião" ou "Treinamento" (neutras)
 - Métricas de utilização/conclusão (apenas informativas)
 
 **📝 Sobre Detalhes Ocultos:**
-- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "HoraExtra", "DuvidaOculta"
+- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "Treinamento", "HoraExtra", "DuvidaOculta"
 - Valores podem ser separados por vírgula na mesma célula: "Auxilio, HoraExtra"
 - Sistema suporta múltiplas colunas de "Detalhes Ocultos" (similar a Features e Categorias)
 - Valores são normalizados automaticamente (case-insensitive, sem acentos)
 - **Para horas extras:** Coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras") no campo "Detalhes Ocultos" da tarefa
 - **Para auxílio:** Coloque "Auxilio" no campo "Detalhes Ocultos" da tarefa
 - **Para reuniões:** Coloque "Reunião" no campo "Detalhes Ocultos" da tarefa (não afeta score)
+- **Para treinamentos:** Coloque "Treinamento" no campo "Detalhes Ocultos" da tarefa (não afeta score)
 
 **📝 Sobre Nota de Teste:**
 - Sem nota = assume **nota 5** (perfeito!)
@@ -336,10 +337,10 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
    - ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras
    - Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta
    - **Como marcar:** Coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras") no campo "Detalhes Ocultos" da tarefa
-   - **Regra:** O bônus só é concedido se a **nota MÉDIA de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio" e "Reunião" marcadas como hora extra não entram no cálculo dessa média.
+   - **Regra:** O bônus só é concedido se a **nota MÉDIA de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra não entram no cálculo dessa média.
    - O bônus é calculado sobre o total de horas de **todas as tarefas concluídas** que excederam 40h.
    - Escala: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts (máximo)
-   - **Exemplo:** Você trabalhou 48h (8h extras). A média das suas tarefas "HoraExtra" (excluindo qualquer auxílio/reunião) foi 4.5. Você ganha o bônus para 8h, que é +7 pontos.
+   - **Exemplo:** Você trabalhou 48h (8h extras). A média das suas tarefas "HoraExtra" (excluindo qualquer auxílio/reunião/treinamento) foi 4.5. Você ganha o bônus para 8h, que é +7 pontos.
 9. **Score Final:** Base + Todos os Bônus (máximo 150 pontos)
 
 ## 🎯 Resumo Final

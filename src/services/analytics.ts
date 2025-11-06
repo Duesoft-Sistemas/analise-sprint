@@ -12,6 +12,8 @@ import {
   calculateRiskLevel,
   calculatePercentage,
   normalizeForComparison,
+  isNeutralTask,
+  isAuxilioTask,
 } from '../utils/calculations';
 
 // Helper to check if task has DuvidaOculta in detalhesOcultos array
@@ -96,14 +98,20 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
     
     // Available hours calculation: use the MAXIMUM between estimated and spent for each task
     // This ensures that if a task goes over estimate, it consumes the actual hours spent
-    const totalConsumedHours = devTasks.reduce(
-      (sum, t) => sum + Math.max(
+    const totalConsumedHours = devTasks.reduce((sum, t) => {
+      const finalStatuses = ['concluído', 'teste', 'testegap', 'done'];
+      const taskStatus = t.status.toLowerCase();
+
+      if (finalStatuses.includes(taskStatus)) {
+        return sum + (t.tempoGastoNoSprint ?? 0);
+      }
+
+      return sum + Math.max(
         t.estimativaRestante ?? t.estimativa,
         t.tempoGastoNoSprint ?? 0
-      ),
-      0
-    );
-    const availableHours = Math.max(0, 40 - totalConsumedHours);
+      );
+    }, 0);
+    const availableHours = 40 - totalConsumedHours;
     
     // Performance metrics (for accuracy analysis)
     const estimatedHours = devTasks.reduce((sum, t) => sum + t.estimativa, 0);
@@ -192,7 +200,12 @@ function calculateDimensionMetrics(
     totalizers.push(createTotalizer(label, groupTasks));
   }
 
-  return totalizers.sort((a, b) => b.count - a.count);
+  return totalizers.sort((a, b) => {
+    if (b.hours !== a.hours) {
+      return b.hours - a.hours;
+    }
+    return b.count - a.count;
+  });
 }
 
 // Calculate metrics by client (categorias)
@@ -218,7 +231,12 @@ function calculateClientMetrics(tasks: TaskItem[]): Totalizer[] {
     totalizers.push(createTotalizer(label, groupTasks));
   }
 
-  return totalizers.sort((a, b) => b.count - a.count);
+  return totalizers.sort((a, b) => {
+    if (b.hours !== a.hours) {
+      return b.hours - a.hours;
+    }
+    return b.count - a.count;
+  });
 }
 
 // Helper to create totalizer object
@@ -363,21 +381,21 @@ export function calculateRiskAlerts(
       alerts.push({
         type: 'overTime',
         severity: tempoGasto > estimativaRestante ? 'high' : 'medium',
-        title: 'Tarefa próxima ou acima do tempo estimado',
-        description: `${tempoGasto.toFixed(1)}h gastas de ${estimativaRestante.toFixed(1)}h restantes`,
-        taskOrDeveloper: task.resumo,
+        title: `${task.chave} - Tarefa próxima ou acima do tempo estimado`,
+        description: `${task.chave}: ${tempoGasto.toFixed(1)}h gastas de ${estimativaRestante.toFixed(1)}h restantes`,
+        taskOrDeveloper: `${task.chave} - ${task.resumo}`,
         relatedTask: task,
       });
     }
 
-    // Tasks with no progress
-    if (estimativaRestante > 0 && tempoGasto === 0 && task.status !== 'backlog') {
+    // Tarefas sem estimativa (e que não sejam de auxílio/reunião)
+    if ((!task.estimativa || task.estimativa === 0) && !isNeutralTask(task) && !isAuxilioTask(task)) {
       alerts.push({
-        type: 'noProgress',
-        severity: 'low',
-        title: 'Tarefa sem progresso',
-        description: 'Nenhum tempo registrado neste sprint',
-        taskOrDeveloper: task.resumo,
+        type: 'missingEstimate',
+        severity: 'medium',
+        title: `${task.chave} - Tarefa sem estimativa`,
+        description: `A tarefa "${task.chave} - ${task.resumo}" não tem estimativa de horas.`,
+        taskOrDeveloper: `${task.chave} - ${task.resumo}`,
         relatedTask: task,
       });
     }

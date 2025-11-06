@@ -56,24 +56,12 @@ export const InconsistenciesDashboard: React.FC = () => {
     });
   };
 
-  // 1. Tarefas sem worklog (já implementado - manter)
+  // 1. Tarefas concluídas sem worklog
   const tasksWithoutWorklog = useMemo(() => {
-    return filteredTasks.filter(task => !taskHasWorklogHelper(task, worklogs));
+    return filteredTasks.filter(task => 
+      isCompletedStatus(task.status) && !taskHasWorklogHelper(task, worklogs)
+    );
   }, [filteredTasks, worklogs]);
-
-  // 2. Worklog sem tarefa correspondente
-  const worklogsWithoutTask = useMemo(() => {
-    return filteredWorklogs.filter(worklog => !worklogHasTaskHelper(worklog, tasks));
-  }, [filteredWorklogs, tasks]);
-
-  // 3. Tarefas concluídas sem tempo gasto
-  const completedTasksWithoutTime = useMemo(() => {
-    return filteredTasks.filter(task => {
-      const isCompleted = isCompletedStatus(task.status);
-      const hasTime = (task.tempoGastoTotal ?? 0) > 0;
-      return isCompleted && !hasTime;
-    });
-  }, [filteredTasks]);
 
   // 4. Tarefas duplicadas
   const duplicateTasks = useMemo(() => {
@@ -257,45 +245,17 @@ export const InconsistenciesDashboard: React.FC = () => {
   const inconsistencies = useMemo((): Inconsistency[] => {
     const all: Inconsistency[] = [];
 
-    // 1. Tarefas sem worklog
+    // 1. Tarefas concluídas sem worklog
     if (tasksWithoutWorklog.length > 0) {
       all.push({
         id: 'tasks-without-worklog',
         type: 'tasks-without-worklog',
         category: 'Worklog',
         severity: 'high',
-        title: 'Tarefas sem Worklog',
-        description: 'Tarefas que não têm registros de worklog correspondentes. Impactam diretamente a eficiência no cálculo de performance.',
+        title: 'Tarefas Concluídas sem Worklog',
+        description: 'Tarefas com status "concluído" mas sem nenhum registro de worklog. Indica possível falta de registro de tempo.',
         count: tasksWithoutWorklog.length,
         items: tasksWithoutWorklog,
-      });
-    }
-
-    // 2. Worklog sem tarefa correspondente
-    if (worklogsWithoutTask.length > 0) {
-      all.push({
-        id: 'worklogs-without-task',
-        type: 'worklogs-without-task',
-        category: 'Worklog',
-        severity: 'high',
-        title: 'Worklogs sem Tarefa Correspondente',
-        description: 'Registros de worklog que não correspondem a nenhuma tarefa conhecida. Podem indicar IDs incorretos ou tarefas removidas.',
-        count: worklogsWithoutTask.length,
-        items: worklogsWithoutTask,
-      });
-    }
-
-    // 3. Tarefas concluídas sem tempo gasto
-    if (completedTasksWithoutTime.length > 0) {
-      all.push({
-        id: 'completed-without-time',
-        type: 'completed-without-time',
-        category: 'Status',
-        severity: 'high',
-        title: 'Tarefas Concluídas sem Tempo Gasto',
-        description: 'Tarefas com status "concluído" mas sem tempo gasto registrado no worklog. Indica possível falta de registro.',
-        count: completedTasksWithoutTime.length,
-        items: completedTasksWithoutTime,
       });
     }
 
@@ -467,8 +427,6 @@ export const InconsistenciesDashboard: React.FC = () => {
     });
   }, [
     tasksWithoutWorklog,
-    worklogsWithoutTask,
-    completedTasksWithoutTime,
     duplicateTasks,
     tasksWithInvalidSprint,
     tasksWithInvalidValues,

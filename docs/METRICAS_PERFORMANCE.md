@@ -378,6 +378,17 @@ Função calculateAuxilioBonus(auxilioHours):
 - Para análise de sprint atual: usa `tempoGastoNoSprint` e `estimativaRestante`
 - Para análise de performance: usa `estimativa` original e `tempoGastoTotal`
 
+**Tarefas marcadas como "Reunião" ou "Treinamento":**
+- Campo "Detalhes Ocultos" = "Reunião", "Reuniao", "Treinamento" (normalização case-insensitive, sem acentos)
+- Identificação: normalização NFD + lowercase compara "reuniao", "reunioes" ou "treinamento"
+- Variantes aceitas: "Reunião", "reuniao", "Treinamento", "treinamento", etc. (todos reconhecidos)
+- Não afetam Performance Score
+- Não são consideradas no cálculo de eficiência
+- Não são consideradas no cálculo de qualidade
+- São excluídas do conjunto de tarefas de trabalho (`workTasks`)
+- Horas são exibidas apenas como informação (campo `reunioesHours`)
+- Usa `tempoGastoNoSprint` para cálculo de horas
+
 ## Referências
 
 - [Configuração e Análise Híbrida](CONFIGURACAO.md) - Sistema híbrido de cálculo

@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Calculator, Info, Award, Target } from 'lucide-react';
 import { SprintPerformanceMetrics, TaskItem } from '../types';
-import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
+import { formatHours, isCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
 // Helper functions for task types
@@ -161,7 +161,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
     });
 
     // 2. Qualidade
-    const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t.task) && !isReuniaoTask(t.task));
+    const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task));
     const testNotes = qualityTasks.map(t => t.task.notaTeste ?? 5);
     const avgTestNote = testNotes.length > 0
       ? testNotes.reduce((sum, n) => sum + n, 0) / testNotes.length
@@ -185,7 +185,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             hoursSpent: t.hoursSpent,
             status: t.task.status,
             impact:
-              isAuxilioTask(t.task) || isReuniaoTask(t.task)
+              isAuxilioTask(t.task) || isNeutralTask(t.task)
                 ? `Nota: ${t.task.notaTeste ?? 5}/5 (Ignorado)`
                 : `Nota: ${t.task.notaTeste ?? 5}/5 (contribui: ${((t.task.notaTeste ?? 5) * 20).toFixed(1)})`,
           })),
@@ -326,7 +326,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
             if (overtimeTasks.length === 0) return 'Horas extras trabalhadas, mas nenhuma tarefa marcada como "HoraExtra" = 0 pontos';
 
-            const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t.task) && !isReuniaoTask(t.task));
+            const qualityOvertimeTasks = workTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task));
 
             if (qualityOvertimeTasks.length === 0) {
               return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras (apenas Auxílio/Reunião) → ${metrics.overtimeBonus} pontos`;
@@ -355,7 +355,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
             return overtimeTasks.map(t => {
               const testNote = t.task.notaTeste ?? 5;
-              const isIgnored = isAuxilioTask(t.task) || isReuniaoTask(t.task);
+              const isIgnored = isAuxilioTask(t.task) || isNeutralTask(t.task);
               return {
                 taskKey: t.task.chave || t.task.id,
                 taskSummary: t.task.resumo || 'Sem resumo',

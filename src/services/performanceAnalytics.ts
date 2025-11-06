@@ -9,7 +9,7 @@ import {
   MetricExplanation,
   CustomPeriodMetrics,
 } from '../types';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isNeutralTask } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
@@ -289,15 +289,6 @@ function isAuxilioTask(task: TaskItem): boolean {
   return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
 }
 
-// Helper to identify reuniao (meetings) tasks (normalized comparison)
-function isReuniaoTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  return task.detalhesOcultos.some(d => {
-    const normalized = normalizeForComparison(d);
-    return normalized === 'reuniao' || normalized === 'reunioes';
-  });
-}
-
 // Helper to identify hora extra tasks (normalized comparison)
 function isHoraExtraTask(task: TaskItem): boolean {
   if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
@@ -344,7 +335,7 @@ function calculateOvertimeBonus(
   if (overtimeTasks.length === 0) return 0;
 
   // Para a média de qualidade, ignorar auxílio e reuniões
-  const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t) && !isReuniaoTask(t));
+  const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
 
   if (qualityOvertimeTasks.length === 0) {
     // Se só houver auxílios/reuniões marcados como HE, o bônus é concedido sem validação de nota.
@@ -440,12 +431,12 @@ export function calculateSprintPerformance(
     return createEmptySprintMetrics(developerId, developerName, sprintName);
   }
   
-  // Separate reuniao tasks (meetings) - these are neutral and excluded from performance calculations
-  const reuniaoTasks = devTasks.filter(isReuniaoTask);
-  const reunioesHours = reuniaoTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
+  // Separate neutral tasks (meetings, training) - these are excluded from performance calculations
+  const neutralTasks = devTasks.filter(isNeutralTask);
+  const neutralHours = neutralTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
-  // Work tasks (exclude meetings and auxilio from main calculations)
-  const workTasks = devTasks.filter(t => !isReuniaoTask(t));
+  // Work tasks (exclude neutral tasks from main calculations)
+  const workTasks = devTasks.filter(t => !isNeutralTask(t));
   
   // Calculate task-level metrics for performance - ALWAYS use total hours across all sprints
   const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, false));
@@ -521,8 +512,8 @@ export function calculateSprintPerformance(
   const featureTasks = completedTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
   const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
   
-  // Test-based quality - Exclui Auxílio e Reunião
-  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isReuniaoTask(t));
+  // Test-based quality - Exclui Auxílio e tarefas neutras (reunião, treinamento)
+  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
   const testNotes = qualityTasks.map(t => (t.notaTeste ?? 5)); // 1-5, default 5
   const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 5;
   const testScore = Math.max(0, Math.min(100, avgTestNote * 20));
@@ -629,7 +620,7 @@ export function calculateSprintPerformance(
     qualityScore,
     testScore,
     avgTestNote,
-    reunioesHours,
+    reunioesHours: neutralHours, // Mantido para compatibilidade, mas representa todas as horas neutras
     utilizationRate,
     completionRate,
     avgTimeToComplete,

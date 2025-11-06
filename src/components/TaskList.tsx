@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, X, FileDown } from 'lucide-react';
+import { Search, Filter, X, FileDown, XCircle, ChevronDown, ChevronRight, Filter as FilterIcon, RotateCw } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
 import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
 import { exportTasksToExcel } from '../services/excelExportService';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
+import { TaskFilters } from './TaskFilters';
 
 const getDetalheTagColor = (detalhe: string) => {
   const normalized = normalizeForComparison(detalhe).replace(/\s/g, '');
@@ -17,6 +18,9 @@ const getDetalheTagColor = (detalhe: string) => {
   if (normalized.includes('reuniao')) {
     return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
   }
+  if (normalized.includes('treinamento')) {
+    return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
+  }
   if (normalized.includes('duvidaoculta')) {
     return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
   }
@@ -28,6 +32,8 @@ export const TaskList: React.FC = () => {
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
   const tasks = useSprintStore((state) => state.tasks);
   const taskFilters = useSprintStore((state) => state.taskFilters);
+  const analyticsFilter = useSprintStore((state) => state.analyticsFilter);
+  const setAnalyticsFilter = useSprintStore((state) => state.setAnalyticsFilter);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFeature, setFilterFeature] = useState('');
@@ -35,6 +41,9 @@ export const TaskList: React.FC = () => {
   const [filterClient, setFilterClient] = useState('');
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterNoEstimate, setFilterNoEstimate] = useState(false);
+  const [filterDelayed, setFilterDelayed] = useState(false);
+  const [filterAhead, setFilterAhead] = useState(false);
+  const [filterType, setFilterType] = useState('');
 
   // Get base filtered tasks (by sprint, developer and global filters)
   // IMPORTANT: Always exclude tasks without sprint (backlog) when no sprint is selected
@@ -102,15 +111,57 @@ export const TaskList: React.FC = () => {
     if (filterClient) {
       result = result.filter((t) => t.categorias.includes(filterClient));
     }
+    if (filterType) {
+      result = result.filter((t) => t.tipo === filterType);
+    }
     if (filterStatus.length > 0) {
       result = result.filter((t) => filterStatus.includes(t.status));
     }
     if (filterNoEstimate) {
       result = result.filter((t) => t.estimativa === 0);
     }
+    if (filterDelayed) {
+      result = result.filter(t => {
+        const tempoGasto = t.tempoGastoNoSprint ?? 0;
+
+        // Lógica para bugs baseada na complexidade
+        if (t.tipo === 'Bug') {
+          const complexidade = t.complexidade ?? 0;
+          switch (complexidade) {
+            case 1: return tempoGasto > 2;  // Ineficiente se > 2h
+            case 2: return tempoGasto > 4;  // Ineficiente se > 4h
+            case 3: return tempoGasto > 8;  // Ineficiente se > 8h
+            case 4: return tempoGasto > 16; // Ineficiente se > 16h
+            case 5: return tempoGasto > 32; // Ineficiente se > 32h
+            default: return false;
+          }
+        } else {
+          // Lógica original para outros tipos de tarefa
+          const estimativa = t.estimativaRestante ?? t.estimativa ?? 0;
+          return estimativa > 0 && tempoGasto > estimativa;
+        }
+      });
+    }
+    if (filterAhead) {
+      result = result.filter(t => {
+        const isCompleted = isCompletedStatus(t.status);
+        const tempoGasto = t.tempoGastoNoSprint ?? 0;
+        const estimativa = t.estimativaRestante ?? t.estimativa ?? 0;
+        return isCompleted && estimativa > 0 && tempoGasto < estimativa;
+      });
+    }
+
+    // Apply analytics filter
+    if (analyticsFilter) {
+      if (analyticsFilter.type === 'feature') {
+        result = result.filter(t => t.feature.includes(analyticsFilter.value));
+      } else if (analyticsFilter.type === 'client') {
+        result = result.filter(t => t.categorias.includes(analyticsFilter.value));
+      }
+    }
 
     return result;
-  }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate]);
+  }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate, filterDelayed, filterAhead, analyticsFilter, filterType]);
 
   // Get unique values for filters - BASED ON CURRENT SPRINT TASKS
   const uniqueFeatures = useMemo(() => {
@@ -142,8 +193,13 @@ export const TaskList: React.FC = () => {
     return Array.from(statuses).sort();
   }, [baseFilteredTasks]);
 
+  const uniqueTypes = useMemo(() => {
+    const types = new Set(baseFilteredTasks.map((t) => t.tipo));
+    return Array.from(types).sort();
+  }, [baseFilteredTasks]);
+
   const hasFilters =
-    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate;
+    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate || filterDelayed || filterAhead || filterType;
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -152,6 +208,9 @@ export const TaskList: React.FC = () => {
     setFilterClient('');
     setFilterStatus([]);
     setFilterNoEstimate(false);
+    setFilterDelayed(false);
+    setFilterAhead(false);
+    setFilterType('');
   };
 
   const handleStatusChange = (status: string) => {
@@ -165,6 +224,31 @@ export const TaskList: React.FC = () => {
       exportTasksToExcel(filteredTasks, selectedSprint);
     }
   };
+
+  const selectDeveloper = useSprintStore((state) => state.selectDeveloper);
+
+  const handleClearFilter = () => {
+    if (analyticsFilter) {
+      setAnalyticsFilter(null);
+    } else if (selectedDeveloper) {
+      selectDeveloper(null);
+    }
+  };
+  
+  const FilterPill: React.FC<{
+    type: string;
+    value: string;
+    onClear: () => void;
+  }> = ({ type, value, onClear }) => (
+    <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full px-4 py-2 text-sm font-medium">
+      <span>
+        {type}: <strong>{value}</strong>
+      </span>
+      <button onClick={onClear} className="p-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+        <XCircle className="w-4 h-4" />
+      </button>
+    </div>
+  );
 
   // Calculate totals and averages for filtered tasks
   const totals = useMemo(() => {
@@ -216,126 +300,64 @@ export const TaskList: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-          <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg">
-            <Filter className="w-4 h-4 text-white" />
+    <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          Tarefas do Sprint
+        </h2>
+      </div>
+
+      <TaskFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterFeature={filterFeature}
+        setFilterFeature={setFilterFeature}
+        uniqueFeatures={uniqueFeatures}
+        filterModule={filterModule}
+        setFilterModule={setFilterModule}
+        uniqueModules={uniqueModules}
+        filterClient={filterClient}
+        setFilterClient={setFilterClient}
+        uniqueClients={uniqueClients}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        uniqueTypes={uniqueTypes}
+        filterStatus={filterStatus}
+        onStatusChange={handleStatusChange}
+        uniqueStatuses={uniqueStatuses}
+        filterNoEstimate={filterNoEstimate}
+        setFilterNoEstimate={setFilterNoEstimate}
+        filterDelayed={filterDelayed}
+        setFilterDelayed={setFilterDelayed}
+        filterAhead={filterAhead}
+        setFilterAhead={setFilterAhead}
+        hasFilters={hasFilters}
+        clearFilters={clearFilters}
+        onExport={handleExport}
+      />
+
+      {(selectedDeveloper || analyticsFilter) && (
+        <div className="flex items-center justify-between p-3 mb-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+            <FilterIcon className="w-5 h-5" />
+            <span className="text-sm font-medium">
+              Filtrando por {analyticsFilter ? (analyticsFilter.type === 'feature' ? 'Feature' : 'Cliente') : 'Desenvolvedor'}:{' '}
+              <span className="font-bold">{analyticsFilter ? analyticsFilter.value : selectedDeveloper}</span>
+            </span>
           </div>
-          Lista de Tarefas
-          {selectedDeveloper && (
-            <span className="text-sm text-blue-600 dark:text-blue-400">({selectedDeveloper})</span>
-          )}
-        </h3>
-        <div className="flex items-center gap-2">
           <button
-            onClick={handleExport}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={filteredTasks.length === 0}
-            title={filteredTasks.length === 0 ? "Nenhuma tarefa para exportar" : "Exportar lista para Excel"}
+            onClick={handleClearFilter}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
-            <FileDown className="w-4 h-4" />
-            Exportar Excel
+            <RotateCw className="w-4 h-4" />
+            Limpar
           </button>
-          <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-            {filteredTasks.length} tarefa{filteredTasks.length !== 1 ? 's' : ''}
-          </span>
         </div>
-      </div>
+      )}
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <input
-            type="text"
-            placeholder="Buscar por resumo, chave ou responsável..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-          />
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-              Limpar
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <select
-            value={filterFeature}
-            onChange={(e) => setFilterFeature(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Todas as features</option>
-            {uniqueFeatures.map((feature) => (
-              <option key={feature} value={feature}>
-                {feature}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterModule}
-            onChange={(e) => setFilterModule(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Todos os módulos</option>
-            {uniqueModules.map((module) => (
-              <option key={module} value={module}>
-                {module}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterClient}
-            onChange={(e) => setFilterClient(e.target.value)}
-            className="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Todos os clientes</option>
-            {uniqueClients.map((client) => (
-              <option key={client} value={client}>
-                {client}
-              </option>
-            ))}
-          </select>
-
-          <MultiSelectDropdown
-            options={uniqueStatuses}
-            selectedOptions={filterStatus}
-            onToggleOption={handleStatusChange}
-            placeholder="Todos os status"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 pt-2">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={filterNoEstimate}
-              onChange={(e) => setFilterNoEstimate(e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-            />
-            <span>Apenas tarefas sem estimativa</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Task List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {filteredTasks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            Nenhuma tarefa encontrada com os filtros aplicados
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Chave
@@ -449,10 +471,8 @@ export const TaskList: React.FC = () => {
               </tfoot>
             </table>
           </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+      );
 };
 
 interface TaskRowProps {

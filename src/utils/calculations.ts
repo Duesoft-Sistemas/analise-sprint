@@ -45,14 +45,22 @@ export function normalizeForComparison(text: string): string {
 
 // Format hours to readable string
 export function formatHours(hours: number): string {
-  if (hours === 0) return '0h';
-  
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  
-  if (m === 0) return `${h}h`;
-  if (h === 0) return `${m}m`;
-  return `${h}h ${m}m`;
+  if (hours === null || hours === undefined || isNaN(hours)) return '0h';
+
+  const sign = hours < 0 ? '-' : '';
+  const absHours = Math.abs(hours);
+
+  const totalMinutes = Math.round(absHours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+
+  if (h > 0 && m > 0) {
+    return `${sign}${h}h ${m}m`;
+  }
+  if (h > 0) {
+    return `${sign}${h}h`;
+  }
+  return `${sign}${m}m`;
 }
 
 // Check if status indicates task is completed by the developer
@@ -197,5 +205,28 @@ export function calculatePercentage(value: number, total: number): number {
  */
 export function hasSprint(task: { sprint?: string }): boolean {
   return !!(task.sprint && task.sprint.trim() !== '');
+}
+
+/**
+ * Check if a task is neutral for performance calculations (e.g., meeting, training)
+ * These tasks are excluded from quality and efficiency metrics
+ */
+export function isNeutralTask(task: { detalhesOcultos?: string[] }): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  
+  const neutralTypes = ['reuniao', 'reunioes', 'treinamento'];
+  
+  return task.detalhesOcultos.some(d => {
+    const normalized = normalizeForComparison(d);
+    return neutralTypes.includes(normalized);
+  });
+}
+
+/**
+ * Check if a task is an auxilio task
+ */
+export function isAuxilioTask(task: { detalhesOcultos?: string[] }): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
 }
 

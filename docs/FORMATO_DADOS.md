@@ -139,7 +139,7 @@ Sistema aceita os seguintes formatos para campos de tempo:
 **Impacto:**
 - ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras.
 - Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
-- O bônus é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio" e "Reunião" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
 - O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excedem 40h na semana.
 
 #### "DuvidaOculta" ou "Dúvida Oculta"
@@ -186,11 +186,12 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 - Remove diacríticos duplicados
 - Converte para lowercase
 - Usado para identificar valores (case-insensitive, sem acentos)
-- Valores aceitos: "Auxilio", "Reuniao"/"Reunião", "HoraExtra"/"Hora Extra"/"Horas Extras"/"HorasExtras", "DuvidaOculta"/"Dúvida Oculta"
+- Valores aceitos: "Auxilio", "Reuniao"/"Reunião", "HoraExtra"/"Hora Extra"/"Horas Extras"/"HorasExtras", "DuvidaOculta"/"Dúvida Oculta", "Treinamento"
 - Variantes aceitas: "Auxilio", "auxilio", "Auxílio" → todos reconhecidos como "auxilio"
 - Variantes aceitas: "Reunião", "Reuniao", "reunião", "reuniao" → todos reconhecidos
 - Variantes aceitas: "HoraExtra", "Hora Extra", "Horas Extras", "HorasExtras" → todos reconhecidos como "horaextra"
 - Variantes aceitas: "DuvidaOculta", "Dúvida Oculta", "duvidaoculta" → todos reconhecidos como "duvidaoculta"
+- Variantes aceitas: "Treinamento", "treinamento" → todos reconhecidos como "treinamento"
 - Valores podem ser combinados: uma tarefa pode ter múltiplos valores separados por vírgula/ponto-e-vírgula
 
 ### Status Considerados "Concluídos"
@@ -360,15 +361,15 @@ Antes de processamento, sistema valida:
 - Aparecem em métricas informativas
 - NÃO são consideradas no cálculo de Performance Score
 
-**Tarefas marcadas como "Reunião":**
+**Tarefas marcadas como "Reunião" ou "Treinamento":**
 - Não afetam Performance Score
 - Não são consideradas no cálculo de eficiência
 - Horas são exibidas apenas como informação
-- **Qualidade Neutra:** Tarefas de reunião não são consideradas no cálculo da média de qualidade.
+- **Qualidade Neutra:** Tarefas de reunião e treinamento não são consideradas no cálculo da média de qualidade.
 
 **Tarefas marcadas como "HoraExtra":**
 - Apenas tarefas marcadas explicitamente como "HoraExtra" no campo "Detalhes Ocultos" são consideradas para o bônus.
-- O bônus só é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio" e "Reunião" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus só é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
 - O bônus é calculado com base nas horas totais que excedem 40h na semana.
 - O total de horas para o cálculo (acima de 40h) considera **todas as tarefas concluídas**, não apenas as marcadas como "HoraExtra".
 

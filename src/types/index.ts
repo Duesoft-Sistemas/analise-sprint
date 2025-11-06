@@ -124,7 +124,7 @@ export interface CrossSprintAnalytics {
 
 // Alert/Risk items
 export interface RiskAlert {
-  type: 'overAllocated' | 'overTime' | 'noProgress' | 'sprintEndingSoon';
+  type: 'overAllocated' | 'overTime' | 'noProgress' | 'sprintEndingSoon' | 'missingEstimate';
   severity: 'low' | 'medium' | 'high';
   title: string;
   description: string;

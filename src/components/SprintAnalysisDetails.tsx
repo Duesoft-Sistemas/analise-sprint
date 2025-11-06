@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { Layers, Users, Filter } from 'lucide-react';
-import { SprintAnalytics, Totalizer } from '../types';
+import { Layers, Users, Filter, BarChart2, List } from 'lucide-react';
+import { SprintAnalytics } from '../types';
+import { AnalyticsChart } from './AnalyticsCharts';
 import { formatHours } from '../utils/calculations';
+import { Totalizer } from '../types';
+import { useSprintStore } from '../store/useSprintStore';
+
 
 interface SprintAnalysisDetailsProps {
   analytics: SprintAnalytics;
@@ -9,62 +13,85 @@ interface SprintAnalysisDetailsProps {
 
 const TOP_OPTIONS = [10, 20, 40, null]; // null = todos
 
-const DimensionSection: React.FC<{
-  title: string;
-  icon: React.ReactNode;
-  data: Totalizer[];
-  topLimit: number | null;
-  setTopLimit: (limit: number | null) => void;
-}> = ({ title, icon, data, topLimit, setTopLimit }) => (
-  <div>
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-        {icon}
-        {title}
-      </h3>
-      <div className="flex items-center gap-2">
-        <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        <select
-          value={topLimit === null ? 'all' : topLimit.toString()}
-          onChange={(e) => setTopLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
-          className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
-        >
-          {TOP_OPTIONS.map((option) => (
-            <option key={option ?? 'all'} value={option ?? 'all'}>
-              Top {option ?? 'Todos'}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      {data.slice(0, topLimit ?? undefined).map((totalizer) => (
-        <DimensionCard key={totalizer.label} totalizer={totalizer} />
-      ))}
-    </div>
-  </div>
-);
-
 const SprintAnalysisDetails: React.FC<SprintAnalysisDetailsProps> = ({ analytics }) => {
   const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
   const [topClientLimit, setTopClientLimit] = useState<number | null>(10);
+  const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
+  const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
+  const setAnalyticsFilter = useSprintStore((state) => state.setAnalyticsFilter);
+
+  const featuresData = analytics.byFeature.slice(0, topFeatureLimit ?? undefined);
+  const clientsData = analytics.byClient.slice(0, topClientLimit ?? undefined);
 
   return (
     <div className="space-y-6">
-      <DimensionSection
-        title="Por Feature"
-        icon={<Layers className="w-5 h-5" />}
-        data={analytics.byFeature}
-        topLimit={topFeatureLimit}
-        setTopLimit={setTopFeatureLimit}
-      />
-      <DimensionSection
-        title="Por Cliente"
-        icon={<Users className="w-5 h-5" />}
-        data={analytics.byClient}
-        topLimit={topClientLimit}
-        setTopLimit={setTopClientLimit}
-      />
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <Layers className="w-5 h-5" />
+            Por Feature
+          </h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setFeatureViewMode('chart')} className={`p-1.5 rounded-md ${featureViewMode === 'chart' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}><BarChart2 size={16} /></button>
+            <button onClick={() => setFeatureViewMode('list')} className={`p-1.5 rounded-md ${featureViewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}><List size={16} /></button>
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <select
+              value={topFeatureLimit === null ? 'all' : topFeatureLimit.toString()}
+              onChange={(e) => setTopFeatureLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
+              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {TOP_OPTIONS.map((option) => (
+                <option key={option ?? 'all'} value={option ?? 'all'}>
+                  Top {option ?? 'Todos'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {featureViewMode === 'chart' ? (
+          <AnalyticsChart data={featuresData} title="" onBarClick={(value) => setAnalyticsFilter({ type: 'feature', value })} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {featuresData.map((totalizer) => (
+              <DimensionCard key={totalizer.label} totalizer={totalizer} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Por Cliente
+          </h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setClientViewMode('chart')} className={`p-1.5 rounded-md ${clientViewMode === 'chart' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}><BarChart2 size={16} /></button>
+            <button onClick={() => setClientViewMode('list')} className={`p-1.5 rounded-md ${clientViewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}><List size={16} /></button>
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <select
+              value={topClientLimit === null ? 'all' : topClientLimit.toString()}
+              onChange={(e) => setTopClientLimit(e.target.value === 'all' ? null : parseInt(e.target.value))}
+              className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {TOP_OPTIONS.map((option) => (
+                <option key={option ?? 'all'} value={option ?? 'all'}>
+                  Top {option ?? 'Todos'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {clientViewMode === 'chart' ? (
+          <AnalyticsChart data={clientsData} title="" onBarClick={(value) => setAnalyticsFilter({ type: 'client', value })} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {clientsData.map((totalizer) => (
+              <DimensionCard key={totalizer.label} totalizer={totalizer} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { TaskItem, SprintMetadata } from '../types';
-import { isCompletedStatus, normalizeForComparison } from '../utils/calculations';
+import { isCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
 
 // =============================================================================
 // TYPES
@@ -318,13 +318,13 @@ export function calculateDetailedDeveloperAnalytics(
   developerName: string
 ): DeveloperDetailedAnalytics {
   // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in detailed analytics
-  // IMPORTANT: Also exclude auxilio and reuniao tasks from detailed analysis
+  // IMPORTANT: Also exclude auxilio and neutral tasks from detailed analysis
   const developerTasks = tasks.filter(t => 
     t.idResponsavel === developerId && 
     t.sprint && 
     t.sprint.trim() !== '' &&
     !isAuxilioTask(t) &&
-    !isReuniaoTask(t)
+    !isNeutralTask(t)
   );
   
   // Calculate by feature and module

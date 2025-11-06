@@ -45,6 +45,7 @@ interface SprintStore {
   
   // Selected developer for drill-down
   selectedDeveloper: string | null;
+  analyticsFilter: { type: 'feature' | 'client'; value: string } | null;
   
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => void;
@@ -61,6 +62,7 @@ interface SprintStore {
   setTaskFilters: (filters: TaskFilters) => void;
   setSelectedDeveloper: (developer: string | null) => void;
   clearData: () => void;
+  setAnalyticsFilter: (filter: { type: 'feature' | 'client'; value: string } | null) => void;
   
   // Computed getters
   getFilteredTasks: () => TaskItem[];
@@ -85,6 +87,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   worklogFileNames: [],
   taskFilters: {},
   selectedDeveloper: null,
+  analyticsFilter: null,
 
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => {
@@ -770,6 +773,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     set({ selectedDeveloper: developer });
   },
 
+  setAnalyticsFilter: (filter) => set({ selectedDeveloper: null, analyticsFilter: filter }),
+
   clearData: () => {
     set({
       tasks: [],
@@ -788,12 +793,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       worklogFileNames: [],
       taskFilters: {},
       selectedDeveloper: null,
+      analyticsFilter: null,
     });
   },
 
   // Computed getter for filtered tasks
   getFilteredTasks: () => {
-    const { tasks, taskFilters, selectedSprint, selectedDeveloper } = get();
+    const { tasks, taskFilters, selectedSprint, selectedDeveloper, analyticsFilter } = get();
     
     let filtered = tasks;
 
@@ -830,6 +836,14 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
 
     if (taskFilters.status) {
       filtered = filtered.filter((t) => t.status === taskFilters.status);
+    }
+
+    if (analyticsFilter) {
+      if (analyticsFilter.type === 'feature') {
+        filtered = filtered.filter((t) => t.feature.includes(analyticsFilter.value));
+      } else if (analyticsFilter.type === 'client') {
+        filtered = filtered.filter((t) => t.responsavel === analyticsFilter.value);
+      }
     }
 
     return filtered;
