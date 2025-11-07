@@ -334,9 +334,9 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
    - Bugs: 1.0 pt (zona eficiente), 0.5 pts (zona aceitável), 0 pts (ineficiente)
 3. **Base:** (50% × Qualidade) + (50% × Eficiência)
 4. **Bonus Complexidade (4-5):** % tarefas complexas (4-5) × 10
-5. **Bonus Senioridade:** Eficiência em tarefas complexas (4-5) × 15
+5. **Bonus Complexidade 3:** Eficiência em tarefas complexidade 3 × 5
+6. **Bonus Senioridade:** Eficiência em tarefas complexas (4-5) × 15
    - Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
-6. **Bonus Complexidade 3:** Eficiência em tarefas complexidade 3 × 5
    - Features: dentro da tolerância (+30%)
    - Bugs: zona eficiente apenas
 7. **Bonus Auxílio:** Escala progressiva (2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts)
