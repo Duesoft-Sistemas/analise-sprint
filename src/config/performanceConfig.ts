@@ -113,12 +113,6 @@ export const PERFORMANCE_SCORE_WEIGHTS = {
   // completion: 0.25, // Removido: pode ser afetada por interrupções/realocações (não é culpa do dev)
 };
 
-/** Bonus máximo por trabalhar em tarefas complexas (níveis 4-5) */
-export const MAX_COMPLEXITY_BONUS = 10;
-
-/** Bonus máximo por executar tarefas complexidade 3 com alta eficiência */
-export const MAX_INTERMEDIATE_COMPLEXITY_BONUS = 5;
-
 /** Bonus máximo por executar tarefas complexas com alta eficiência (seniority) */
 export const MAX_SENIORITY_EFFICIENCY_BONUS = 15;
 

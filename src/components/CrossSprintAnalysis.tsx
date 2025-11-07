@@ -309,7 +309,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
               <Users className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Desenvolvedor (Todos os Sprints)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Desenvolvedor (Horas Estimadas)</h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -374,7 +374,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg">
               <Building2 className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Cliente (Todos os Sprints)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Cliente (Horas Estimadas)</h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -437,7 +437,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
               <Code className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Features</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Features (Horas Gastas)</h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />

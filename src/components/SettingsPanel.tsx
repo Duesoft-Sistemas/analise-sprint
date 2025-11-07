@@ -263,18 +263,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     </p>
                   </div>
                   <div className="mt-4 space-y-2">
-                      <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-                        <p className="text-sm text-purple-800 dark:text-purple-200">
-                          <Info className="w-4 h-4 inline mr-1" />
-                          <strong>Bonus de Complexidade:</strong> até +{MAX_COMPLEXITY_BONUS} pontos por trabalhar em tarefas complexas (níveis 4-5)
-                        </p>
-                      </div>
-                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          <Info className="w-4 h-4 inline mr-1" />
-                          <strong>Bonus de Complexidade 3:</strong> até +{MAX_INTERMEDIATE_COMPLEXITY_BONUS} pontos por executar tarefas complexidade 3 com alta eficiência (features dentro da tolerância +20%, bugs zona eficiente apenas)
-                        </p>
-                      </div>
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                         <p className="text-sm text-indigo-800 dark:text-indigo-200">
                           <Info className="w-4 h-4 inline mr-1" />

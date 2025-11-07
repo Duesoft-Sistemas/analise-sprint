@@ -139,8 +139,6 @@ export const PerformanceDashboard: React.FC = () => {
             ),
             performanceScore: customMetrics.avgPerformanceScore,
             baseScore: customMetrics.avgPerformanceScore,
-            complexityBonus: 0,
-            intermediateComplexityBonus: 0,
             seniorityEfficiencyBonus: 0,
             auxilioBonus: 0,
             overtimeBonus: 0,
@@ -583,10 +581,9 @@ export const PerformanceDashboard: React.FC = () => {
                 ),
                 performanceScore: allSprintsMetrics.avgPerformanceScore,
                 baseScore: allSprintsMetrics.avgPerformanceScore,
-                complexityBonus: 0,
-                intermediateComplexityBonus: 0,
                 seniorityEfficiencyBonus: 0,
                 auxilioBonus: 0,
+                overtimeBonus: 0,
                 tasks: [],
               };
             }

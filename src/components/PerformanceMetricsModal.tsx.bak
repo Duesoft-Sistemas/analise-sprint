@@ -20,7 +20,6 @@ const METRIC_ICONS: Record<string, React.ReactNode> = {
   bugsVsFeatures: <BarChart3 className="w-5 h-5" />,
 };
 
-
 export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = ({
   isOpen,
   onClose,
@@ -59,7 +58,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               {getMetricTitle(metricKey)}
             </h4>
             
-            {/* Formula */}
             <div className="mb-3">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fórmula:</span>
               <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-900/50 rounded text-sm font-mono text-gray-700 dark:text-gray-300">
@@ -67,7 +65,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </div>
             </div>
             
-            {/* Description */}
             <div className="mb-3">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Descrição:</span>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -75,7 +72,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </p>
             </div>
             
-            {/* Interpretation */}
             <div className="mb-3">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Interpretação:</span>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -83,7 +79,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </p>
             </div>
             
-            {/* Example */}
             {explanation.example && (
               <div>
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Exemplo:</span>
@@ -126,9 +121,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* ============================================ */}
-          {/* SEÇÃO 1: O QUE IMPACTA NO SCORE */}
-          {/* ============================================ */}
           <div className="mb-10">
             <div className="mb-6 p-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg">
               <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
@@ -140,7 +132,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </p>
             </div>
 
-            {/* Performance Score Geral */}
             {METRIC_EXPLANATIONS.performanceScore && (
               <div className="mb-6 p-5 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 rounded-xl border-2 border-purple-300 dark:border-purple-700">
                 <div className="flex items-start gap-3 mb-4">
@@ -155,13 +146,10 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                         <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
                         <p className="text-gray-700 dark:text-gray-300 mb-2">
-                          <strong>Base Score</strong> = (50% × Qualidade) + (50% × Eficiência)
+                          O score final é a soma do <strong>Score Base</strong> (Qualidade + Eficiência) com os bônus aplicáveis.
                         </p>
-                        <p className="text-gray-700 dark:text-gray-300">
-                          <strong>Score Final</strong> = Base Score + Bonus de Senioridade (0-15 pontos) + Bonus de Auxílio (0-10 pontos)
-                        </p>
-                        <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
-                          💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência (dentro dos limites de horas esperados).
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          Fórmula: <strong>Score Final</strong> = Base Score + Bonus de Senioridade (0-15 pontos) + Bonus de Auxílio (0-10 pontos)
                         </p>
                       </div>
                       
@@ -201,7 +189,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </div>
             )}
 
-            {/* Quality Score - 50% do Score */}
             {METRIC_EXPLANATIONS.qualityScore && (
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -215,7 +202,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 </div>
                 {renderMetric('qualityScore', METRIC_EXPLANATIONS.qualityScore)}
                 
-                {/* Exemplo Prático Qualidade */}
                 <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                   <p className="font-semibold text-green-900 dark:text-green-100 mb-2">
                     📊 Exemplo Prático:
@@ -238,7 +224,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </div>
             )}
 
-            {/* Accuracy Rate - 50% do Score */}
             {METRIC_EXPLANATIONS.accuracyRate && (
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -252,7 +237,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 </div>
                 {renderMetric('accuracyRate', METRIC_EXPLANATIONS.accuracyRate)}
                 
-                {/* Exemplo Prático Eficiência */}
                 <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
                     📊 Exemplo Prático:
@@ -277,7 +261,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
               </div>
             )}
 
-            {/* Bonus de Senioridade */}
             <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl border-2 border-indigo-300 dark:border-indigo-700">
               <div className="flex items-start gap-3">
                 <div className="p-3 bg-indigo-500 rounded-lg text-white">
@@ -344,9 +327,8 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Exemplo Completo do Cálculo */}
             <div className="mb-8 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl border-2 border-indigo-300 dark:border-indigo-700">
               <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <BarChart3 className="w-6 h-6" />
@@ -380,9 +362,6 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
             </div>
           </div>
 
-          {/* ============================================ */}
-          {/* SEÇÃO 2: MÉTRICAS INFORMATIVAS */}
-          {/* ============================================ */}
           <div className="mb-8">
             <div className="mb-6 p-4 bg-gray-200 dark:bg-gray-700 rounded-lg">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
@@ -395,27 +374,15 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
             </div>
 
             <div className="grid gap-4">
-              {/* Desvio de Estimativa */}
               {METRIC_EXPLANATIONS.estimationAccuracy && renderMetric('estimationAccuracy', METRIC_EXPLANATIONS.estimationAccuracy)}
-              
-              {/* Score de Consistência */}
               {METRIC_EXPLANATIONS.consistencyScore && renderMetric('consistencyScore', METRIC_EXPLANATIONS.consistencyScore)}
-              
-              {/* Taxa de Bugs */}
               {METRIC_EXPLANATIONS.bugRate && renderMetric('bugRate', METRIC_EXPLANATIONS.bugRate)}
-              
-              {/* Bugs vs Features */}
               {METRIC_EXPLANATIONS.bugsVsFeatures && renderMetric('bugsVsFeatures', METRIC_EXPLANATIONS.bugsVsFeatures)}
-              
-              {/* Taxa de Conclusão */}
               {METRIC_EXPLANATIONS.completionRate && renderMetric('completionRate', METRIC_EXPLANATIONS.completionRate)}
-              
-              {/* Taxa de Utilização */}
               {METRIC_EXPLANATIONS.utilizationRate && renderMetric('utilizationRate', METRIC_EXPLANATIONS.utilizationRate)}
             </div>
           </div>
 
-          {/* Detalhamento da Eficiência por Complexidade */}
           <div className="mt-6 p-5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
             <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 text-lg">
               ⚡ Detalhes: Como a Eficiência é Ajustada por Complexidade
@@ -471,4 +438,3 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
     </div>
   );
 };
-

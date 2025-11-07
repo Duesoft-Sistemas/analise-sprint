@@ -9,13 +9,11 @@ import {
   MetricExplanation,
   CustomPeriodMetrics,
 } from '../types';
-import { formatHours, isCompletedStatus, isNeutralTask } from '../utils/calculations';
+import { isCompletedStatus, isNeutralTask, isAuxilioTask, normalizeForComparison, formatHours } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
   MAX_SENIORITY_EFFICIENCY_BONUS,
-  MAX_INTERMEDIATE_COMPLEXITY_BONUS,
-  MAX_OVERTIME_BONUS,
   MIN_OVERTIME_TEST_NOTE,
   STANDARD_WEEKLY_HOURS,
 } from '../config/performanceConfig';
@@ -75,10 +73,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS COMPLEXIDADE: Trabalhar em tarefas complexas (nível 4-5) adiciona até +10 pontos. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS COMPLEXIDADE 3: Executar tarefas complexidade 3 com alta eficiência adiciona até +5 pontos. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). BONUS HORAS EXTRAS: Trabalhar horas extras (>40h/semana) com qualidade alta (nota ≥ 4) adiciona até +10 pontos (escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras - ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta. Score máximo: 150. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de complexidade é proporcional ao % de tarefas complexas. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas. Bonus de horas extras reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota ≥ 4) - apenas horas acima de 40h em tarefas concluídas com qualidade alta contam.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se 50% das tarefas são complexas (4-5): 82.5 + 5 (complexidade) = 87.5. Se executou complexas com alta eficiência: 87.5 + 12 (senioridade) = 99.5. Se executou complexidade 3 com alta eficiência (80%): 99.5 + 4 (complexidade 3) = 103.5. Se ajudou 8h: 103.5 + 7 (auxílio) = 110.5. Se trabalhou 8h extras com qualidade alta: 110.5 + 7 (horas extras) = 117.5 🏆⭐',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Senioridade (0-15) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). BONUS HORAS EXTRAS: Trabalhar horas extras (>40h/semana) com qualidade alta (nota ≥ 4) adiciona até +10 pontos (escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras - ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta. Score máximo: 135. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
+    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas. Bonus de horas extras reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota ≥ 4) - apenas horas acima de 40h em tarefas concluídas com qualidade alta contam.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se executou complexas com alta eficiência: 82.5 + 12 (senioridade) = 94.5. Se ajudou 8h: 94.5 + 7 (auxílio) = 101.5. Se trabalhou 8h extras com qualidade alta: 101.5 + 7 (horas extras) = 108.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -93,16 +91,6 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
 // HELPER FUNCTIONS
 // =============================================================================
 
-// Normalize text: remove accents and convert to lowercase for comparison
-function normalizeForComparison(text: string): string {
-  if (!text) return '';
-  // Remove accents and convert to lowercase
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
 // Calculate standard deviation
 function calculateStdDev(values: number[]): number {
   if (values.length === 0) return 0;
@@ -116,7 +104,6 @@ function calculateStdDev(values: number[]): number {
 function determineTrend(values: number[]): 'improving' | 'declining' | 'stable' {
   if (values.length < 2) return 'stable';
   
-  // Simple linear regression to determine slope
   const n = values.length;
   const xValues = values.map((_, i) => i);
   const xMean = xValues.reduce((sum, x) => sum + x, 0) / n;
@@ -132,7 +119,6 @@ function determineTrend(values: number[]): 'improving' | 'declining' | 'stable' 
   
   const slope = denominator !== 0 ? numerator / denominator : 0;
   
-  // Threshold for considering it stable
   const threshold = 0.5;
   
   if (slope > threshold) return 'improving';
@@ -144,244 +130,108 @@ function determineTrend(values: number[]): 'improving' | 'declining' | 'stable' 
 // COMPLEXITY-BASED THRESHOLDS
 // =============================================================================
 
-/**
- * Get efficiency thresholds based on task complexity
- * More complex tasks get more tolerance for delays
- * Now uses centralized configuration
- */
 function getEfficiencyThreshold(complexity: number): { faster: number; slower: number } {
   const threshold = getThresholdFromConfig(complexity);
   return { faster: threshold.faster, slower: threshold.slower };
 }
 
-/**
- * Calculate complexity bonus for performance score
- * Rewards developers who work on complex tasks
- */
-function calculateComplexityBonus(
-  complexityDistribution: { level: number; count: number }[]
-): number {
-  // Calculate % of complex tasks (level 4-5)
-  const totalTasks = complexityDistribution.reduce((sum, d) => sum + d.count, 0);
-  if (totalTasks === 0) return 0;
-  
-  const complexTasks = complexityDistribution
-    .filter(d => d.level >= 4)
-    .reduce((sum, d) => sum + d.count, 0);
-  
-  const complexPercentage = complexTasks / totalTasks;
-  
-  // Bonus: 0% complex = 0 points, 100% complex = +10 points
-  return Math.round(complexPercentage * 10);
-}
+// =============================================================================
+// BONUS CALCULATIONS
+// =============================================================================
 
-/**
- * Calculate intermediate complexity bonus for performance score
- * Rewards developers who execute complexity 3 tasks with high efficiency
- * 
- * Similar to seniority bonus but for intermediate complexity (level 3)
- */
-function calculateIntermediateComplexityBonus(
-  taskMetrics: TaskPerformanceMetrics[]
-): number {
-  // Filter complexity 3 tasks that were completed
-  const complexity3Tasks = taskMetrics.filter(t => 
-    t.complexityScore === 3 && t.hoursEstimated > 0
-  );
-  
-  if (complexity3Tasks.length === 0) return 0;
-  
-  // Count tasks executed with high efficiency only
-  let highlyEfficientComplex3 = 0;
-  
-  for (const task of complexity3Tasks) {
-    if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
-      // Bugs: only efficient zone counts
-      if (task.efficiencyImpact.zone === 'efficient') {
-        highlyEfficientComplex3++;
-      }
-    } else {
-      // Features: evaluate by percentage deviation
-      const deviation = task.estimationAccuracy;
-      const threshold = getEfficiencyThreshold(task.complexityScore);
-      
-      // Only efficient tasks count (within tolerance or faster)
-      if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
-        highlyEfficientComplex3++;
-      }
-    }
-  }
-  
-  // Calculate bonus: 0% efficiency = 0 points, 100% efficiency = +5 points
-  const efficiencyScore = highlyEfficientComplex3 / complexity3Tasks.length;
-  return Math.round(efficiencyScore * MAX_INTERMEDIATE_COMPLEXITY_BONUS);
-}
-
-/**
- * Calculate seniority efficiency bonus for performance score
- * Rewards developers who execute complex tasks (level 4-5) with high efficiency
- * This indicates seniority: not just taking complex tasks, but executing them well
- * 
- * NOW INCLUDES BUGS: Bugs complexos também contam para o bônus de senioridade
- * REMOVED: Zona aceitável não conta mais - apenas tarefas altamente eficientes
- */
 function calculateSeniorityEfficiencyBonus(
   taskMetrics: TaskPerformanceMetrics[]
 ): number {
-  // Filter complex tasks (level 4-5) that were completed
-  // NOW INCLUDES bugs - bugs complexos também contam para senioridade
   const complexTasks = taskMetrics.filter(t => 
     t.complexityScore >= 4 && t.hoursEstimated > 0
   );
   
   if (complexTasks.length === 0) return 0;
   
-  // Count tasks executed with high efficiency ONLY
   let highlyEfficientComplex = 0;
   
   for (const task of complexTasks) {
-    // Check if task was evaluated by complexity zone (bugs use this)
     if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
-      // Bugs: only efficient zone counts (removed acceptable)
       if (task.efficiencyImpact.zone === 'efficient') {
         highlyEfficientComplex++;
       }
-      // Removed: else if (zone === 'acceptable') - não conta mais
     } else {
-      // Features: avaliar por desvio percentual (limites de tolerância)
-      // Para garantir consistência na lógica de avaliação
       const deviation = task.estimationAccuracy;
       const threshold = getEfficiencyThreshold(task.complexityScore);
-      
-      // Only efficient tasks count (within tolerance or faster)
       if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
         highlyEfficientComplex++;
       }
     }
   }
   
-  // Calculate bonus: 0% efficiency = 0 points, 100% efficiency = +15 points
   const efficiencyScore = highlyEfficientComplex / complexTasks.length;
   return Math.round(efficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS);
 }
 
-/**
- * Calculate auxilio bonus for performance score
- * Rewards developers who help other developers (tarefas de auxílio)
- * Progressive scale based on hours spent helping (escalonamento suave ajustado)
- */
 function calculateAuxilioBonus(auxilioHours: number): number {
   if (auxilioHours <= 0) return 0;
   
-  // Nova escala (escalonamento suave ajustado)
-  if (auxilioHours >= 16) return 10;      // 16h+ = 10 pontos (máximo)
-  if (auxilioHours >= 12) return 9;       // 12h+ = 9 pontos (subir de 8)
-  if (auxilioHours >= 8) return 7;        // 8h+ = 7 pontos (subir de 6)
-  if (auxilioHours >= 6) return 5;        // 6h+ = 5 pontos (subir de 4)
-  if (auxilioHours >= 4) return 4;        // 4h+ = 4 pontos (subir de 3)
-  if (auxilioHours >= 2) return 2;        // 2h+ = 2 pontos (mantém)
-  return 1;                                // 0.5h+ = 1 ponto (mantém)
+  if (auxilioHours >= 16) return 10;
+  if (auxilioHours >= 12) return 9;
+  if (auxilioHours >= 8) return 7;
+  if (auxilioHours >= 6) return 5;
+  if (auxilioHours >= 4) return 4;
+  if (auxilioHours >= 2) return 2;
+  return 1;
 }
 
-// Helper to identify auxilio tasks (normalized comparison)
-function isAuxilioTask(task: TaskItem): boolean {
+function isOvertimeTask(task: TaskItem): boolean {
   if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
+  const overtimeKeywords = ['horaextra', 'hora extra', 'horas extras', 'horasextras'];
+  return task.detalhesOcultos.some(d => overtimeKeywords.includes(normalizeForComparison(d)));
 }
 
-// Helper to identify hora extra tasks (normalized comparison)
-function isHoraExtraTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  return task.detalhesOcultos.some(d => {
-    const normalized = normalizeForComparison(d);
-    return normalized === 'horaextra' || normalized === 'hora extra' || normalized === 'horas extras' || normalized === 'horasextras';
-  });
-}
-
-/**
- * Calculate overtime bonus for performance score
- * Rewards developers who work extra hours (>40h/week) with high quality work
- * 
- * ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras.
- * Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
- * 
- * Regras:
- * - Considera apenas horas trabalhadas acima de 40h no sprint
- * - Apenas tarefas concluídas são consideradas
- * - Apenas tarefas com nota de teste ≥ 4 contam
- * - Reuniões e auxílio são excluídos
- * - Escala progressiva similar ao bônus de auxílio
- */
 function calculateOvertimeBonus(
-  tasks: TaskItem[]
+  tasks: TaskPerformanceMetrics[]
 ): number {
-  // Considera TODAS as tarefas concluídas para o total de horas
-  const workTasks = tasks.filter(t => isCompletedStatus(t.status));
-  
-  // Calcular o total de horas trabalhadas nessas tarefas
-  const totalWorkHours = workTasks.reduce(
-    (sum, t) => sum + (t.tempoGastoNoSprint ?? 0),
-    0
-  );
+  const totalWorkHours = tasks
+    .filter(t => isCompletedStatus(t.task.status))
+    .reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
 
-  // Apenas horas acima de 40h contam
   const overtimeHours = Math.max(0, totalWorkHours - STANDARD_WEEKLY_HOURS);
 
-  if (overtimeHours <= 0) return 0;
+  if (overtimeHours === 0) return 0;
 
-  // Encontrar todas as tarefas marcadas como HoraExtra
-  const overtimeTasks = workTasks.filter(isHoraExtraTask);
+  const overtimeTasks = tasks.filter(t => isOvertimeTask(t.task));
 
   if (overtimeTasks.length === 0) return 0;
 
-  // Para a média de qualidade, ignorar auxílio e reuniões
-  const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
-
-  if (qualityOvertimeTasks.length === 0) {
-    // Se só houver auxílios/reuniões marcados como HE, o bônus é concedido sem validação de nota.
-    return 1; // Retorna pontuação mínima ou pode ser ajustado
-  }
-
-  // Calcular a nota média das tarefas de hora extra que são "testáveis"
-  const tasksWithGrades = qualityOvertimeTasks.filter(t => t.notaTeste !== null && t.notaTeste !== undefined);
-  if (tasksWithGrades.length === 0) {
-    return 1; // Bônus mínimo se não houver tarefas com nota
-  }
-
-  const totalNotes = tasksWithGrades.reduce(
-    (sum, t) => sum + (t.notaTeste as number),
-    0
+  const qualityOvertimeTasks = overtimeTasks.filter(
+    t => !isAuxilioTask(t.task) && !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined
   );
-  const averageNote = totalNotes / tasksWithGrades.length;
 
-  // O bônus só é concedido se a qualidade média for alta
-  if (averageNote < MIN_OVERTIME_TEST_NOTE) return 0;
-  
-  // Aplicar escala progressiva com base nas horas extras totais
-  if (overtimeHours >= 16) return MAX_OVERTIME_BONUS; // 16h+ = 10 pontos (máximo)
-  if (overtimeHours >= 12) return 9; // 12h+ = 9 pontos
-  if (overtimeHours >= 8) return 7; // 8h+ = 7 pontos
-  if (overtimeHours >= 6) return 5; // 6h+ = 5 pontos
-  if (overtimeHours >= 4) return 4; // 4h+ = 4 pontos
-  if (overtimeHours >= 2) return 2; // 2h+ = 2 pontos
-  return 1; // 1h+ = 1 ponto
+  if (qualityOvertimeTasks.length > 0) {
+    const avgNote =
+      qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 0), 0) /
+      qualityOvertimeTasks.length;
+
+    if (avgNote < MIN_OVERTIME_TEST_NOTE) {
+      return 0;
+    }
+  }
+
+  if (overtimeHours >= 16) return 10;
+  if (overtimeHours >= 12) return 9;
+  if (overtimeHours >= 8) return 7;
+  if (overtimeHours >= 6) return 5;
+  if (overtimeHours >= 4) return 4;
+  if (overtimeHours >= 2) return 2;
+  return 1;
 }
 
 // =============================================================================
 // TASK-LEVEL METRICS
 // =============================================================================
 
-// IMPORTANT: Time spent is ALWAYS from worklog, never from sprint spreadsheet
-// For single sprint analysis: use tempoGastoNoSprint (hours from that sprint only)
-// For multi-sprint analysis: use tempoGastoTotal (total hours across all sprints)
 export function calculateTaskMetrics(task: TaskItem, useSprintOnly: boolean = false): TaskPerformanceMetrics {
-  // Use hybrid fields: tempoGastoNoSprint for sprint-specific analysis, tempoGastoTotal for multi-sprint analysis - ALWAYS from worklog
-  // When useSprintOnly is true (single sprint analysis), use only hours from that sprint
-  // When useSprintOnly is false (multi-sprint analysis), use total hours across all sprints
   const hoursSpent = useSprintOnly ? (task.tempoGastoNoSprint ?? 0) : (task.tempoGastoTotal ?? 0);
   const hoursEstimated = Number(task.estimativa) || 0;
   
-  // Estimation accuracy: positive = overestimated, negative = underestimated
   let estimationAccuracy = 0;
   if (hoursEstimated > 0) {
     estimationAccuracy = ((hoursEstimated - hoursSpent) / hoursEstimated) * 100;
@@ -389,16 +239,11 @@ export function calculateTaskMetrics(task: TaskItem, useSprintOnly: boolean = fa
   
   const isOnTime = hoursSpent <= hoursEstimated;
   
-  // SISTEMA SEPARADO: Verificar zona de eficiência APENAS para bugs
-  // Bugs: usam zona de complexidade para todas as complexidades (1-5)
-  // Features/Outros: usam APENAS desvio percentual
-  // IMPORTANTE: Usa apenas horas gastas, não a estimativa original (que não é responsabilidade só do dev)
-  // A estimativa original ainda é usada no cálculo do desvio percentual (fallback)
-  let efficiencyImpact = checkComplexityZoneEfficiency(
+  const efficiencyImpact = checkComplexityZoneEfficiency(
     task.complexidade,
     hoursSpent,
     hoursEstimated,
-    task.tipo // Passa tipo da tarefa para diferenciar bugs de features
+    task.tipo
   );
   
   return {
@@ -422,8 +267,6 @@ export function calculateSprintPerformance(
   developerName: string,
   sprintName: string
 ): SprintPerformanceMetrics {
-  // Filter tasks for this developer and sprint
-  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in performance metrics
   const devTasks = tasks.filter(
     t => t.idResponsavel === developerId && 
          t.sprint === sprintName &&
@@ -432,29 +275,20 @@ export function calculateSprintPerformance(
   );
   
   if (devTasks.length === 0) {
-    // Return empty metrics
     return createEmptySprintMetrics(developerId, developerName, sprintName);
   }
   
-  // Separate neutral tasks (meetings, training) - these are excluded from performance calculations
-  const neutralTasks = devTasks.filter(isNeutralTask);
+  const neutralTasks = devTasks.filter(t => isNeutralTask({ detalhesOcultos: t.detalhesOcultos }));
   const neutralHours = neutralTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
-  // Work tasks (exclude neutral tasks from main calculations)
-  const workTasks = devTasks.filter(t => !isNeutralTask(t));
+  const workTasks = devTasks.filter(t => !isNeutralTask({ detalhesOcultos: t.detalhesOcultos }));
   
-  // Calculate task-level metrics for performance - ALWAYS use total hours across all sprints
   const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, false));
   
-  // Separate completed and all tasks (exclude meetings from performance calculations)
   const completedTasks = workTasks.filter(t => isCompletedStatus(t.status));
   const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, false));
   
-  // Productivity metrics - use tempoGastoNoSprint for sprint-specific analysis - ALWAYS from worklog
-  // IMPORTANT: For performance calculations, only completed tasks are considered
-  // IMPORTANT: For single sprint analysis, use only hours from that sprint (tempoGastoNoSprint)
   const totalHoursWorked = devTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
-  // Total estimated hours for comparison - only from completed tasks (for performance analysis)
   const totalHoursEstimated = completedTasks.reduce((sum, t) => {
     const estimate = Number(t.estimativa) || 0;
     return sum + estimate;
@@ -465,67 +299,48 @@ export function calculateSprintPerformance(
     ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0) / tasksCompleted 
     : 0;
   
-  // Accuracy metrics - measures execution efficiency
-  // Ability to execute within estimated time is part of individual performance
-  // Only consider completed tasks with estimates
   const completedWithEstimates = completedMetrics.filter(t => t.hoursEstimated > 0);
   let estimationAccuracy = 0;
   let accuracyRate = 0;
   let tasksImpactedByComplexityZone = 0;
   
-  // ===========================================================================
-  // BREAKDOWN-SPECIFIC METRICS
-  // ===========================================================================
-  
-  // Filter for bugs and features separately
   const bugMetrics = completedWithEstimates.filter(t => t.task.tipo === 'Bug');
   const featureMetrics = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
   
-  // Calculate Bug Efficiency Rate
   const efficientBugs = bugMetrics.filter(t => {
     if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
       return t.efficiencyImpact.isEfficient;
     }
-    // Fallback for bugs that might not have complexity zone (shouldn't happen but safe)
     const deviation = t.estimationAccuracy;
     const threshold = getEfficiencyThreshold(t.complexityScore);
-    return deviation > 0 ? deviation <= threshold.faster : deviation >= threshold.slower;
+    return deviation > 0 ? true : deviation >= threshold.slower;
   }).length;
   const bugAccuracyRate = bugMetrics.length > 0 ? (efficientBugs / bugMetrics.length) * 100 : 0;
   
-  // Calculate Feature Estimation Accuracy (Average Deviation)
   const featureDeviations = featureMetrics.map(t => t.estimationAccuracy);
   const featureEstimationAccuracy = featureDeviations.length > 0
     ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
     : 0;
   
-  // ===========================================================================
-  
   if (completedWithEstimates.length > 0) {
-    // Average deviation percentage (overall)
     const deviations = completedWithEstimates.map(t => t.estimationAccuracy);
     estimationAccuracy = deviations.reduce((sum, d) => sum + d, 0) / deviations.length;
     
-    // Weighted efficiency score
     let weightedEfficientScore = 0;
     completedWithEstimates.forEach(t => {
-      // Check if this task was evaluated by complexity zone (bugs only)
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
         tasksImpactedByComplexityZone++;
         if (t.efficiencyImpact.zone === 'efficient') {
-          weightedEfficientScore += 1; // Efficient bug = 1 point
+          weightedEfficientScore += 1;
         } else if (t.efficiencyImpact.zone === 'acceptable') {
-          weightedEfficientScore += 0.5; // Acceptable bug = 0.5 points
+          weightedEfficientScore += 0.5;
         }
       } else {
-        // Normal evaluation for features: use deviation from estimate
         const deviation = t.estimationAccuracy;
         const threshold = getEfficiencyThreshold(t.complexityScore);
-        
         const isEfficient = deviation > 0 || (deviation >= threshold.slower && deviation <= 0);
-        
         if (isEfficient) {
-          weightedEfficientScore += 1; // Efficient feature = 1 point
+          weightedEfficientScore += 1;
         }
       }
     });
@@ -536,34 +351,26 @@ export function calculateSprintPerformance(
   const tendsToOverestimate = estimationAccuracy > 10;
   const tendsToUnderestimate = estimationAccuracy < -10;
 
-  // Informative metrics (NOT used in performance scoring) - only consider completed tasks
-  // These metrics show work distribution, not performance quality
   const bugTasks = completedTasks.filter(t => t.tipo === 'Bug').length;
   const bugRate = tasksCompleted > 0 ? (bugTasks / tasksCompleted) * 100 : 0;
   
   const featureTasks = completedTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
   const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
   
-  // Test-based quality - Exclui Auxílio e tarefas neutras (reunião, treinamento)
   const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t) && t.notaTeste !== null && t.notaTeste !== undefined);
   const testNotes = qualityTasks.map(t => t.notaTeste as number);
   const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 0;
   const testScore = testNotes.length > 0 ? Math.max(0, Math.min(100, avgTestNote * 20)) : 0;
   const qualityScore = testScore;
   
-  // Efficiency metrics
-  // Utilization rate: hours worked in this sprint / 40h (standard work week)
   const utilizationRate = (totalHoursWorked / 40) * 100;
   
-  // Completion rate: simple calculation (informative only - not used in scoring)
-  // Can be affected by interruptions/realocations, so doesn't reflect dev performance
   const completionRate = tasksStarted > 0 ? (tasksCompleted / tasksStarted) * 100 : 0;
   
   const avgTimeToComplete = tasksCompleted > 0
     ? completedTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0) / tasksCompleted
     : 0;
   
-  // Consistency score (based on deviation of estimates for completed tasks)
   let consistencyScore = 50;
   if (completedWithEstimates.length > 1) {
     const deviations = completedWithEstimates.map(t => Math.abs(t.estimationAccuracy));
@@ -573,7 +380,6 @@ export function calculateSprintPerformance(
     consistencyScore = Math.max(0, 100 - (coefficientOfVariation * 50));
   }
   
-  // Complexity metrics - use completed tasks for meaningful analysis
   const avgComplexity = tasksCompleted > 0
     ? completedTasks.reduce((sum, t) => sum + t.complexidade, 0) / tasksCompleted
     : 0;
@@ -601,44 +407,23 @@ export function calculateSprintPerformance(
     return { level, avgHours, accuracy };
   });
   
-  // Overall Performance Score
-  // Base Score: 50% quality, 50% execution efficiency
-  // Completion removed: can be affected by interruptions/realocations (not dev's fault)
-  // Utilization removed: all devs work ~40h, so it doesn't differentiate performance
-  // Execution efficiency is based on accuracy rate (ability to execute within estimated time)
-  const executionEfficiency = accuracyRate; // % of tasks within complexity-adjusted thresholds
+  const executionEfficiency = accuracyRate;
 
-  const baseScore = (
-    (qualityScore * 0.50) +
-    (executionEfficiency * 0.50)
-  );
-  
   const scoreHasQuality = qualityTasks.length > 0;
 
   const baseScoreFinal = scoreHasQuality
-  ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
-  : executionEfficiency;
+    ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
+    : executionEfficiency;
   
-  // Complexity Bonus: 0-10 points based on % of complex tasks (level 4-5)
-  const complexityBonus = calculateComplexityBonus(complexityDistribution);
-  
-  // Seniority Efficiency Bonus: 0-15 points based on efficiency in complex tasks
-  // Rewards not just taking complex tasks, but executing them well
   const seniorityEfficiencyBonus = calculateSeniorityEfficiencyBonus(completedMetrics);
   
-  // Intermediate Complexity Bonus: 0-5 points based on efficiency in complexity 3 tasks
-  const intermediateComplexityBonus = calculateIntermediateComplexityBonus(completedMetrics);
-  
-  // Auxilio Bonus: 0-10 points based on hours spent helping other developers
-  const auxilioTasks = devTasks.filter(isAuxilioTask);
+  const auxilioTasks = devTasks.filter(t => isAuxilioTask({ detalhesOcultos: t.detalhesOcultos }));
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  // Overtime Bonus: 0-10 points based on extra hours worked (>40h) with high quality
-  const overtimeBonus = calculateOvertimeBonus(devTasks);
+  const overtimeBonus = calculateOvertimeBonus(completedMetrics);
   
-  // Final score: base (0-100) + complexity bonus (0-10) + seniority bonus (0-15) + intermediate complexity bonus (0-5) + auxilio bonus (0-10) + overtime bonus (0-10) = max 150
-  const performanceScore = Math.min(150, baseScoreFinal + complexityBonus + seniorityEfficiencyBonus + intermediateComplexityBonus + auxilioBonus + overtimeBonus);
+  const performanceScore = Math.min(135, baseScoreFinal + seniorityEfficiencyBonus + auxilioBonus + overtimeBonus);
   
   return {
     developerId,
@@ -660,7 +445,7 @@ export function calculateSprintPerformance(
     qualityScore,
     testScore,
     avgTestNote,
-    reunioesHours: neutralHours, // Mantido para compatibilidade, mas representa todas as horas neutras
+    reunioesHours: neutralHours,
     utilizationRate,
     completionRate,
     avgTimeToComplete,
@@ -670,9 +455,7 @@ export function calculateSprintPerformance(
     performanceByComplexity,
     performanceScore,
     baseScore: baseScoreFinal,
-    complexityBonus,
     seniorityEfficiencyBonus,
-    intermediateComplexityBonus,
     auxilioBonus,
     overtimeBonus,
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
@@ -706,6 +489,8 @@ function createEmptySprintMetrics(
     bugRate: 0,
     bugsVsFeatures: 0,
     qualityScore: 0,
+    testScore: 0,
+    avgTestNote: 0,
     reunioesHours: 0,
     utilizationRate: 0,
     completionRate: 0,
@@ -713,14 +498,13 @@ function createEmptySprintMetrics(
     consistencyScore: 50,
     avgComplexity: 0,
     complexityDistribution: [1, 2, 3, 4, 5].map(level => ({ level, count: 0, avgAccuracy: 0 })),
-    performanceByComplexity: [1, 2, 3, 4, 5].map(level => ({ level, avgHours: 0, accuracy: 0 })),
+    performanceByComplexity: [],
     performanceScore: 0,
     baseScore: 0,
-    complexityBonus: 0,
     seniorityEfficiencyBonus: 0,
-    intermediateComplexityBonus: 0,
     auxilioBonus: 0,
     overtimeBonus: 0,
+    tasksImpactedByComplexityZone: 0,
     tasks: [],
   };
 }
@@ -735,16 +519,14 @@ export function calculateAllSprintsPerformance(
   developerName: string,
   sprints: string[]
 ): AllSprintsPerformanceMetrics {
-  // Calculate metrics for each sprint
   const sprintMetrics = sprints.map(sprint =>
     calculateSprintPerformance(tasks, developerId, developerName, sprint)
-  ).filter(m => m.tasksStarted > 0); // Only sprints where developer worked
+  ).filter(m => m.tasksStarted > 0);
   
   if (sprintMetrics.length === 0) {
     return createEmptyAllSprintsMetrics(developerId, developerName);
   }
   
-  // Aggregated metrics
   const totalSprints = sprintMetrics.length;
   const totalHoursWorked = sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0);
   const totalHoursEstimated = sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0);
@@ -753,30 +535,25 @@ export function calculateAllSprintsPerformance(
   const averageHoursPerSprint = totalHoursWorked / totalSprints;
   const averageTasksPerSprint = totalTasksCompleted / totalSprints;
   
-  // Average performance metrics
   const avgEstimationAccuracy = sprintMetrics.reduce((sum, m) => sum + m.estimationAccuracy, 0) / totalSprints;
   const avgAccuracyRate = sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / totalSprints;
   const avgBugRate = sprintMetrics.reduce((sum, m) => sum + m.bugRate, 0) / totalSprints;
   const avgQualityScore = sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / totalSprints;
   const avgPerformanceScore = sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / totalSprints;
   
-  // Efficiency & Completion metrics (NEW)
   const utilizationRate = sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / totalSprints;
   const completionRate = sprintMetrics.reduce((sum, m) => sum + m.completionRate, 0) / totalSprints;
   const avgTimeToComplete = sprintMetrics.reduce((sum, m) => sum + m.avgTimeToComplete, 0) / totalSprints;
   const consistencyScore = sprintMetrics.reduce((sum, m) => sum + m.consistencyScore, 0) / totalSprints;
   
-  // Complexity (NEW)
   const allTasksForComplexity = sprintMetrics.flatMap(m => m.tasks);
   const avgComplexity = allTasksForComplexity.length > 0
     ? allTasksForComplexity.reduce((sum, t) => sum + t.complexityScore, 0) / allTasksForComplexity.length
     : 0;
   
-  // Tendencies (NEW)
   const tendsToOverestimate = avgEstimationAccuracy > 10;
   const tendsToUnderestimate = avgEstimationAccuracy < -10;
   
-  // Complexity Distribution (NEW)
   const complexityDistribution = [1, 2, 3, 4, 5].map(level => {
     const tasksAtLevel = allTasksForComplexity.filter(t => t.complexityScore === level);
     const count = tasksAtLevel.length;
@@ -787,7 +564,6 @@ export function calculateAllSprintsPerformance(
     return { level, count, avgAccuracy };
   });
   
-  // Trends
   const accuracyValues = sprintMetrics.map(m => 100 - Math.abs(m.estimationAccuracy));
   const qualityValues = sprintMetrics.map(m => m.qualityScore);
   const productivityValues = sprintMetrics.map(m => m.totalHoursWorked);
@@ -796,7 +572,6 @@ export function calculateAllSprintsPerformance(
   const qualityTrend = determineTrend(qualityValues);
   const productivityTrend = determineTrend(productivityValues);
   
-  // Sprint breakdown
   const sprintBreakdown = sprintMetrics.map(m => ({
     sprintName: m.sprintName,
     performanceScore: m.performanceScore,
@@ -806,7 +581,6 @@ export function calculateAllSprintsPerformance(
     quality: m.qualityScore,
   }));
   
-  // Performance by complexity (aggregated across all sprints)
   const allTasks = allTasksForComplexity;
   const performanceByComplexity = [1, 2, 3, 4, 5].map(level => {
     const tasksAtLevel = allTasks.filter(t => t.complexityScore === level);
@@ -821,7 +595,6 @@ export function calculateAllSprintsPerformance(
     return { level, totalTasks, avgHours, accuracy };
   });
   
-  // Performance by type
   const performanceByType = (['Bug', 'Tarefa', 'História', 'Outro'] as const).map(type => {
     const tasksOfType = allTasks.filter(t => t.task.tipo === type);
     const count = tasksOfType.length;
@@ -926,7 +699,6 @@ export function calculateDeveloperComparisons(
   
   const totalDevelopers = metrics.length;
   
-  // Sort by each dimension
   const byAccuracy = [...metrics].sort((a, b) => 
     Math.abs(a.estimationAccuracy) - Math.abs(b.estimationAccuracy)
   );
@@ -993,7 +765,6 @@ export function calculateAllSprintsComparisons(
 export function generateSprintInsights(metrics: SprintPerformanceMetrics): PerformanceInsight[] {
   const insights: PerformanceInsight[] = [];
   
-  // Accuracy insights
   if (metrics.accuracyRate >= 70) {
     insights.push({
       type: 'positive',
@@ -1003,9 +774,6 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
       value: `${metrics.accuracyRate.toFixed(0)}%`,
     });
   } else if (metrics.accuracyRate < 50) {
-    // NOTE: totalHoursWorked includes all tasks (pending + completed)
-    // totalHoursEstimated includes only completed tasks (for performance calculations)
-    // This comparison is informational only - actual performance metrics use only completed tasks
     const variance = metrics.totalHoursWorked - metrics.totalHoursEstimated;
     const variancePercent = metrics.totalHoursEstimated > 0 
       ? ((variance / metrics.totalHoursEstimated) * 100).toFixed(0)
@@ -1022,7 +790,6 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Tendency insights
   if (metrics.tendsToUnderestimate) {
     const variance = metrics.totalHoursWorked - metrics.totalHoursEstimated;
     insights.push({
@@ -1045,9 +812,6 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Bug ratio insights - REMOVED: Bugs não indicam performance ruim, são apenas um tipo de tarefa
-  
-  // Utilization insights
   if (metrics.utilizationRate > 100) {
     insights.push({
       type: 'warning',
@@ -1067,10 +831,6 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Completion rate insights - REMOVED: Completion is now informative only
-  // Low completion doesn't necessarily mean bad performance (can be interrupted/realocated)
-  
-  // Complexity insights
   const highComplexityTasks = metrics.tasks.filter(t => t.complexityScore >= 4).length;
   if (highComplexityTasks > metrics.tasksStarted * 0.5) {
     insights.push({
@@ -1082,7 +842,6 @@ export function generateSprintInsights(metrics: SprintPerformanceMetrics): Perfo
     });
   }
   
-  // Overall performance
   if (metrics.performanceScore >= 85) {
     insights.push({
       type: 'positive',
@@ -1119,7 +878,6 @@ export function generateComparativeInsights(
 ): PerformanceInsight[] {
   const insights: PerformanceInsight[] = [];
   
-  // Efficiency comparison
   const efficiencyDiff = metrics.accuracyRate - teamAverage.accuracyRate;
   if (Math.abs(efficiencyDiff) >= 15) {
     if (efficiencyDiff > 0) {
@@ -1142,7 +900,6 @@ export function generateComparativeInsights(
     }
   }
   
-  // Performance score comparison
   const scoreDiff = metrics.performanceScore - teamAverage.performanceScore;
   if (Math.abs(scoreDiff) >= 10) {
     if (scoreDiff > 0) {
@@ -1164,7 +921,6 @@ export function generateComparativeInsights(
     }
   }
   
-  // Variance comparison
   const myVariance = ((metrics.totalHoursWorked - metrics.totalHoursEstimated) / Math.max(metrics.totalHoursEstimated, 1)) * 100;
   const teamVariance = ((teamAverage.totalHoursWorked - teamAverage.totalHoursEstimated) / Math.max(teamAverage.totalHoursEstimated, 1)) * 100;
   const varianceDiff = myVariance - teamVariance;
@@ -1196,7 +952,6 @@ export function generateComparativeInsights(
 export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics): PerformanceInsight[] {
   const insights: PerformanceInsight[] = [];
   
-  // Trend insights
   if (metrics.accuracyTrend === 'improving') {
     insights.push({
       type: 'positive',
@@ -1235,9 +990,6 @@ export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics
     });
   }
   
-  // Overall metrics insights
-  
-  // Consistency insights
   if (metrics.totalSprints >= 3) {
     const scoreVariation = calculateStdDev(
       metrics.sprintBreakdown.map(s => s.performanceScore)
@@ -1261,9 +1013,6 @@ export function generateAllSprintsInsights(metrics: AllSprintsPerformanceMetrics
 // CUSTOM PERIOD CALCULATIONS
 // =============================================================================
 
-/**
- * Calculate performance metrics for a custom period (multiple selected sprints)
- */
 export function calculateCustomPeriodPerformance(
   tasks: TaskItem[],
   developerId: string,
@@ -1271,8 +1020,6 @@ export function calculateCustomPeriodPerformance(
   selectedSprints: string[],
   periodName?: string
 ): CustomPeriodMetrics {
-  // Filter tasks for the selected sprints only
-  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in performance metrics
   const periodTasks = tasks.filter(t => 
     t.idResponsavel === developerId && 
     t.sprint &&
@@ -1281,7 +1028,6 @@ export function calculateCustomPeriodPerformance(
   );
   
   if (periodTasks.length === 0) {
-    // Return empty metrics if no tasks found
     return {
       developerId,
       developerName,
@@ -1314,7 +1060,6 @@ export function calculateCustomPeriodPerformance(
     };
   }
   
-  // Calculate metrics for each sprint in the period
   const sprintMetrics: SprintPerformanceMetrics[] = [];
   selectedSprints.forEach(sprint => {
     const metrics = calculateSprintPerformance(tasks, developerId, developerName, sprint);
@@ -1323,13 +1068,11 @@ export function calculateCustomPeriodPerformance(
     }
   });
   
-  // Aggregate metrics across sprints
   const totalHoursWorked = sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0);
   const totalHoursEstimated = sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0);
   const totalTasksCompleted = sprintMetrics.reduce((sum, m) => sum + m.tasksCompleted, 0);
   const totalTasksStarted = sprintMetrics.reduce((sum, m) => sum + m.tasksStarted, 0);
   
-  // Calculate averages
   const avgEstimationAccuracy = sprintMetrics.length > 0
     ? sprintMetrics.reduce((sum, m) => sum + m.estimationAccuracy, 0) / sprintMetrics.length
     : 0;
@@ -1351,7 +1094,6 @@ export function calculateCustomPeriodPerformance(
     ? sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / sprintMetrics.length
     : 0;
   
-  // Additional metrics (NEW)
   const utilizationRate = sprintMetrics.length > 0
     ? sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length
     : 0;
@@ -1368,17 +1110,14 @@ export function calculateCustomPeriodPerformance(
     ? sprintMetrics.reduce((sum, m) => sum + m.consistencyScore, 0) / sprintMetrics.length
     : 50;
   
-  // Complexity (NEW)
   const allTasks = sprintMetrics.flatMap(m => m.tasks);
   const avgComplexity = allTasks.length > 0
     ? allTasks.reduce((sum, t) => sum + t.complexityScore, 0) / allTasks.length
     : 0;
   
-  // Tendencies (NEW)
   const tendsToOverestimate = avgEstimationAccuracy > 10;
   const tendsToUnderestimate = avgEstimationAccuracy < -10;
   
-  // Complexity Distribution (NEW)
   const complexityDistribution = [1, 2, 3, 4, 5].map(level => {
     const tasksAtLevel = allTasks.filter(t => t.complexityScore === level);
     const count = tasksAtLevel.length;
@@ -1389,7 +1128,6 @@ export function calculateCustomPeriodPerformance(
     return { level, count, avgAccuracy };
   });
   
-  // Sprint breakdown
   const sprintBreakdown = sprintMetrics.map(m => ({
     sprintName: m.sprintName,
     performanceScore: m.performanceScore,
@@ -1399,7 +1137,6 @@ export function calculateCustomPeriodPerformance(
     quality: m.qualityScore,
   }));
   
-  // Performance by complexity (aggregate across sprints)
   const complexityMap = new Map<number, { totalTasks: number; totalHours: number; totalAccuracy: number }>();
 
   sprintMetrics.forEach(sprint => {
@@ -1424,7 +1161,6 @@ export function calculateCustomPeriodPerformance(
     }))
     .sort((a, b) => a.level - b.level);
 
-  // Performance by type
   const typeMap = new Map<string, { count: number; totalHours: number; totalAccuracy: number }>();
 
   periodTasks.forEach(task => {
@@ -1493,11 +1229,9 @@ export function calculateCustomPeriodPerformance(
 // =============================================================================
 
 export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAnalytics {
-  // Get all unique sprints and developers
   const sprints = Array.from(new Set(tasks.map(t => t.sprint).filter(s => s && s.trim() !== '')));
   const developers = Array.from(new Set(tasks.map(t => t.idResponsavel).filter(id => id && id.trim() !== '')));
   
-  // Create developer map (id -> name)
   const developerNames = new Map<string, string>();
   tasks.forEach(t => {
     if (t.idResponsavel && t.responsavel) {
@@ -1505,7 +1239,6 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     }
   });
   
-  // Calculate metrics by sprint
   const metricsBySprint = new Map<string, Map<string, SprintPerformanceMetrics>>();
   sprints.forEach(sprint => {
     const sprintMap = new Map<string, SprintPerformanceMetrics>();
@@ -1519,7 +1252,6 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     metricsBySprint.set(sprint, sprintMap);
   });
   
-  // Calculate all sprints metrics
   const allSprintsMetrics = new Map<string, AllSprintsPerformanceMetrics>();
   developers.forEach(devId => {
     const devName = developerNames.get(devId) || devId;
@@ -1529,7 +1261,6 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     }
   });
   
-  // Calculate comparisons
   const comparisonsBySprint = new Map<string, DeveloperComparison[]>();
   metricsBySprint.forEach((devMap, sprint) => {
     const metrics = Array.from(devMap.values());
@@ -1541,7 +1272,6 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     Array.from(allSprintsMetrics.values())
   );
   
-  // Generate insights
   const insightsBySprint = new Map<string, Map<string, PerformanceInsight[]>>();
   metricsBySprint.forEach((devMap, sprint) => {
     const sprintInsights = new Map<string, PerformanceInsight[]>();
@@ -1558,7 +1288,6 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     allSprintsInsights.set(devId, insights);
   });
   
-  // Metric explanations
   const explanations = new Map<string, MetricExplanation>(
     Object.entries(METRIC_EXPLANATIONS)
   );

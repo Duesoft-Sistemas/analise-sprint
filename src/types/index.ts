@@ -219,11 +219,9 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-150 weighted score (base + complexity bonus + intermediate complexity bonus + seniority bonus + auxilio bonus + overtime bonus)
+  performanceScore: number; // 0-150 weighted score (base + seniority bonus + auxilio bonus + overtime bonus)
   baseScore: number; // 0-100 base score without bonuses
-  complexityBonus: number; // 0-10 bonus for working on complex tasks (level 4-5)
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
-  intermediateComplexityBonus: number; // 0-5 bonus for executing complexity 3 tasks with high efficiency
   auxilioBonus: number; // 0-10 bonus for helping other developers
   overtimeBonus: number; // 0-10 bonus for working extra hours (>40h) with high quality
   

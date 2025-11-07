@@ -47,9 +47,9 @@ Score geral combinando qualidade e eficiência de execução.
 ```
 Base Score (0-100) = (Qualidade × 0.50) + (Eficiência de Execução × 0.50)
 
-Performance Score = Base Score + Bonus Complexidade (0-10) + Bonus Senioridade (0-15) + Bonus Complexidade 3 (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
+Performance Score = Base Score + Bonus Senioridade (0-15) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
 
-Score Máximo: 150
+Score Máximo: 135
 ```
 
 ### Componentes
@@ -69,24 +69,13 @@ Score Máximo: 150
   - Bug na Zona Aceitável = **0.5 pontos**
   - Tarefa Ineficiente = **0 pontos**
 
-**3. Bonus de Complexidade (0-10):**
-- Fórmula: `(% de tarefas complexas nível 4-5 / 100) × 10`
-- Arredondamento: `Math.round()`
-
-**4. Bonus de Senioridade (0-15):**
+**3. Bonus de Senioridade (0-15):**
 - Fórmula: `(% de tarefas complexas nível 4-5 eficientes / 100) × 15`
 - Aplica para Features e Bugs complexos (nível 4-5)
 - Apenas tarefas altamente eficientes contam (zona aceitável não conta)
 - Arredondamento: `Math.round()`
 
-**5. Bonus de Complexidade 3 (0-5):**
-- Fórmula: `(% de tarefas complexidade 3 eficientes / 100) × 5`
-- Aplica para Features e Bugs complexidade 3
-- Features: dentro da tolerância de eficiência (+20%)
-- Bugs: zona eficiente apenas (não aceitável)
-- Arredondamento: `Math.round()`
-
-**6. Bonus de Auxílio (0-10):**
+**4. Bonus de Auxílio (0-10):**
 - Escala progressiva baseada em horas de auxílio
 - Identificação: Campo "Detalhes Ocultos" = "Auxilio" (case-insensitive)
 - Função de cálculo:
@@ -101,7 +90,7 @@ Score Máximo: 150
   auxilioHours < 0.5: 0 pontos
   ```
 
-**7. Bonus de Horas Extras (0-10):**
+**5. Bonus de Horas Extras (0-10):**
 - Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
 - Escala progressiva similar ao bônus de auxílio, baseada nas horas totais que excedem 40h/semana.
 
@@ -175,7 +164,7 @@ Score Máximo: 150
 - Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: **Aceitável = 0.5 pontos**
 - Se horas gastas > maxAcceptableHours: **Ineficiente = 0 pontos**
 
-**IMPORTANTE:** A "Zona Aceitável" agora concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para os bônus de Senioridade e Complexidade 3, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
+**IMPORTANTE:** A "Zona Aceitável" agora concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para o bônus de Senioridade, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
 
 **Exemplo:**
 - Bug complexidade 1 gastou 2h = ✅ eficiente (1.0 pt)
@@ -243,119 +232,28 @@ image.png| Complexidade | Limite Inferior (atraso permitido) |
 
 Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
 
-## Bonus de Complexidade, Senioridade e Auxílio
-
-### Bonus de Complexidade (4-5)
-
-**Range:** 0-10 pontos
-
-**Cálculo:**
-```
-% tarefas complexas (nível 4-5) = (Tarefas complexas / Total de tarefas) × 100
-Bonus = Math.round((% tarefas complexas / 100) × 10)
-```
-
-**Definição:**
-- Tarefas complexas: `complexidade >= 4`
-
-### Bonus de Senioridade
-
-**Range:** 0-15 pontos
-
-**Aplicação:** Features e Bugs complexos (nível 4-5)
-
-**Cálculo:**
-```
-1. Filtrar tarefas complexas (nível 4-5) concluídas
-2. Contar tarefas eficientes:
-   - Features: dentro da tolerância de eficiência (ver seção Eficiência)
-   - Bugs: zona eficiente apenas (zona aceitável não conta)
-3. % eficiência = (Tarefas eficientes / Total tarefas complexas) × 100
-4. Bonus = Math.round((% eficiência / 100) × 15)
-```
-
-**Critério de eficiência para Features complexas:**
-- Desvio >= -30% (complexidade 4) ou >= -40% (complexidade 5)
-- OU desvio > 0 (executou mais rápido, até +50%)
-
-**Critério de eficiência para Bugs complexos:**
-- Horas gastas ≤ maxEfficientHours para a complexidade
-- Zona aceitável NÃO conta
-
-### Bonus de Complexidade 3
-
-**Range:** 0-5 pontos
-
-**Aplicação:** Features e Bugs complexidade 3
-
-**Cálculo:**
-```
-1. Filtrar tarefas complexidade 3 concluídas
-2. Contar tarefas eficientes:
-   - Features: dentro da tolerância de eficiência (+20%)
-   - Bugs: zona eficiente apenas (≤ 8h)
-3. % eficiência = (Tarefas eficientes / Total tarefas complexidade 3) × 100
-4. Bonus = Math.round((% eficiência / 100) × 5)
-```
-
-**Critério de eficiência para Features complexidade 3:**
-- Desvio >= -20%
-- OU desvio > 0 (executou mais rápido, até +50%)
-
-**Critério de eficiência para Bugs complexidade 3:**
-- Horas gastas ≤ 8h
-- Zona aceitável (8h < x ≤ 16h) NÃO conta
-
-### Bonus de Auxílio
-
-**Range:** 0-10 pontos
-
-**Identificação:**
-- Campo "Detalhes Ocultos" = "Auxilio" (normalização case-insensitive, sem acentos)
-- Identificação: normalização NFD + lowercase compara com "auxilio"
-- Variantes aceitas: "Auxilio", "auxilio", "Auxílio", "AUXILIO", etc. (todos reconhecidos)
-
-**Cálculo:**
-```
-auxilioHours = soma de tempoGastoNoSprint de tarefas marcadas como "Auxilio"
-
-Função calculateAuxilioBonus(auxilioHours):
-  if auxilioHours <= 0: return 0
-  if auxilioHours >= 16: return 10
-  if auxilioHours >= 12: return 9
-  if auxilioHours >= 8: return 7
-  if auxilioHours >= 6: return 5
-  if auxilioHours >= 4: return 4
-  if auxilioHours >= 2: return 2
-  return 1  // 0.5h < auxilioHours < 2h
-```
-
-**Observação:** Usa `tempoGastoNoSprint` (tempo gasto no sprint atual) para cálculo.
-
-**Intervalos da Escala:**
-- [0, 0.5h): 0 pontos
-- [0.5h, 2h): 1 ponto
-- [2h, 4h): 2 pontos
-- [4h, 6h): 4 pontos
-- [6h, 8h): 5 pontos
-- [8h, 12h): 7 pontos
-- [12h, 16h): 9 pontos
-- [16h, ∞): 10 pontos (máximo)
-
-### Bonus de Horas Extras
-
-**Range:** 0-10 pontos
-
-**Identificação:**
-- Campo "Detalhes Ocultos" contém "HoraExtra", "Hora Extra", "Horas Extras" ou "HorasExtras".
-
-**Regra de Qualidade:**
-- O bônus só é concedido se a **nota média de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta.
-- Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra não entram no cálculo dessa média de qualidade.
-
-**Cálculo:**
-- O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excederem 40h na semana.
-- A escala é progressiva e idêntica à do Bônus de Auxílio.
+## Bônus
+ 
+ ### Bônus de Senioridade
+ 
+ - **O que é:** Recompensa executar tarefas complexas (nível 4-5, incluindo bugs) com alta eficiência.
+ - **Cálculo:** `% de tarefas complexas eficientes × 15`.
+ 
+ ### Bônus de Auxílio
+ 
+ - **O que é:** Recompensa ajudar outros desenvolvedores.
+ - **Cálculo:** Baseado na quantidade de horas gastas em tarefas de "Auxílio".
+ 
+ ### Bônus de Horas Extras
+ 
+ - **O que é:** Reconhece esforço adicional com alta qualidade.
+ - **Cálculo:** Baseado nas horas que excedem 40h/semana, com nota média de teste ≥ 4.0.
+ 
+## Score de Performance Final (Máx 135)
+ 
+ O score final é a soma do Score Base com todos os bônus aplicáveis.
+ 
+ `Score Base (0-100) + Bônus Senioridade (0-15) + Bônus Auxílio (0-10) + Bônus Horas Extras (0-10)`
 
 ## Casos Especiais e Edge Cases
 
