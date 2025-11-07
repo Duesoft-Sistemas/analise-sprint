@@ -116,6 +116,9 @@ export const PERFORMANCE_SCORE_WEIGHTS = {
 /** Bonus máximo por executar tarefas complexas com alta eficiência (seniority) */
 export const MAX_SENIORITY_EFFICIENCY_BONUS = 15;
 
+/** Bonus máximo por executar tarefas de complexidade média (3) com alta eficiência */
+export const MAX_COMPLEXITY_3_BONUS = 5;
+
 /** Bonus máximo por ajudar outros desenvolvedores (auxílio) */
 export const MAX_AUXILIO_BONUS = 10;
 

@@ -47,9 +47,9 @@ Score geral combinando qualidade e eficiência de execução.
 ```
 Base Score (0-100) = (Qualidade × 0.50) + (Eficiência de Execução × 0.50)
 
-Performance Score = Base Score + Bonus Senioridade (0-15) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
+Performance Score = Base Score + Bonus Senioridade (0-15) + Bonus Competência (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
 
-Score Máximo: 135
+Score Máximo: 140
 ```
 
 ### Componentes
@@ -69,13 +69,18 @@ Score Máximo: 135
   - Bug na Zona Aceitável = **0.5 pontos**
   - Tarefa Ineficiente = **0 pontos**
 
-**3. Bonus de Senioridade (0-15):**
-- Fórmula: `(% de tarefas complexas nível 4-5 eficientes / 100) × 15`
+**3. Bônus de Senioridade (0-15):**
+- Fórmula: `(% de tarefas complexas nível 4-5 eficientes com nota de teste ≥ 4 / 100) × 15`
 - Aplica para Features e Bugs complexos (nível 4-5)
-- Apenas tarefas altamente eficientes contam (zona aceitável não conta)
+- Apenas tarefas altamente eficientes e com nota de teste ≥ 4 contam (zona aceitável não conta)
 - Arredondamento: `Math.round()`
 
-**4. Bonus de Auxílio (0-10):**
+**4. Bônus de Competência (0-5):**
+- Fórmula: `(% de tarefas de média complexidade nível 3 eficientes com nota de teste ≥ 4 / 100) × 5`
+- Aplica para Features e Bugs de nível 3.
+- Apenas tarefas altamente eficientes e com nota de teste ≥ 4 contam.
+
+**5. Bônus de Auxílio (0-10):**
 - Escala progressiva baseada em horas de auxílio
 - Identificação: Campo "Detalhes Ocultos" = "Auxilio" (case-insensitive)
 - Função de cálculo:
@@ -90,7 +95,7 @@ Score Máximo: 135
   auxilioHours < 0.5: 0 pontos
   ```
 
-**5. Bonus de Horas Extras (0-10):**
+**6. Bônus de Horas Extras (0-10):**
 - Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
 - Escala progressiva similar ao bônus de auxílio, baseada nas horas totais que excedem 40h/semana.
 
@@ -236,8 +241,13 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
  
  ### Bônus de Senioridade
  
- - **O que é:** Recompensa executar tarefas complexas (nível 4-5, incluindo bugs) com alta eficiência.
- - **Cálculo:** `% de tarefas complexas eficientes × 15`.
+ - **O que é:** Recompensa executar tarefas complexas (nível 4-5, incluindo bugs) com alta eficiência e alta qualidade.
+ - **Cálculo:** `% de tarefas complexas eficientes com nota de teste ≥ 4 × 15`.
+
+### Bônus de Competência
+
+- **O que é:** Recompensa executar tarefas de média complexidade (nível 3) com alta eficiência e alta qualidade.
+- **Cálculo:** `% de tarefas médias eficientes com nota de teste ≥ 4 × 5`.
  
  ### Bônus de Auxílio
  
@@ -249,11 +259,11 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
  - **O que é:** Reconhece esforço adicional com alta qualidade.
  - **Cálculo:** Baseado nas horas que excedem 40h/semana, com nota média de teste ≥ 4.0.
  
-## Score de Performance Final (Máx 135)
+## Score de Performance Final (Máx 140)
  
  O score final é a soma do Score Base com todos os bônus aplicáveis.
  
- `Score Base (0-100) + Bônus Senioridade (0-15) + Bônus Auxílio (0-10) + Bônus Horas Extras (0-10)`
+ `Score Base (0-100) + Bônus Senioridade (0-15) + Bônus Competência (0-5) + Bônus Auxílio (0-10) + Bônus Horas Extras (0-10)`
 
 ## Casos Especiais e Edge Cases
 

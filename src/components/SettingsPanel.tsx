@@ -20,6 +20,7 @@ import {
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_AUXILIO_BONUS,
   MAX_OVERTIME_BONUS,
+  MAX_COMPLEXITY_3_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
 } from '../config/performanceConfig';
 
@@ -266,7 +267,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                         <p className="text-sm text-indigo-800 dark:text-indigo-200">
                           <Info className="w-4 h-4 inline mr-1" />
-                          <strong>Bonus de Senioridade:</strong> até +{MAX_SENIORITY_EFFICIENCY_BONUS} pontos por executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência (apenas zona eficiente conta, zona aceitável não conta mais)
+                          <strong>Bônus de Senioridade:</strong> até +{MAX_SENIORITY_EFFICIENCY_BONUS} pontos por executar tarefas complexas (nível 4-5) com alta eficiência.
+                        </p>
+                      </div>
+                      <div className="p-3 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg">
+                        <p className="text-sm text-teal-800 dark:text-teal-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          <strong>Bônus de Competência:</strong> até +{MAX_COMPLEXITY_3_BONUS} pontos por executar tarefas de complexidade média (nível 3) com alta eficiência.
                         </p>
                       </div>
                       <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">

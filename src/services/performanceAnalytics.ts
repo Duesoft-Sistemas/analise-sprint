@@ -14,6 +14,7 @@ import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
   MAX_SENIORITY_EFFICIENCY_BONUS,
+  MAX_COMPLEXITY_3_BONUS,
   MIN_OVERTIME_TEST_NOTE,
   STANDARD_WEEKLY_HOURS,
 } from '../config/performanceConfig';
@@ -73,10 +74,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bonus Senioridade (0-15) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência de execução ajustada por complexidade. BONUS SENIORIDADE: Executar tarefas complexas (FEATURES e BUGS complexos nível 4-5) com alta eficiência (dentro dos limites esperados) adiciona até +15 pontos! Bugs complexos agora também contam para bonus de senioridade. BONUS AUXÍLIO: Ajudar outros desenvolvedores com tarefas de auxílio adiciona até +10 pontos (escala progressiva: 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). BONUS HORAS EXTRAS: Trabalhar horas extras (>40h/semana) com qualidade alta (nota ≥ 4) adiciona até +10 pontos (escala progressiva: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts). ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras - ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta. Score máximo: 135. Utilização e Conclusão NÃO fazem parte do score pois podem ser afetadas por fatores externos (sobrecarga, interrupções).',
-    interpretation: '115+ = excepcional (com bonuses), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. Bonus de senioridade recompensa executar tarefas complexas (features e bugs) dentro dos limites de horas esperados - este é o indicador principal de senioridade. Bonus de auxílio reconhece tempo dedicado a ajudar colegas. Bonus de horas extras reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota ≥ 4) - apenas horas acima de 40h em tarefas concluídas com qualidade alta contam.',
-    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Se executou complexas com alta eficiência: 82.5 + 12 (senioridade) = 94.5. Se ajudou 8h: 94.5 + 7 (auxílio) = 101.5. Se trabalhou 8h extras com qualidade alta: 101.5 + 7 (horas extras) = 108.5 🏆⭐',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bônus (Senioridade + Comp. Média + Auxílio + H. Extras)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência. BÔNUS DE SENIORIDADE: Executar tarefas complexas (nível 4-5) com alta eficiência adiciona até +15 pontos. BÔNUS DE COMPETÊNCIA: Executar tarefas de complexidade média (nível 3) com alta eficiência adiciona um bônus de até +5 pontos. BÔNUS DE AUXÍLIOS: Ajudar outros desenvolvedores adiciona até +10 pontos. BÔNUS DE HORAS EXTRAS: Trabalhar horas extras com qualidade alta (nota ≥ 4) adiciona até +10 pontos. O score máximo é 140.',
+    interpretation: '115+ = excepcional (com bônus), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. O Bônus de Senioridade recompensa a execução de tarefas de alta complexidade, enquanto o Bônus de Competência incentiva a eficiência em tarefas de média complexidade. Ambos são indicadores chave de desempenho.',
+    example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Bônus: +12 (senioridade) + 4 (comp. média) + 7 (auxílio) = 105.5. Score Final: 105.5 🏆⭐',
   },
   
   bugsVsFeatures: {
@@ -139,33 +140,93 @@ function getEfficiencyThreshold(complexity: number): { faster: number; slower: n
 // BONUS CALCULATIONS
 // =============================================================================
 
-function calculateSeniorityEfficiencyBonus(
+function calculateEfficiencyBonuses(
   taskMetrics: TaskPerformanceMetrics[]
-): number {
-  const complexTasks = taskMetrics.filter(t => 
+): { 
+  seniorityBonus: number; 
+  competenceBonus: number;
+  seniorityBonusTasks: TaskItem[];
+  competenceBonusTasks: TaskItem[];
+} {
+  const seniorityBonusTasks: TaskItem[] = [];
+  const competenceBonusTasks: TaskItem[] = [];
+
+  // Tarefas de Senioridade (nível 4 e 5)
+  const seniorTasks = taskMetrics.filter(t => 
     t.complexityScore >= 4 && t.hoursEstimated > 0
   );
   
-  if (complexTasks.length === 0) return 0;
+  // Tarefas de complexidade média (nível 3)
+  const mediumTasks = taskMetrics.filter(t => 
+    t.complexityScore === 3 && t.hoursEstimated > 0
+  );
   
-  let highlyEfficientComplex = 0;
-  
-  for (const task of complexTasks) {
-    if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
-      if (task.efficiencyImpact.zone === 'efficient') {
-        highlyEfficientComplex++;
+  let seniorBonus = 0;
+  if (seniorTasks.length > 0) {
+    let highlyEfficientSenior = 0;
+    for (const task of seniorTasks) {
+      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+      if (!hasGoodQuality) continue;
+
+      let isEfficient = false;
+      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+        if (task.efficiencyImpact.zone === 'efficient') {
+          highlyEfficientSenior++;
+          isEfficient = true;
+        }
+      } else {
+        const deviation = task.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(task.complexityScore);
+        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+          highlyEfficientSenior++;
+          isEfficient = true;
+        }
       }
-    } else {
-      const deviation = task.estimationAccuracy;
-      const threshold = getEfficiencyThreshold(task.complexityScore);
-      if (deviation > 0 || (deviation < 0 && deviation >= threshold.slower)) {
-        highlyEfficientComplex++;
+
+      if (isEfficient) {
+        seniorityBonusTasks.push(task.task);
       }
     }
+    const seniorEfficiencyScore = highlyEfficientSenior / seniorTasks.length;
+    seniorBonus = seniorEfficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS;
   }
   
-  const efficiencyScore = highlyEfficientComplex / complexTasks.length;
-  return Math.round(efficiencyScore * MAX_SENIORITY_EFFICIENCY_BONUS);
+  let competenceBonus = 0;
+  if (mediumTasks.length > 0) {
+    let highlyEfficientMedium = 0;
+    for (const task of mediumTasks) {
+      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+      if (!hasGoodQuality) continue;
+      
+      let isEfficient = false;
+      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+        if (task.efficiencyImpact.zone === 'efficient') {
+          highlyEfficientMedium++;
+          isEfficient = true;
+        }
+      } else {
+        const deviation = task.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(task.complexityScore);
+        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+          highlyEfficientMedium++;
+          isEfficient = true;
+        }
+      }
+
+      if (isEfficient) {
+        competenceBonusTasks.push(task.task);
+      }
+    }
+    const mediumEfficiencyScore = highlyEfficientMedium / mediumTasks.length;
+    competenceBonus = mediumEfficiencyScore * MAX_COMPLEXITY_3_BONUS;
+  }
+  
+  return {
+    seniorityBonus: Math.round(seniorBonus),
+    competenceBonus: Math.round(competenceBonus),
+    seniorityBonusTasks,
+    competenceBonusTasks,
+  };
 }
 
 function calculateAuxilioBonus(auxilioHours: number): number {
@@ -188,18 +249,18 @@ function isOvertimeTask(task: TaskItem): boolean {
 
 function calculateOvertimeBonus(
   tasks: TaskPerformanceMetrics[]
-): number {
+): { bonus: number; tasks: TaskItem[] } {
   const totalWorkHours = tasks
     .filter(t => isCompletedStatus(t.task.status))
     .reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
 
   const overtimeHours = Math.max(0, totalWorkHours - STANDARD_WEEKLY_HOURS);
 
-  if (overtimeHours === 0) return 0;
+  if (overtimeHours === 0) return { bonus: 0, tasks: [] };
 
   const overtimeTasks = tasks.filter(t => isOvertimeTask(t.task));
 
-  if (overtimeTasks.length === 0) return 0;
+  if (overtimeTasks.length === 0) return { bonus: 0, tasks: [] };
 
   const qualityOvertimeTasks = overtimeTasks.filter(
     t => !isAuxilioTask(t.task) && !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined
@@ -211,17 +272,20 @@ function calculateOvertimeBonus(
       qualityOvertimeTasks.length;
 
     if (avgNote < MIN_OVERTIME_TEST_NOTE) {
-      return 0;
+      return { bonus: 0, tasks: [] };
     }
   }
 
-  if (overtimeHours >= 16) return 10;
-  if (overtimeHours >= 12) return 9;
-  if (overtimeHours >= 8) return 7;
-  if (overtimeHours >= 6) return 5;
-  if (overtimeHours >= 4) return 4;
-  if (overtimeHours >= 2) return 2;
-  return 1;
+  let bonus = 0;
+  if (overtimeHours >= 16) bonus = 10;
+  else if (overtimeHours >= 12) bonus = 9;
+  else if (overtimeHours >= 8) bonus = 7;
+  else if (overtimeHours >= 6) bonus = 5;
+  else if (overtimeHours >= 4) bonus = 4;
+  else if (overtimeHours >= 2) bonus = 2;
+  else bonus = 1;
+  
+  return { bonus, tasks: overtimeTasks.map(t => t.task) };
 }
 
 // =============================================================================
@@ -415,15 +479,15 @@ export function calculateSprintPerformance(
     ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
     : executionEfficiency;
   
-  const seniorityEfficiencyBonus = calculateSeniorityEfficiencyBonus(completedMetrics);
+  const { seniorityBonus, competenceBonus, seniorityBonusTasks, competenceBonusTasks } = calculateEfficiencyBonuses(completedMetrics);
   
   const auxilioTasks = devTasks.filter(t => isAuxilioTask({ detalhesOcultos: t.detalhesOcultos }));
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  const overtimeBonus = calculateOvertimeBonus(completedMetrics);
+  const { bonus: overtimeBonus, tasks: overtimeBonusTasks } = calculateOvertimeBonus(completedMetrics);
   
-  const performanceScore = Math.min(135, baseScoreFinal + seniorityEfficiencyBonus + auxilioBonus + overtimeBonus);
+  const performanceScore = Math.min(140, baseScoreFinal + seniorityBonus + competenceBonus + auxilioBonus + overtimeBonus);
   
   return {
     developerId,
@@ -455,9 +519,13 @@ export function calculateSprintPerformance(
     performanceByComplexity,
     performanceScore,
     baseScore: baseScoreFinal,
-    seniorityEfficiencyBonus,
+    seniorityEfficiencyBonus: seniorityBonus,
+    competenceBonus: competenceBonus,
     auxilioBonus,
     overtimeBonus,
+    seniorityBonusTasks,
+    competenceBonusTasks,
+    overtimeBonusTasks,
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
     complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
       ? `${tasksImpactedByComplexityZone} tarefa(s) ${tasksImpactedByComplexityZone === 1 ? 'foi' : 'foram'} avaliada(s) pela zona de eficiência por complexidade (horas excessivas para a complexidade)`
@@ -502,8 +570,12 @@ function createEmptySprintMetrics(
     performanceScore: 0,
     baseScore: 0,
     seniorityEfficiencyBonus: 0,
+    competenceBonus: 0,
     auxilioBonus: 0,
     overtimeBonus: 0,
+    seniorityBonusTasks: [],
+    competenceBonusTasks: [],
+    overtimeBonusTasks: [],
     tasksImpactedByComplexityZone: 0,
     tasks: [],
   };

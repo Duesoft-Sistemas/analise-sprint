@@ -158,10 +158,13 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           <strong>Base Score</strong> = (50% × Qualidade) + (50% × Eficiência)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300">
-                          <strong>Score Final</strong> = Base Score + Bonus de Senioridade (0-15 pontos) + Bonus de Auxílio (0-10 pontos)
+                          <strong>Score Final</strong> = Base Score + Bônus de Senioridade (0-15) + Bônus de Competência (0-5) + Bônus de Auxílio (0-10)
                         </p>
                         <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
-                          💡 <strong>Bonus de Senioridade:</strong> Este é o indicador principal de senioridade! Recompensa executar tarefas complexas (features e bugs complexidade 4-5) com alta eficiência (dentro dos limites de horas esperados).
+                          💡 <strong>Bônus de Senioridade:</strong> Recompensa a execução eficiente de tarefas de alta complexidade (nível 4-5).
+                        </p>
+                        <p className="text-gray-700 dark:text-gray-300 mt-1 text-xs italic">
+                          💡 <strong>Bônus de Competência:</strong> Recompensa a execução eficiente de tarefas de média complexidade (nível 3).
                         </p>
                       </div>
                       
@@ -177,10 +180,10 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                           • Base Score = (80 × 0.5) + (70 × 0.5) = <strong>75 pontos</strong>
                         </p>
                         <p className="text-gray-700 dark:text-gray-300">
-                          • Se executou complexas com alta eficiência: +10 pontos de bonus (senioridade) ⭐
+                          • Bônus: +10 (senioridade) +4 (competência) ⭐
                         </p>
                         <p className="text-gray-700 dark:text-gray-300 font-bold mt-2">
-                          • Score Final = <strong>85 pontos</strong> 🏆⭐
+                          • Score Final = 75 + 14 = <strong>89 pontos</strong> 🏆⭐
                         </p>
                       </div>
 
@@ -285,19 +288,19 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 </div>
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                    Bonus de Senioridade (+15 pontos) ⭐
+                    Bônus de Senioridade (+15 pontos) ⭐
                   </h4>
                   <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-3 font-semibold">
-                    🎯 Este é o indicador principal de senioridade!
+                    🎯 Indicador principal de senioridade!
                   </p>
                   <div className="space-y-3 text-sm">
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        Executar tarefas complexas (features e bugs nível 4-5) <strong>com alta eficiência</strong> te dá um bonus ainda maior!
+                        Executar tarefas de <strong>alta complexidade (nível 4-5)</strong> com alta eficiência.
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mt-2">
-                        <strong>Bonus</strong> = (% de eficiência em tarefas complexas) × 15 pontos
+                        <strong>Bônus</strong> = (% de eficiência em tarefas complexas) × 15 pontos
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
                         • <strong>Features:</strong> Eficiente dentro dos limites de desvio percentual = peso 1.0
@@ -344,6 +347,41 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   </div>
                 </div>
               </div>
+
+            {/* NOVO: Bonus de Competência (Complexidade 3) */}
+            <div className="mb-6 p-5 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/30 dark:to-teal-900/30 rounded-xl border-2 border-green-300 dark:border-green-700">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-green-500 rounded-lg text-white">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    Bônus de Competência (+5 pontos) ✨
+                  </h4>
+                  <p className="text-sm text-green-700 dark:text-green-300 mb-3 font-semibold">
+                    🎯 Incentivo para eficiência em tarefas do dia a dia.
+                  </p>
+                  <div className="space-y-3 text-sm">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">📐 Como é Calculado:</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-2">
+                        Executar tarefas de <strong>média complexidade (nível 3)</strong> com alta eficiência.
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 mt-2">
+                        <strong>Bônus</strong> = (% de eficiência em tarefas médias) × 5 pontos
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Por que este bônus existe?</p>
+                      <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+                        <li>• Reconhece a importância de executar bem as tarefas mais comuns.</li>
+                        <li>• Demonstra consistência e domínio técnico nas atividades rotineiras.</li>
+                        <li>• Garante que a eficiência seja valorizada em todos os níveis de complexidade.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Exemplo Completo do Cálculo */}
@@ -358,7 +396,8 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                   <div className="space-y-2 text-gray-700 dark:text-gray-300">
                     <p><strong>1. Qualidade:</strong> Você teve nota média de 4.2 → <strong>84 pontos</strong></p>
                     <p><strong>2. Eficiência:</strong> 8 de 10 tarefas foram eficientes → <strong>80 pontos</strong></p>
-                    <p><strong>3. Bonus Senioridade:</strong> Executou complexas com 80% eficiência → <strong>+12 pontos</strong> ⭐</p>
+                    <p><strong>3. Bônus Senioridade:</strong> Executou complexas com 80% eficiência → <strong>+12 pontos</strong> ⭐</p>
+                    <p><strong>4. Bônus Competência:</strong> Executou médias com 100% eficiência → <strong>+5 pontos</strong> ✨</p>
                   </div>
                 </div>
                 
@@ -370,9 +409,9 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                     <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
                       Base Score = 82 pontos
                     </p>
-                    <p className="mt-3">Score Final = 82 + 12 (senioridade)</p>
+                    <p className="mt-3">Score Final = 82 + 12 (senioridade) + 5 (competência)</p>
                     <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      Score Final = 94 pontos 🏆⭐
+                      Score Final = 99 pontos 🏆⭐
                     </p>
                   </div>
                 </div>

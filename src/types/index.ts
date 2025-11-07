@@ -222,8 +222,14 @@ export interface SprintPerformanceMetrics {
   performanceScore: number; // 0-150 weighted score (base + seniority bonus + auxilio bonus + overtime bonus)
   baseScore: number; // 0-100 base score without bonuses
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
+  competenceBonus: number; // Adicionado
   auxilioBonus: number; // 0-10 bonus for helping other developers
   overtimeBonus: number; // 0-10 bonus for working extra hours (>40h) with high quality
+  
+  // Bonus tasks breakdown
+  seniorityBonusTasks?: TaskItem[];
+  competenceBonusTasks?: TaskItem[];
+  overtimeBonusTasks?: TaskItem[];
   
   // Raw data
   tasks: TaskPerformanceMetrics[];

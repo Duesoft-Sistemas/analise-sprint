@@ -83,36 +83,28 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 
 ### Os Bônus (0-50 pontos)
 
-**Total máximo de bônus:** 15 (Senioridade) + 10 (Auxílio) + 10 (Horas Extras) = 35 pontos
+**Total máximo de bônus:** 15 (Senioridade) + 5 (Competência) + 10 (Auxílio) + 10 (Horas Extras) = 40 pontos
 
 Você ganha pontos extras por:
 
-1. **Fazer tarefas complexas bem** (+0 a 15 pontos) 🎯
+1. **Bônus de Senioridade: Fazer tarefas complexas bem** (+0 a 15 pontos) 🎯
    - **Este é o indicador principal de senioridade!**
-   - Não basta pegar tarefa difícil, tem que fazer bem também!
-   - Aplica para **Features e Bugs complexos** (nível 4-5)
-   - **Cálculo:**
-     - **Altamente eficiente** = conta 1.0 (dentro dos limites esperados)
-     - **Ineficiente** = não conta (0)
-     - **Importante:** Apenas tarefas altamente eficientes contam (Bugs na zona aceitável **NÃO** contam para este bônus).
-   - **Exemplo prático:**
-     ```
-     Você tem 4 tarefas complexas (2 features + 2 bugs):
-     - 2 features altamente eficientes = 2 × 1.0 = 2.0
-     - 1 bug altamente eficiente = 1 × 1.0 = 1.0
-     - 1 bug na zona aceitável = não conta (0 pts)
-     
-     Score: (2.0 + 1.0) / 4 = 75% eficiência
-     Bônus: 75% × 15 = +11 pontos! 🏆
-     ```
-   - **Bugs complexos também contam:** Executar bugs complexos com eficiência mostra habilidade de debugging avançada! 🐛✨
+   - Aplica para **Features e Bugs de alta complexidade** (nível 4-5).
+   - **Cálculo:** `(% de eficiência em tarefas 4-5 com nota de teste ≥ 4) × 15 pontos`.
+   - **Importante:** Apenas tarefas altamente eficientes e com alta qualidade (nota de teste 4 ou 5) contam. Bugs na "zona aceitável" **NÃO** contam para este bônus.
 
-2. **Auxílio à Equipe** (+0 a 10 pontos) 🤝
-   - Recompensa ajudar outros desenvolvedores
+2. **Bônus de Competência: Fazer tarefas médias bem** (+0 a 5 pontos) ✨
+   - Incentivo para ser eficiente nas tarefas mais comuns do dia a dia.
+   - Aplica para **Features e Bugs de média complexidade** (nível 3).
+   - **Cálculo:** `(% de eficiência em tarefas 3 com nota de teste ≥ 4) × 5 pontos`.
+   - **Importante:** Apenas tarefas eficientes e com alta qualidade (nota de teste 4 ou 5) são elegíveis para este bônus.
+
+3. **Auxílio à Equipe** (+0 a 10 pontos) 🤝
+   - Recompensa ajudar outros desenvolvedores.
    - **Cálculo:** Baseado nas horas gastas em tarefas de "Auxílio".
 
-3. **Horas Extras com Qualidade** (+0 a 10 pontos) ⏰
-   - Reconhece o esforço extra quando ele é produtivo
+4. **Horas Extras com Qualidade** (+0 a 10 pontos) ⏰
+   - Reconhece o esforço extra quando ele é produtivo e mantém a alta qualidade.
 
 ## 💡 Exemplos Práticos
 
@@ -312,20 +304,11 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
    - Features: 1.0 pt se eficiente, 0 se ineficiente
    - Bugs: 1.0 pt (zona eficiente), 0.5 pts (zona aceitável), 0 pts (ineficiente)
 3. **Base:** (50% × Qualidade) + (50% × Eficiência)
-4. **Bonus Senioridade:** Eficiência em tarefas complexas (4-5) × 15
-   - Apenas tarefas altamente eficientes contam (zona aceitável **NÃO** conta)
-   - Features: dentro da tolerância (+30%)
-   - Bugs: zona eficiente apenas
-5. **Bonus Auxílio:** Escala progressiva (2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts)
-6. **Bonus Horas Extras:** Escala progressiva baseada em horas extras trabalhadas com qualidade alta
-   - ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras
-   - Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta
-   - **Como marcar:** Coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras") no campo "Detalhes Ocultos" da tarefa
-   - **Regra:** O bônus só é concedido se a **nota MÉDIA de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra não entram no cálculo dessa média.
-   - O bônus é calculado sobre o total de horas de **todas as tarefas concluídas** que excederam 40h.
-   - Escala: 1h=1pt, 2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts (máximo)
-   - **Exemplo:** Você trabalhou 48h (8h extras). A média das suas tarefas "HoraExtra" (excluindo qualquer auxílio/reunião/treinamento) foi 4.5. Você ganha o bônus para 8h, que é +7 pontos.
-7. **Score Final:** Base + Todos os Bônus (máximo 150 pontos)
+4. **Bônus de Senioridade:** Eficiência em tarefas de alta complexidade (4-5) com nota de teste ≥ 4 × 15.
+5. **Bônus de Competência:** Eficiência em tarefas de média complexidade (3) com nota de teste ≥ 4 × 5.
+6. **Bônus de Auxílio:** Escala progressiva (2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts).
+7. **Bônus de Horas Extras:** Escala progressiva baseada em horas extras trabalhadas com qualidade alta.
+8. **Score Final:** Base + Todos os Bônus (máximo 140 pontos)
 
 ## 🎯 Resumo Final
 
@@ -336,5 +319,6 @@ Performance Score = ((Qualidade * 0.5) + (Eficiência * 0.5)) + Bônus
 
 Onde **Bônus** é a soma de:
 - Bônus de Senioridade
+- Bônus de Competência
 - Bônus de Auxílio
 - Bônus de Horas Extras
