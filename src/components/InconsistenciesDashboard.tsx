@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, Clock, FileWarning, User, CheckCircle2, Calendar, Hash, Star } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, WorklogEntry, SprintMetadata } from '../types';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isNeutralTask, isAuxilioTask } from '../utils/calculations';
 import { isDateInSprint } from '../services/hybridCalculations';
 
 interface Inconsistency {
@@ -224,15 +224,17 @@ export const InconsistenciesDashboard: React.FC = () => {
     });
   }, [filteredTasks]);
 
-  // 15. Tarefas complexas (nível >= 3) concluídas sem nota de teste
-  const tasksWithHighComplexityAndMissingTestScore = useMemo(() => {
+  // 15. Tarefas complexas (nível >= 3) concluídas sem nota de teste - REMOVIDO
+  // A verificação abaixo (tasksWithMissingTestScore) já cobre todos os casos
+  
+  // 16. Tarefas concluídas sem nota de teste (excluindo neutras)
+  const tasksWithMissingTestScore = useMemo(() => {
     return filteredTasks.filter(task => {
-      const isComplex = task.complexidade >= 3;
-      // Nota de teste pode ser 0, então checamos se é nulo ou undefined
       const isMissingTestScore = task.notaTeste === null || task.notaTeste === undefined;
       const isDone = isCompletedStatus(task.status);
+      const isExcluded = isNeutralTask(task) || isAuxilioTask(task);
       
-      return isDone && isComplex && isMissingTestScore;
+      return isDone && isMissingTestScore && !isExcluded;
     });
   }, [filteredTasks]);
 
@@ -402,17 +404,19 @@ export const InconsistenciesDashboard: React.FC = () => {
       });
     }
 
-    // 15. Tarefas complexas sem nota de teste
-    if (tasksWithHighComplexityAndMissingTestScore.length > 0) {
+    // 15. Tarefas complexas sem nota de teste - REMOVIDO
+    
+    // 16. Tarefas concluídas sem nota de teste
+    if (tasksWithMissingTestScore.length > 0) {
       all.push({
-        id: 'complex-task-missing-test-score',
-        type: 'complex-task-missing-test-score',
+        id: 'task-missing-test-score',
+        type: 'task-missing-test-score',
         category: 'Qualidade',
         severity: 'medium',
-        title: 'Tarefas Complexas sem Nota de Teste',
-        description: 'Tarefas com complexidade 3 ou superior que foram concluídas mas não possuem nota de teste. A ausência da nota impede o cálculo correto do score de qualidade e performance.',
-        count: tasksWithHighComplexityAndMissingTestScore.length,
-        items: tasksWithHighComplexityAndMissingTestScore,
+        title: 'Tarefas Concluídas sem Nota de Teste',
+        description: 'Tarefas que foram concluídas mas não possuem nota de teste. A ausência da nota impede o cálculo correto do score de qualidade e performance.',
+        count: tasksWithMissingTestScore.length,
+        items: tasksWithMissingTestScore,
       });
     }
 
@@ -435,7 +439,7 @@ export const InconsistenciesDashboard: React.FC = () => {
     worklogsWithMissingFields,
     tasksWithoutSprint,
     tasksWithInconsistentEstimates,
-    tasksWithHighComplexityAndMissingTestScore,
+    tasksWithMissingTestScore,
   ]);
 
   const totalInconsistencies = inconsistencies.reduce((sum, inc) => sum + inc.count, 0);
