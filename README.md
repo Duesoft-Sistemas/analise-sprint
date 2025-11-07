@@ -15,7 +15,6 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 - ✅ **Obrigatório:** Tarefas devem ter **sprint** definido (tarefas sem sprint = backlog, não contam)
 - ✅ **Obrigatório:** Sistema usa **worklog** para calcular tempo, nunca a planilha!
 - ✅ **Sem worklog = 0 horas = todas tarefas ineficientes!**
-- ✅ Fazer até 50% mais rápido = sempre eficiente!
 - ✅ Bugs e Features são avaliados de forma diferente
 - ❌ **Tarefas sem sprint (backlog) NÃO interferem em métricas de performance, mesmo que tenham worklog**
 
@@ -140,7 +139,7 @@ João fez 5 tarefas neste sprint (1 complexa nível 4-5):
 - Estimou 8h, gastou 8h ✅ (eficiente!)
 - Estimou 6h, gastou 5h ✅ (fez mais rápido!)
 - Estimou 4h, gastou 4.5h ✅ (dentro do limite!)
-- Estimou 10h, gastou 12h ✅ (assumindo complexidade 3, desvio de -20%, dentro do limite de -20%!)
+- Estimou 10h, gastou 12h ✅ (assumindo complexidade 2, desvio de -20%, dentro do limite de -25%!)
 - Estimou 2h, gastou 1h ✅ (fez mais rápido!)
 
 Cálculo:
@@ -176,7 +175,7 @@ Performance Score: 94.25 pontos ⭐⭐⭐⭐
 Pedro fez 6 features complexas (nível 4-5):
 - Todas executadas com alta eficiência ✅
 - Nota média: 4.67
-- Exemplo: Tarefa complexidade 4, estimou 15h, gastou 16h ✅ (dentro de -30%)
+- Exemplo: Tarefa complexidade 4, estimou 15h, gastou 16h ✅ (dentro de -35%)
 
 Cálculo:
 → Qualidade: 93.3 pontos (nota 4.67 média)
@@ -355,4 +354,12 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 
 **Fórmula Completa:**
 ```
+Performance Score = ((Qualidade * 0.5) + (Eficiência * 0.5)) + Bônus
 ```
+
+Onde **Bônus** é a soma de:
+- Bônus de Complexidade (4-5)
+- Bônus de Senioridade
+- Bônus de Complexidade 3
+- Bônus de Auxílio
+- Bônus de Horas Extras
