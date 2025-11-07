@@ -94,6 +94,7 @@ Score Máximo: 140
   auxilioHours >= 0.5: 1 ponto
   auxilioHours < 0.5: 0 pontos
   ```
+- **Regra Especial:** Para o cálculo do bônus, o tempo considerado (`auxilioHours`) é a soma do `tempoGastoNoSprint` de todas as tarefas identificadas como "Auxilio", **independentemente do seu status de conclusão**. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
 
 **6. Bônus de Horas Extras (0-10):**
 - Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
