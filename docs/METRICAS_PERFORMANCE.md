@@ -97,7 +97,18 @@ Score Máximo: 140
 
 **6. Bônus de Horas Extras (0-10):**
 - Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
-- Escala progressiva similar ao bônus de auxílio, baseada nas horas totais que excedem 40h/semana.
+- Escala progressiva baseada nas horas totais que excedem 40h/semana.
+- Função de cálculo:
+  ```
+  overtimeHours >= 16: 10 pontos
+  overtimeHours >= 12: 9 pontos
+  overtimeHours >= 8: 7 pontos
+  overtimeHours >= 6: 5 pontos
+  overtimeHours >= 4: 4 pontos
+  overtimeHours >= 2: 2 pontos
+  overtimeHours >= 1: 1 ponto
+  overtimeHours < 1: 0 pontos
+  ```
 
 ### Classificações de Score
 

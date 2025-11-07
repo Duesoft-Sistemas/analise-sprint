@@ -132,6 +132,39 @@ export const MIN_OVERTIME_TEST_NOTE = 4;
 export const STANDARD_WEEKLY_HOURS = 40;
 
 // =============================================================================
+// ESCALAS DE BÔNUS PROGRESSIVO
+// =============================================================================
+
+export interface BonusScale {
+  /** Horas mínimas para atingir o bônus */
+  minHours: number;
+  /** Pontos de bônus concedidos */
+  points: number;
+}
+
+/** Escala de bônus para horas de auxílio */
+export const AUXILIO_BONUS_SCALE: BonusScale[] = [
+  { minHours: 16, points: 10 },
+  { minHours: 12, points: 9 },
+  { minHours: 8, points: 7 },
+  { minHours: 6, points: 5 },
+  { minHours: 4, points: 4 },
+  { minHours: 2, points: 2 },
+  { minHours: 0.5, points: 1 },
+];
+
+/** Escala de bônus para horas extras */
+export const OVERTIME_BONUS_SCALE: BonusScale[] = [
+  { minHours: 16, points: 10 },
+  { minHours: 12, points: 9 },
+  { minHours: 8, points: 7 },
+  { minHours: 6, points: 5 },
+  { minHours: 4, points: 4 },
+  { minHours: 2, points: 2 },
+  { minHours: 1, points: 1 },
+];
+
+// =============================================================================
 // CLASSIFICAÇÕES DE PERFORMANCE SCORE
 // =============================================================================
 // Limites para classificação do score final

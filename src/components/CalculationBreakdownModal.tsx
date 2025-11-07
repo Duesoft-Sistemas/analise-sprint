@@ -335,7 +335,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                     const auxilioTasks = metrics.tasks.filter(t => isAuxilioTask(t.task));
                     if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
                     const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
-                    return `${totalHours.toFixed(1)}h de ajuda = ${metrics.auxilioBonus} pontos`;
+                    return `${formatHours(totalHours)} de ajuda = ${metrics.auxilioBonus} pontos`;
                 })(),
                 explanation: `Recompensa ajudar outros desenvolvedores (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
             },

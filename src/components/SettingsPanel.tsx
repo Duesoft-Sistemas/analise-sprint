@@ -22,6 +22,8 @@ import {
   MAX_OVERTIME_BONUS,
   MAX_COMPLEXITY_3_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
+  AUXILIO_BONUS_SCALE,
+  OVERTIME_BONUS_SCALE,
 } from '../config/performanceConfig';
 
 interface SettingsPanelProps {
@@ -289,6 +291,83 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                         </p>
                       </div>
                     </div>
+                </div>
+              )}
+            </div>
+
+            {/* Escalas de Bônus */}
+            <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <button
+                onClick={() => toggleSection('bonus-scales')}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    Escalas de Bônus Progressivo
+                  </span>
+                </div>
+                {expandedSections.has('bonus-scales') ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {expandedSections.has('bonus-scales') && (
+                <div className="p-4 bg-white dark:bg-gray-800 space-y-6">
+                  <div>
+                    <h4 className="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Bônus de Auxílio</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Recompensa por ajudar outros desenvolvedores, com base nas horas gastas em tarefas de "Auxílio".
+                    </p>
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-gray-100 dark:bg-gray-700">
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Horas Mínimas</th>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center">Pontos de Bônus</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {AUXILIO_BONUS_SCALE.map((scale) => (
+                          <tr key={`auxilio-${scale.minHours}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold">
+                              ≥ {scale.minHours}h
+                            </td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center font-bold text-green-600 dark:text-green-400">
+                              +{scale.points}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Bônus de Horas Extras</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Reconhece esforço adicional com alta qualidade, com base nas horas que excedem 40h/semana.
+                    </p>
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-gray-100 dark:bg-gray-700">
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Horas Extras Mínimas</th>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center">Pontos de Bônus</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {OVERTIME_BONUS_SCALE.map((scale) => (
+                          <tr key={`overtime-${scale.minHours}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold">
+                              ≥ {scale.minHours}h
+                            </td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center font-bold text-orange-600 dark:text-orange-400">
+                              +{scale.points}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

@@ -17,6 +17,8 @@ import {
   MAX_COMPLEXITY_3_BONUS,
   MIN_OVERTIME_TEST_NOTE,
   STANDARD_WEEKLY_HOURS,
+  AUXILIO_BONUS_SCALE,
+  OVERTIME_BONUS_SCALE,
 } from '../config/performanceConfig';
 
 // =============================================================================
@@ -232,13 +234,13 @@ function calculateEfficiencyBonuses(
 function calculateAuxilioBonus(auxilioHours: number): number {
   if (auxilioHours <= 0) return 0;
   
-  if (auxilioHours >= 16) return 10;
-  if (auxilioHours >= 12) return 9;
-  if (auxilioHours >= 8) return 7;
-  if (auxilioHours >= 6) return 5;
-  if (auxilioHours >= 4) return 4;
-  if (auxilioHours >= 2) return 2;
-  return 1;
+  for (const scale of AUXILIO_BONUS_SCALE) {
+    if (auxilioHours >= scale.minHours) {
+      return scale.points;
+    }
+  }
+  
+  return 0;
 }
 
 function isOvertimeTask(task: TaskItem): boolean {
@@ -248,15 +250,12 @@ function isOvertimeTask(task: TaskItem): boolean {
 }
 
 function calculateOvertimeBonus(
-  tasks: TaskPerformanceMetrics[]
+  tasks: TaskPerformanceMetrics[],
+  totalWorkHours: number
 ): { bonus: number; tasks: TaskItem[] } {
-  const totalWorkHours = tasks
-    .filter(t => isCompletedStatus(t.task.status))
-    .reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
-
   const overtimeHours = Math.max(0, totalWorkHours - STANDARD_WEEKLY_HOURS);
 
-  if (overtimeHours === 0) return { bonus: 0, tasks: [] };
+  if (overtimeHours < 1) return { bonus: 0, tasks: [] };
 
   const overtimeTasks = tasks.filter(t => isOvertimeTask(t.task));
 
@@ -277,13 +276,12 @@ function calculateOvertimeBonus(
   }
 
   let bonus = 0;
-  if (overtimeHours >= 16) bonus = 10;
-  else if (overtimeHours >= 12) bonus = 9;
-  else if (overtimeHours >= 8) bonus = 7;
-  else if (overtimeHours >= 6) bonus = 5;
-  else if (overtimeHours >= 4) bonus = 4;
-  else if (overtimeHours >= 2) bonus = 2;
-  else bonus = 1;
+  for (const scale of OVERTIME_BONUS_SCALE) {
+    if (overtimeHours >= scale.minHours) {
+      bonus = scale.points;
+      break;
+    }
+  }
   
   return { bonus, tasks: overtimeTasks.map(t => t.task) };
 }
@@ -485,7 +483,7 @@ export function calculateSprintPerformance(
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  const { bonus: overtimeBonus, tasks: overtimeBonusTasks } = calculateOvertimeBonus(completedMetrics);
+  const { bonus: overtimeBonus, tasks: overtimeBonusTasks } = calculateOvertimeBonus(completedMetrics, totalHoursWorked);
   
   const performanceScore = Math.min(140, baseScoreFinal + seniorityBonus + competenceBonus + auxilioBonus + overtimeBonus);
   
