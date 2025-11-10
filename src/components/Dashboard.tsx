@@ -18,7 +18,11 @@ import { PresentationSettingsModal } from './PresentationSettingsModal';
 
 type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onViewLabelChange?: (label: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
@@ -70,7 +74,13 @@ export const Dashboard: React.FC = () => {
     if (!presentation.isActive || !currentStep) return;
     const scrollTo = (el: HTMLElement | null) => {
       if (!el) return;
-      const headerOffset = 80; // compensar cabeçalho/linha de toggles
+      // Compensar cabeçalho/linha de toggles
+      // Nas seções de Feature e Cliente do Sprint Ativo usamos um offset maior
+      const headerOffset =
+        currentStep.view === 'sprint' &&
+        (currentStep.section === 'byFeature' || currentStep.section === 'byClient')
+          ? 140
+          : 96;
       const rect = el.getBoundingClientRect();
       const top = rect.top + window.scrollY - headerOffset;
       window.scrollTo({ top, behavior: 'smooth' });
@@ -114,8 +124,36 @@ export const Dashboard: React.FC = () => {
     return null;
   }
 
+  const currentViewLabel = useMemo(() => {
+    switch (viewMode) {
+      case 'sprint':
+        return selectedSprint ? `Sprint Ativo • ${selectedSprint}` : 'Sprint Ativo';
+      case 'multiSprint':
+        return 'Multi-Sprint';
+      case 'performance':
+        return 'Performance';
+      case 'evolution':
+        return 'Evolução Temporal';
+      case 'quality':
+        return 'Qualidade dos Chamados';
+      case 'inconsistencies':
+        return 'Inconsistências';
+      case 'backlog':
+        return 'Backlog';
+      default:
+        return '';
+    }
+  }, [viewMode, selectedSprint]);
+
+  // Publish current view label to header
+  useEffect(() => {
+    if (onViewLabelChange) {
+      onViewLabelChange(currentViewLabel);
+    }
+  }, [currentViewLabel, onViewLabelChange]);
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in mt-2">
       {/* Sprint Info Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Sprints Configuration */}

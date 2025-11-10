@@ -17,6 +17,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const [showDashboard, setShowDashboard] = useState(false);
   const canAnalyze = tasks.length > 0 && worklogs.length > 0 && sprintMetadata.length > 0;
+  const [currentViewLabel, setCurrentViewLabel] = useState<string>('');
 
   // State for breakdown modal from store
   const isBreakdownModalOpen = useSprintStore((state) => state.isBreakdownModalOpen);
@@ -37,9 +38,17 @@ function App() {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Sprint Analysis Dashboard
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Análise e controle de sprints semanais
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Análise e controle de sprints semanais
+                  </p>
+                  {showDashboard && currentViewLabel && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      {currentViewLabel}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -122,7 +131,7 @@ function App() {
             )}
           </div>
         ) : (
-          <Dashboard />
+          <Dashboard onViewLabelChange={setCurrentViewLabel} />
         )}
       </main>
 

@@ -648,6 +648,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       ? calculateSprintAnalytics(processedTasks, newSelected)
       : null;
     
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
     const riskAlerts = newSelected
       ? calculateRiskAlerts(processedTasks, newSelected)
       : [];
@@ -659,6 +661,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       sprints,
       selectedSprint: newSelected,
       sprintAnalytics,
+      crossSprintAnalytics,
       riskAlerts,
     });
   },
@@ -718,6 +721,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       ? calculateSprintAnalytics(processedTasks, newSelected)
       : null;
     
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
     const riskAlerts = newSelected
       ? calculateRiskAlerts(processedTasks, newSelected)
       : [];
@@ -729,6 +734,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       sprints,
       selectedSprint: newSelected,
       sprintAnalytics,
+      crossSprintAnalytics,
       riskAlerts,
     });
   },
@@ -752,6 +758,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       ? calculateSprintAnalytics(processedTasks, newSelected)
       : null;
     
+    const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
+    
     const riskAlerts = newSelected
       ? calculateRiskAlerts(processedTasks, newSelected)
       : [];
@@ -763,6 +771,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       sprints,
       selectedSprint: newSelected,
       sprintAnalytics,
+      crossSprintAnalytics,
       riskAlerts,
     });
   },
