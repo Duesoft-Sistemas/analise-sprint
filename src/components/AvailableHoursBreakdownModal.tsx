@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Calculator, Info } from 'lucide-react';
 import { DeveloperMetrics, TaskItem } from '../types';
-import { formatHours } from '../utils/calculations';
+import { formatHours, isCompletedStatus } from '../utils/calculations';
 
 interface AvailableHoursBreakdownModalProps {
   developer: DeveloperMetrics;
@@ -21,11 +21,13 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
 }) => {
   if (!isOpen) return null;
 
-  const calculateConsumedHours = (task: TaskItem): number => {
-    const finalStatuses = ['concluído', 'teste', 'testegap', 'done'];
-    const taskStatus = task.status.toLowerCase();
+  // Capacity and contingency
+  const weeklyCapacityHours = 40; // Capacidade semanal padrão
+  const contingencyPercent = 0.15; // 15% para testes, auxílios e reuniões
+  const contingencyHours = weeklyCapacityHours * contingencyPercent;
 
-    if (finalStatuses.includes(taskStatus)) {
+  const calculateConsumedHours = (task: TaskItem): number => {
+    if (isCompletedStatus(task.status)) {
       return task.tempoGastoNoSprint ?? 0;
     }
 
@@ -43,6 +45,7 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
   const totalConsumedHours = tasksBreakdown.reduce((sum, item) => sum + item.consumedHours, 0);
   const totalEstimativaRestante = developer.tasks.reduce((sum, task) => sum + (task.estimativaRestante ?? task.estimativa), 0);
   const totalGastoNoSprint = developer.tasks.reduce((sum, task) => sum + (task.tempoGastoNoSprint ?? 0), 0);
+  const suggestedAvailableHours = developer.totalAvailableHours - contingencyHours;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
@@ -76,14 +79,27 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
           <div className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/70 dark:to-indigo-950/70 rounded-xl border-2 border-blue-300 dark:border-blue-700 p-5 shadow-lg">
             <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white">Fórmula</h3>
             <div className="font-mono p-4 bg-white dark:bg-gray-800 rounded-lg text-center text-lg border-2 border-blue-200 dark:border-blue-800 shadow-md">
-              <span className="font-bold">40h</span> (Capacidade Semanal)
+              <span className="font-bold">{formatHours(weeklyCapacityHours)}</span> (Capacidade Semanal)
               <span className="font-bold mx-2">-</span>
               <span className="font-bold text-red-600 dark:text-red-400">{formatHours(totalConsumedHours)}</span> (Total Horas Consumidas)
               <span className="font-bold mx-2">=</span>
               <span className="font-bold text-green-600 dark:text-green-400">{formatHours(developer.totalAvailableHours)}</span> (Horas Disponíveis)
             </div>
+            {/* Contingency recommendation (15%) */}
+            <div className="mt-3 font-mono p-3 bg-white dark:bg-gray-800 rounded-lg text-center text-base border-2 border-amber-200 dark:border-amber-800 shadow-md">
+              <span className="font-bold">Sugestão com Contingência (15%)</span>:
+              <span className="font-bold mx-2 text-amber-600 dark:text-amber-400">{formatHours(contingencyHours)}</span>
+              <span className="mx-2">→</span>
+              <span className={`font-bold ${suggestedAvailableHours >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {formatHours(Math.max(0, suggestedAvailableHours))}
+              </span>
+              <span className="ml-1">(Horas Disponíveis Sugeridas)</span>
+            </div>
             <p className="text-xs italic text-gray-700 dark:text-gray-300 mt-2">
               O "Total Horas Consumidas" é a soma das horas de todas as tarefas. Para tarefas concluídas, considera-se o "Tempo Gasto na Sprint". Para as demais, o maior valor entre a "Estimativa Restante" e o "Gasto na Sprint".
+            </p>
+            <p className="text-xs italic text-gray-700 dark:text-gray-300 mt-1">
+              Sugere-se reservar 15% da capacidade semanal para correções de testes, auxílios e reuniões.
             </p>
           </div>
 

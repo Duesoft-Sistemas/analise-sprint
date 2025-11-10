@@ -531,3 +531,44 @@ export interface TemporalEvolutionAnalytics {
     avgQualityScore: number;
   }[];
 }
+
+// -----------------------------
+// Presentation mode (slides)
+// -----------------------------
+
+export type ViewMode =
+  | 'sprint'
+  | 'multiSprint'
+  | 'performance'
+  | 'evolution'
+  | 'quality'
+  | 'inconsistencies'
+  | 'backlog';
+
+export type SprintPresentationSection =
+  | 'summary'
+  | 'byFeature'
+  | 'byClient'
+  | 'developers'
+  | 'tasks';
+
+export type MultiSprintPresentationSection =
+  | 'sprintDistribution'
+  | 'developerAllocation'
+  | 'clientAllocation'
+  | 'featureAnalysis';
+
+export interface PresentationStep {
+  view: ViewMode;
+  section?: SprintPresentationSection; // Applies to 'sprint' view
+  multiSection?: MultiSprintPresentationSection; // Applies to 'multiSprint' view
+  durationMs?: number; // Optional per-step override; falls back to intervalMs
+}
+
+export interface PresentationConfig {
+  isActive: boolean;
+  isPlaying: boolean;
+  intervalMs: number;
+  steps: PresentationStep[];
+  currentStepIndex: number;
+}

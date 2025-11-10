@@ -124,29 +124,21 @@ export const InconsistenciesDashboard: React.FC = () => {
   const tasksWithInvalidDates = useMemo(() => {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-    
-    return filteredTasks.filter(task => {
+
+    const items: { task: TaskItem; reason: string }[] = [];
+
+    filteredTasks.forEach((task) => {
       const createdDate = task.criado;
-      
-      // Data de criação no futuro
+
+      // Data de criação no futuro (sempre inconsistente)
       if (createdDate && createdDate.getTime() > today.getTime()) {
-        return true;
+        items.push({ task, reason: 'Criação no futuro' });
+        return;
       }
-
-      // Tarefa criada fora do período do sprint (quando metadata existe)
-      if (sprintMetadata.length > 0 && task.sprint) {
-        const sprintMeta = sprintMetadata.find(m => m.sprint === task.sprint);
-        if (sprintMeta) {
-          const isInRange = isDateInSprint(createdDate, sprintMeta.dataInicio, sprintMeta.dataFim);
-          if (!isInRange) {
-            return true;
-          }
-        }
-      }
-
-      return false;
     });
-  }, [filteredTasks, sprintMetadata]);
+
+    return items;
+  }, [filteredTasks]);
 
   const worklogsWithInvalidDates = useMemo(() => {
     const today = new Date();
@@ -202,11 +194,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 12. Tarefas sem sprint definido (NÃO é inconsistência - são tarefas de backlog)
   // NOTA: Tarefas sem sprint são esperadas e usadas apenas para análise de backlog
   // Elas não interferem em métricas de performance, mesmo que tenham worklog
-  const tasksWithoutSprint = useMemo(() => {
-    return filteredTasks.filter(task => {
-      return !task.sprint || task.sprint.trim() === '';
-    });
-  }, [filteredTasks]);
+  // Não são tratadas como inconsistência pois fazem parte do fluxo normal
 
   // 13. Estimativas inconsistentes (tempo gasto muito maior que estimativa)
   const tasksWithInconsistentEstimates = useMemo(() => {
@@ -224,6 +212,15 @@ export const InconsistenciesDashboard: React.FC = () => {
     });
   }, [filteredTasks]);
 
+  // Tarefas sem estimativa (excluindo neutras/auxilio)
+  const tasksWithoutEstimate = useMemo(() => {
+    return filteredTasks.filter(task => {
+      const hasEstimate = task.estimativa && task.estimativa > 0;
+      const isExcluded = isNeutralTask(task) || isAuxilioTask(task);
+      return !hasEstimate && !isExcluded;
+    });
+  }, [filteredTasks]);
+
   // 15. Tarefas complexas (nível >= 3) concluídas sem nota de teste - REMOVIDO
   // A verificação abaixo (tasksWithMissingTestScore) já cobre todos os casos
   
@@ -233,8 +230,15 @@ export const InconsistenciesDashboard: React.FC = () => {
       const isMissingTestScore = task.notaTeste === null || task.notaTeste === undefined;
       const isDone = isCompletedStatus(task.status);
       const isExcluded = isNeutralTask(task) || isAuxilioTask(task);
+      const statusNorm = (task.status || '').toLowerCase();
+      const isTestStage =
+        statusNorm.includes('teste gap') ||
+        statusNorm.includes('testegap') ||
+        statusNorm === 'teste' || // status exatamente "teste"
+        statusNorm.startsWith('teste '); // variantes que começam com "teste "
       
-      return isDone && isMissingTestScore && !isExcluded;
+      // Não reportar como inconsistência quando estiver em fase de teste/teste gap
+      return isDone && !isTestStage && isMissingTestScore && !isExcluded;
     });
   }, [filteredTasks]);
 
@@ -404,6 +408,20 @@ export const InconsistenciesDashboard: React.FC = () => {
       });
     }
 
+    // Tarefas sem estimativa
+    if (tasksWithoutEstimate.length > 0) {
+      all.push({
+        id: 'tasks-without-estimate',
+        type: 'tasks-without-estimate',
+        category: 'Estimativa',
+        severity: 'medium',
+        title: 'Tarefas sem Estimativa',
+        description: 'Tarefas que não possuem estimativa de horas e não são do tipo "auxílio", "reunião" ou "treinamento".',
+        count: tasksWithoutEstimate.length,
+        items: tasksWithoutEstimate,
+      });
+    }
+
     // 15. Tarefas complexas sem nota de teste - REMOVIDO
     
     // 16. Tarefas concluídas sem nota de teste
@@ -437,8 +455,8 @@ export const InconsistenciesDashboard: React.FC = () => {
     tasksWithoutOwner,
     tasksWithMissingFields,
     worklogsWithMissingFields,
-    tasksWithoutSprint,
     tasksWithInconsistentEstimates,
+    tasksWithoutEstimate,
     tasksWithMissingTestScore,
   ]);
 
@@ -648,9 +666,12 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
               Tarefas ({tasks.length}):
             </div>
             <div className="space-y-2">
-              {tasks.slice(0, 10).map((task: TaskItem) => (
-                <div key={task.chave || task.id} className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-mono">{task.chave || task.id}</span>: {task.resumo || 'Sem resumo'} - Criado: {task.criado.toLocaleDateString('pt-BR')}
+              {tasks.slice(0, 10).map((entry: { task: TaskItem; reason: string }) => (
+                <div key={entry.task.chave || entry.task.id} className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-mono">{entry.task.chave || entry.task.id}</span>: {entry.task.resumo || 'Sem resumo'} - Criado: {entry.task.criado.toLocaleDateString('pt-BR')}
+                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100">
+                    {entry.reason}
+                  </span>
                 </div>
               ))}
               {tasks.length > 10 && (

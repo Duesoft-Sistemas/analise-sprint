@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings, AlertTriangle, Inbox } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings, AlertTriangle, Inbox, PlayCircle } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -14,11 +14,13 @@ import { InconsistenciesDashboard } from './InconsistenciesDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
 import { SettingsPanel } from './SettingsPanel';
 import SprintAnalysisDetails from './SprintAnalysisDetails';
+import { PresentationSettingsModal } from './PresentationSettingsModal';
 
 type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog';
 
 export const Dashboard: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
+  const [showPresentation, setShowPresentation] = useState(false);
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
   const crossSprintAnalytics = useSprintStore((state) => state.crossSprintAnalytics);
   const riskAlerts = useSprintStore((state) => state.riskAlerts);
@@ -32,11 +34,81 @@ export const Dashboard: React.FC = () => {
   const worklogs = useSprintStore((state) => state.worklogs);
   const sprints = useSprintStore((state) => state.sprints);
   const tasks = useSprintStore((state) => state.tasks);
+
+  // Presentation
+  const presentation = useSprintStore((s) => s.presentation);
+  const setPresentationConfig = useSprintStore((s) => s.setPresentationConfig);
+  const nextPresentationStep = useSprintStore((s) => s.nextPresentationStep);
   
   // Get current sprint period from metadata
   const currentSprintPeriod = selectedSprint ? getSprintPeriod(selectedSprint) : null;
 
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
+  // Refs para rolagem no modo apresentação
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const analysisRef = useRef<HTMLDivElement | null>(null);
+  const devsRef = useRef<HTMLDivElement | null>(null);
+  const tasksRef = useRef<HTMLDivElement | null>(null);
+  const featureRef = useRef<HTMLDivElement | null>(null);
+  const clientRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync view with current presentation step
+  const currentStep = useMemo(() => {
+    if (!presentation.steps.length) return null;
+    return presentation.steps[Math.min(presentation.currentStepIndex, presentation.steps.length - 1)];
+  }, [presentation.steps, presentation.currentStepIndex]);
+
+  useEffect(() => {
+    if (!currentStep || !presentation.isActive) return;
+    if (currentStep.view !== viewMode) {
+      setViewMode(currentStep.view as any);
+    }
+  }, [currentStep, presentation.isActive]);
+
+  // Rolagem automática para a seção da etapa atual
+  useEffect(() => {
+    if (!presentation.isActive || !currentStep) return;
+    const scrollTo = (el: HTMLElement | null) => {
+      if (!el) return;
+      const headerOffset = 80; // compensar cabeçalho/linha de toggles
+      const rect = el.getBoundingClientRect();
+      const top = rect.top + window.scrollY - headerOffset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    };
+    if (currentStep.view === 'sprint') {
+      if (currentStep.section === 'summary') scrollTo(summaryRef.current);
+      else if (currentStep.section === 'byFeature') scrollTo(featureRef.current || analysisRef.current);
+      else if (currentStep.section === 'byClient') scrollTo(clientRef.current || analysisRef.current);
+      else if (currentStep.section === 'developers') scrollTo(devsRef.current);
+      else if (currentStep.section === 'tasks') scrollTo(tasksRef.current);
+    } else if (currentStep.view === 'multiSprint') {
+      if (currentStep.multiSection === 'sprintDistribution') scrollTo(summaryRef.current);
+      else if (currentStep.multiSection === 'developerAllocation') scrollTo(devsRef.current);
+      else if (currentStep.multiSection === 'clientAllocation') scrollTo(analysisRef.current);
+      else if (currentStep.multiSection === 'featureAnalysis') scrollTo(tasksRef.current);
+    }
+  }, [presentation.isActive, currentStep]);
+
+  // Autoplay timer
+  useEffect(() => {
+    if (!presentation.isActive || !presentation.isPlaying || presentation.steps.length === 0) return;
+    const stepMs = currentStep?.durationMs ?? presentation.intervalMs;
+    const t = setTimeout(() => nextPresentationStep(), stepMs);
+    return () => clearTimeout(t);
+  }, [presentation.isActive, presentation.isPlaying, presentation.intervalMs, presentation.currentStepIndex, presentation.steps, currentStep, nextPresentationStep]);
+
+  // Query param bootstrap (?presentation=1&interval=60000)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('presentation') === '1') {
+      const interval = params.get('interval');
+      setPresentationConfig({
+        isActive: true,
+        isPlaying: true,
+        intervalMs: interval ? parseInt(interval, 10) : 60000,
+      });
+    }
+  }, [setPresentationConfig]);
 
   if (!sprintAnalytics || !crossSprintAnalytics) {
     return null;
@@ -219,11 +291,23 @@ export const Dashboard: React.FC = () => {
             <Settings className="w-4 h-4" />
             Configurações
           </button>
+
+          <button
+            onClick={() => setShowPresentation(true)}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${presentation.isPlaying ? 'bg-gradient-to-r from-red-600 to-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            title="Modo Apresentação"
+          >
+            <PlayCircle className="w-4 h-4" />
+            Apresentação
+          </button>
         </div>
       </div>
 
       {/* Settings Panel */}
       <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Presentation settings */}
+      <PresentationSettingsModal isOpen={showPresentation} onClose={() => setShowPresentation(false)} />
 
       {/* Content based on view mode */}
       {viewMode === 'evolution' ? (
@@ -237,14 +321,22 @@ export const Dashboard: React.FC = () => {
       ) : viewMode === 'backlog' ? (
         <BacklogDashboard />
       ) : viewMode === 'multiSprint' ? (
-        <CrossSprintAnalysis analytics={crossSprintAnalytics} sprints={sprints} tasks={tasks} />
+        <CrossSprintAnalysis
+          analytics={crossSprintAnalytics}
+          sprints={sprints}
+          tasks={tasks}
+          sprintDistributionRef={summaryRef /* reuse top anchor */}
+          developerAllocationRef={devsRef}
+          clientAllocationRef={analysisRef}
+          featureAnalysisRef={tasksRef}
+        />
       ) : (
         <>
           {/* Alerts */}
           <AlertPanel alerts={riskAlerts} />
 
           {/* Totalizer Cards */}
-          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+          <div ref={summaryRef} className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
                 <BarChart3 className="w-5 h-5 text-white" />
@@ -254,12 +346,19 @@ export const Dashboard: React.FC = () => {
             <TotalizerCards analytics={sprintAnalytics} />
           </div>
 
-          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-            <SprintAnalysisDetails analytics={sprintAnalytics} />
+          <div ref={analysisRef} className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+            <SprintAnalysisDetails
+              analytics={sprintAnalytics}
+              isPresentation={presentation.isActive}
+              focusSection={currentStep?.view === 'sprint' ? (currentStep.section === 'byFeature' ? 'feature' : currentStep.section === 'byClient' ? 'client' : undefined) : undefined}
+              chartHeight={presentation.isActive ? 600 : undefined}
+              featureAnchorRef={featureRef}
+              clientAnchorRef={clientRef}
+            />
           </div>
 
           {/* Developer Cards */}
-          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+          <div ref={devsRef} className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
                 <Users className="w-5 h-5 text-white" />
@@ -274,13 +373,15 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Task List */}
-          {selectedDeveloper && (
-            <div className="border-t-4 border-blue-500 dark:border-blue-400 pt-6">
-              <TaskList />
-            </div>
-          )}
+          <div ref={tasksRef}>
+            {selectedDeveloper && (
+              <div className="border-t-4 border-blue-500 dark:border-blue-400 pt-6">
+                <TaskList />
+              </div>
+            )}
 
-          {!selectedDeveloper && <TaskList />}
+            {!selectedDeveloper && <TaskList />}
+          </div>
         </>
       )}
     </div>

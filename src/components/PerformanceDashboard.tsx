@@ -34,6 +34,9 @@ export const PerformanceDashboard: React.FC = () => {
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [selectedDeveloperForAnalysis, setSelectedDeveloperForAnalysis] = useState<string | null>(null);
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
+  const [showDeveloperSelector, setShowDeveloperSelector] = useState(false);
+  const developerSelectorRef = useRef<HTMLDivElement>(null);
+  const [selectedDevelopers, setSelectedDevelopers] = useState<string[]>([]);
 
   // Close sprint selector when clicking outside
   useEffect(() => {
@@ -51,6 +54,23 @@ export const PerformanceDashboard: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSprintSelector]);
+
+  // Close developer selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (developerSelectorRef.current && !developerSelectorRef.current.contains(event.target as Node)) {
+        setShowDeveloperSelector(false);
+      }
+    };
+
+    if (showDeveloperSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDeveloperSelector]);
 
   // Reset selected sprints when view mode changes or when sprints list updates
   useEffect(() => {
@@ -156,6 +176,23 @@ export const PerformanceDashboard: React.FC = () => {
 
     return [];
   }, [analytics, viewMode, selectedSprintView, tasks]);
+
+  // Available developer options for current view
+  const developerOptions = useMemo(() => {
+    const list = (currentMetrics as Array<SprintPerformanceMetrics | AllSprintsPerformanceMetrics>).map(m => ({
+      id: m.developerId,
+      name: m.developerName,
+    }));
+    const map = new Map(list.map(d => [d.id, d]));
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentMetrics]);
+
+  // Initialize selected developers to all when options load
+  useEffect(() => {
+    if (developerOptions.length > 0 && selectedDevelopers.length === 0) {
+      setSelectedDevelopers(developerOptions.map(d => d.id));
+    }
+  }, [developerOptions, selectedDevelopers.length]);
 
   // Get comparisons for current view
   const currentComparisons = useMemo(() => {
@@ -404,6 +441,66 @@ export const PerformanceDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Developer Selector */}
+        {developerOptions.length > 0 && (
+          <div className="relative" ref={developerSelectorRef}>
+            <button
+              onClick={() => setShowDeveloperSelector(!showDeveloperSelector)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              {selectedDevelopers.length === 0
+                ? 'Selecionar Devs'
+                : selectedDevelopers.length === developerOptions.length
+                ? 'Todos os Devs'
+                : `${selectedDevelopers.length} devs selecionados`}
+            </button>
+
+            {showDeveloperSelector && (
+              <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[260px] max-h-96 overflow-y-auto">
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedDevelopers(developerOptions.map(d => d.id))}
+                      className="flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    >
+                      Selecionar Todos
+                    </button>
+                    <button
+                      onClick={() => setSelectedDevelopers([])}
+                      className="flex-1 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="p-2">
+                  {developerOptions.map((dev) => (
+                    <label
+                      key={dev.id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDevelopers.includes(dev.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedDevelopers([...selectedDevelopers, dev.id]);
+                          } else {
+                            setSelectedDevelopers(selectedDevelopers.filter(id => id !== dev.id));
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <span className="text-sm text-gray-900 dark:text-white">{dev.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Sort By */}
         <div className="flex items-center gap-2 ml-auto">
           <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -527,7 +624,9 @@ export const PerformanceDashboard: React.FC = () => {
           Performance Individual
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {sortedMetrics.map((metrics) => {
+          {sortedMetrics
+            .filter(m => selectedDevelopers.length === 0 ? false : selectedDevelopers.includes(m.developerId))
+            .map((metrics) => {
             const comparison = currentComparisons.find(
               (c) => c.developerId === metrics.developerId
             );

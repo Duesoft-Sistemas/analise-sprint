@@ -8,9 +8,14 @@ interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
   sprints: string[];
   tasks: TaskItemType[];
+  // Optional anchors for presentation mode scrolling
+  sprintDistributionRef?: React.RefObject<HTMLDivElement>;
+  developerAllocationRef?: React.RefObject<HTMLDivElement>;
+  clientAllocationRef?: React.RefObject<HTMLDivElement>;
+  featureAnalysisRef?: React.RefObject<HTMLDivElement>;
 }
 
-export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks }) => {
+export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks, sprintDistributionRef, developerAllocationRef, clientAllocationRef, featureAnalysisRef }) => {
   const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
   const [topSprintLimit, setTopSprintLimit] = useState<number | null>(10);
   const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(10);
@@ -246,7 +251,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
 
 
       {/* Sprint Distribution */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
+      <div ref={sprintDistributionRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
@@ -303,7 +308,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       </div>
 
       {/* Developer Allocation */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
+      <div ref={developerAllocationRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
@@ -368,7 +373,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       </div>
 
       {/* Client Allocation */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
+      <div ref={clientAllocationRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg">
@@ -431,7 +436,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       </div>
 
       {/* Análise de Features */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
+      <div ref={featureAnalysisRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
@@ -462,6 +467,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <p className="text-gray-500 dark:text-gray-400 text-center py-4 col-span-full">Nenhuma feature registrada.</p>
           ) : (
             filteredAnalytics.byFeature
+            .sort((a, b) => b.totalHours - a.totalHours)
               .slice(0, topFeatureLimit ?? undefined)
               .map((feature) => (
                 <div key={feature.label} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-indigo-500/50 flex flex-col justify-between">

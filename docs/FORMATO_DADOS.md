@@ -196,6 +196,8 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 
 ### Status Considerados "Concluídos"
 
+**Propósito:** Definir quais status de tarefas são considerados "concluídos" do ponto de vista do desenvolvedor. Isso afeta principalmente o cálculo de horas disponíveis.
+
 Para cálculos de performance e disponibilidade, estes status são considerados concluídos:
 
 - `teste`
@@ -207,7 +209,6 @@ Para cálculos de performance e disponibilidade, estes status são considerados 
 **Validação:**
 - Comparação case-insensitive (status é normalizado antes da comparação)
 - Verifica se status contém uma das strings acima (substring match)
-- Status é normalizado antes da comparação (após normalização de encoding)
 
 **Comportamento:**
 - Tarefas com status concluído liberam capacidade do desenvolvedor
@@ -215,6 +216,25 @@ Para cálculos de performance e disponibilidade, estes status são considerados 
 - Tarefas não concluídas aparecem nas métricas informativas mas não afetam score
 - Se houver problemas após "teste", a métrica de retrabalho captura o impacto
 - Status "teste gap" é considerado concluído (desenvolvedor já entregou sua parte)
+
+---
+
+### Mapeamento: `rework`
+
+**Propósito:** Identificar tarefas que foram marcadas como "Reunião" ou "Treinamento" mas que, na verdade, eram retrabalhos.
+
+**Identificação:**
+- Tarefas marcadas como "Reunião" ou "Treinamento"
+- Tarefas com `tempoGastoTotal > 0`
+- Tarefas com `tempoGastoNoSprint = 0`
+- Tarefas com `tempoGastoOutrosSprints = 0`
+
+**Impacto:**
+- Tarefas marcadas como "Reunião" ou "Treinamento" mas que não tiveram tempo gasto são consideradas retrabalhos.
+- O `tempoGastoTotal` dessas tarefas é subtraído do `tempoGastoTotal` de todas as tarefas.
+- O `tempoGastoNoSprint` dessas tarefas é subtraído do `tempoGastoNoSprint` de todas as tarefas.
+- O `tempoGastoOutrosSprints` dessas tarefas é subtraído do `tempoGastoOutrosSprints` de todas as tarefas.
+- O `tempoGastoTotal` final é recalculado para refletir o tempo real trabalhado.
 
 ## Arquivo de Worklog (Opcional)
 

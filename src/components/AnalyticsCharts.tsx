@@ -7,6 +7,7 @@ interface AnalyticsChartProps {
   data: Totalizer[];
   title: string;
   onBarClick: (value: string) => void;
+  height?: number; // optional custom height for presentation mode
 }
 
 const COLORS = {
@@ -58,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, title, onBarClick }) => {
+export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, title, onBarClick, height }) => {
   const chartData = data
     .map(item => ({
       name: item.label,
@@ -77,7 +78,7 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, title, onB
   return (
     <div className="w-full">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{title}</h3>
-      <div className="h-[400px]">
+      <div className={height ? '' : 'h-[400px]'} style={height ? { height } : undefined}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart 
             data={chartData} 

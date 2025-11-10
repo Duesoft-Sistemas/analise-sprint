@@ -99,10 +99,7 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
     // Available hours calculation: use the MAXIMUM between estimated and spent for each task
     // This ensures that if a task goes over estimate, it consumes the actual hours spent
     const totalConsumedHours = devTasks.reduce((sum, t) => {
-      const finalStatuses = ['concluído', 'teste', 'testegap', 'done'];
-      const taskStatus = t.status.toLowerCase();
-
-      if (finalStatuses.includes(taskStatus)) {
+      if (isCompletedStatus(t.status)) {
         return sum + (t.tempoGastoNoSprint ?? 0);
       }
 

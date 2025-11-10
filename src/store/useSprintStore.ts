@@ -9,6 +9,8 @@ import {
   SprintPeriod,
   SprintMetadata,
   DeveloperMetrics,
+  PresentationConfig,
+  PresentationStep,
 } from '../types';
 import {
   calculateSprintAnalytics,
@@ -52,6 +54,9 @@ interface SprintStore {
   isBreakdownModalOpen: boolean;
   developerForBreakdown: DeveloperMetrics | null;
 
+  // Presentation mode
+  presentation: PresentationConfig;
+
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => void;
   addTasks: (tasks: TaskItem[], fileName?: string) => void; // Adiciona tarefas sem substituir
@@ -70,6 +75,15 @@ interface SprintStore {
   setAnalyticsFilter: (filter: { type: 'feature' | 'client'; value: string } | null) => void;
   openBreakdownModal: (developer: DeveloperMetrics) => void;
   closeBreakdownModal: () => void;
+
+  // Presentation actions
+  setPresentationConfig: (update: Partial<PresentationConfig>) => void;
+  setPresentationSteps: (steps: PresentationStep[]) => void;
+  startPresentation: () => void;
+  stopPresentation: () => void;
+  nextPresentationStep: () => void;
+  prevPresentationStep: () => void;
+  setCurrentPresentationIndex: (index: number) => void;
   
   // Computed getters
   getFilteredTasks: () => TaskItem[];
@@ -97,6 +111,22 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   analyticsFilter: null,
   isBreakdownModalOpen: false,
   developerForBreakdown: null,
+  presentation: {
+    isActive: false,
+    isPlaying: false,
+    intervalMs: 60000,
+    currentStepIndex: 0,
+    steps: [
+      { view: 'sprint', section: 'summary' },
+      { view: 'sprint', section: 'byFeature' },
+      { view: 'sprint', section: 'byClient' },
+      { view: 'sprint', section: 'developers' },
+      { view: 'multiSprint', multiSection: 'sprintDistribution' },
+      { view: 'multiSprint', multiSection: 'developerAllocation' },
+      { view: 'multiSprint', multiSection: 'clientAllocation' },
+      { view: 'multiSprint', multiSection: 'featureAnalysis' },
+    ],
+  },
 
   // Actions
   setTasks: (tasks: TaskItem[], fileName?: string) => {
@@ -814,6 +844,47 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
 
   closeBreakdownModal: () => {
     set({ isBreakdownModalOpen: false, developerForBreakdown: null });
+  },
+
+  // Presentation actions
+  setPresentationConfig: (update) => {
+    set((state) => ({
+      presentation: { ...state.presentation, ...update },
+    }));
+  },
+  setPresentationSteps: (steps) => {
+    set((state) => ({
+      presentation: { ...state.presentation, steps },
+    }));
+  },
+  startPresentation: () => {
+    set((state) => ({
+      presentation: { ...state.presentation, isActive: true, isPlaying: true },
+    }));
+  },
+  stopPresentation: () => {
+    set((state) => ({
+      presentation: { ...state.presentation, isPlaying: false },
+    }));
+  },
+  nextPresentationStep: () => {
+    set((state) => {
+      const total = state.presentation.steps.length;
+      const next = total === 0 ? 0 : (state.presentation.currentStepIndex + 1) % total;
+      return { presentation: { ...state.presentation, currentStepIndex: next } };
+    });
+  },
+  prevPresentationStep: () => {
+    set((state) => {
+      const total = state.presentation.steps.length;
+      const prev = total === 0 ? 0 : (state.presentation.currentStepIndex - 1 + total) % total;
+      return { presentation: { ...state.presentation, currentStepIndex: prev } };
+    });
+  },
+  setCurrentPresentationIndex: (index) => {
+    set((state) => ({
+      presentation: { ...state.presentation, currentStepIndex: index },
+    }));
   },
 
   // Computed getter for filtered tasks
