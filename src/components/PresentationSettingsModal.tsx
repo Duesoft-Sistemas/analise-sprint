@@ -157,6 +157,14 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"
+                  checked={stepChecked((s) => s.view === 'multiSprint' && s.multiSection === 'managementKPIs')}
+                  onChange={() => toggleStep({ view: 'multiSprint', multiSection: 'managementKPIs' })}
+                />
+                KPIs de Gestão
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
                   checked={stepChecked((s) => s.view === 'performance')}
                   onChange={() => toggleStep({ view: 'performance' })}
                 />

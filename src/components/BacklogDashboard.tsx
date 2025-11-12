@@ -15,6 +15,7 @@ import {
   Filter,
   Clock,
 } from 'lucide-react';
+import { FileSpreadsheet } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
 import { formatHours, normalizeForComparison } from '../utils/calculations';
@@ -76,6 +77,7 @@ export const BacklogDashboard: React.FC = () => {
     return {
       bugs: (analytics.summary.bugs / total) * 100,
       dubidasOcultas: (analytics.summary.dubidasOcultas / total) * 100,
+      folha: (analytics.summary.folha / total) * 100,
       tarefas: (analytics.summary.tarefas / total) * 100,
     };
   }, [analytics.summary]);
@@ -112,7 +114,7 @@ export const BacklogDashboard: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <SummaryCard
           icon={<Inbox className="w-5 h-5" />}
           label="Total de Tarefas"
@@ -142,6 +144,13 @@ export const BacklogDashboard: React.FC = () => {
           color="yellow"
         />
         <SummaryCard
+          icon={<FileSpreadsheet className="w-5 h-5" />}
+          label="Folha"
+          value={analytics.summary.folha.toString()}
+          subtitle={`${formatHours(analytics.byType.folha.estimatedHours)} estimadas`}
+          color="green"
+        />
+        <SummaryCard
           icon={<CheckSquare className="w-5 h-5" />}
           label="Tarefas"
           value={analytics.summary.tarefas.toString()}
@@ -159,7 +168,7 @@ export const BacklogDashboard: React.FC = () => {
             • {analytics.summary.totalTasks} tarefas no total
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <TypeCard
             icon={<Bug className="w-5 h-5" />}
             label="Bugs Reais"
@@ -175,6 +184,14 @@ export const BacklogDashboard: React.FC = () => {
             hours={analytics.byType.dubidasOcultas.estimatedHours}
             color="yellow"
             percentage={typePercentages.dubidasOcultas}
+          />
+          <TypeCard
+            icon={<FileSpreadsheet className="w-5 h-5" />}
+            label="Folha"
+            count={analytics.byType.folha.count}
+            hours={analytics.byType.folha.estimatedHours}
+            color="green"
+            percentage={typePercentages.folha}
           />
           <TypeCard
             icon={<CheckSquare className="w-5 h-5" />}

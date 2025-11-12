@@ -594,11 +594,13 @@ export interface BacklogAnalytics {
     totalEstimatedHours: number;
     bugs: number;
     dubidasOcultas: number;
+    folha: number;
     tarefas: number; // Inclui histórias, outros e qualquer coisa que não seja bug/dúvida oculta
   };
   byType: {
     bugs: Totalizer;
     dubidasOcultas: Totalizer;
+    folha: Totalizer;
     tarefas: Totalizer; // Consolidado: histórias, outros e tudo que não é bug/dúvida oculta
   };
   byComplexity: Totalizer[];
@@ -630,12 +632,15 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
 
   // Summary
-  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
+  const isFolha = (t: TaskItem) => (t.detalhesOcultos || []).some(d => normalizeForComparison(d) === 'folha');
+  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolha(t));
   const dubidasOcultas = backlogTasks.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
+  const folha = backlogTasks.filter((t) => t.tipo === 'Bug' && isFolha(t));
   // Tarefas: tudo que não é bug ou dúvida oculta (inclui Tarefa, História, Outro, etc.)
   const tarefas = backlogTasks.filter(
-    (t) => !(t.tipo === 'Bug' && !isDuvidaOcultaTask(t)) && 
-           !(t.tipo === 'Bug' && isDuvidaOcultaTask(t))
+    (t) => !(t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolha(t)) && 
+           !(t.tipo === 'Bug' && isDuvidaOcultaTask(t)) &&
+           !(t.tipo === 'Bug' && isFolha(t))
   );
 
   const summary = {
@@ -643,13 +648,15 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
     totalEstimatedHours: backlogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
     bugs: bugs.length,
     dubidasOcultas: dubidasOcultas.length,
+    folha: folha.length,
     tarefas: tarefas.length,
   };
 
-  // By Type - apenas 3 tipos: Bugs, Dúvidas Ocultas e Tarefas
+  // By Type - 4 tipos: Bugs Reais, Dúvidas Ocultas, Folha e Tarefas
   const byType = {
     bugs: createBacklogTotalizer('Bugs Reais', bugs),
     dubidasOcultas: createBacklogTotalizer('Dúvidas Ocultas', dubidasOcultas),
+    folha: createBacklogTotalizer('Folha', folha),
     tarefas: createBacklogTotalizer('Tarefas', tarefas),
   };
 

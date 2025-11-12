@@ -556,7 +556,8 @@ export type MultiSprintPresentationSection =
   | 'sprintDistribution'
   | 'developerAllocation'
   | 'clientAllocation'
-  | 'featureAnalysis';
+  | 'featureAnalysis'
+  | 'managementKPIs';
 
 export interface PresentationStep {
   view: ViewMode;

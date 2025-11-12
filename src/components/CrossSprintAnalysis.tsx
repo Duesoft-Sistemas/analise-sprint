@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare } from 'lucide-react';
+import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType } from '../types';
-import { formatHours } from '../utils/calculations';
+import { formatHours, normalizeForComparison } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
+import { useSprintStore } from '../store/useSprintStore';
 
 interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
@@ -13,9 +14,10 @@ interface CrossSprintAnalysisProps {
   developerAllocationRef?: React.RefObject<HTMLDivElement>;
   clientAllocationRef?: React.RefObject<HTMLDivElement>;
   featureAnalysisRef?: React.RefObject<HTMLDivElement>;
+  managementKpisRef?: React.RefObject<HTMLDivElement>;
 }
 
-export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks, sprintDistributionRef, developerAllocationRef, clientAllocationRef, featureAnalysisRef }) => {
+export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks, sprintDistributionRef, developerAllocationRef, clientAllocationRef, featureAnalysisRef, managementKpisRef }) => {
   const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
   const [topSprintLimit, setTopSprintLimit] = useState<number | null>(10);
   const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(10);
@@ -23,6 +25,8 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [selectedSprints, setSelectedSprints] = useState<string[]>(sprints);
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
+  const worklogs = useSprintStore((s) => s.worklogs);
+  const getSprintPeriod = useSprintStore((s) => s.getSprintPeriod);
   
   const TOP_OPTIONS = [10, 20, 40, null]; // null = todos
   
@@ -49,6 +53,86 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       setSelectedSprints([...sprints]);
     }
   }, [sprints.length]); // Only depend on sprints.length to avoid loops
+
+  // Management KPIs (per sprint and totals) for selected sprints
+  const managementKPIs = React.useMemo(() => {
+    // Precompute training task IDs (id or key) from all tasks, not only by t.sprint
+    const treinamentoKeywords = ['treinamento', 'treinamentos'];
+    const trainingTaskIds = new Set<string>();
+    tasks.forEach(t => {
+      const isTraining = t.detalhesOcultos && t.detalhesOcultos.some(d => treinamentoKeywords.includes(normalizeForComparison(d)));
+      if (isTraining) {
+        if (t.id) trainingTaskIds.add(t.id);
+        if (t.chave) trainingTaskIds.add(t.chave);
+      }
+    });
+
+    const perSprint = selectedSprints.map((sprintName) => {
+      const sprintTasks = tasks.filter(t => t.sprint === sprintName);
+
+      const hasDetalhe = (t: TaskItemType, keywords: string[]) => {
+        if (!t.detalhesOcultos || t.detalhesOcultos.length === 0) return false;
+        return t.detalhesOcultos.some(d => keywords.includes(normalizeForComparison(d)));
+      };
+
+      const auxilioKeywords = ['auxilio'];
+      const reuniaoKeywords = ['reuniao', 'reunioes'];
+      const overtimeKeywords = ['horaextra', 'hora extra', 'horas extras', 'horasextras'];
+      const duvidaOcultaKeywords = ['duvidaoculta', 'duvida oculta'];
+      const folhaKeywords = ['folha'];
+
+      // Sum training hours from worklogs based on sprint period, regardless of task.sprint
+      let trainingHours = 0;
+      const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
+      if (period) {
+        const start = period.startDate.getTime();
+        const end = period.endDate.getTime();
+        trainingHours = worklogs.reduce((sum, w) => {
+          if (!trainingTaskIds.has(w.taskId)) return sum;
+          const ts = w.data instanceof Date ? w.data.getTime() : new Date(w.data).getTime();
+          if (ts >= start && ts <= end) {
+            return sum + (w.tempoGasto || 0);
+          }
+          return sum;
+        }, 0);
+      }
+      const auxilioHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, auxilioKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
+      const reuniaoHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, reuniaoKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
+      const overtimeHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, overtimeKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
+      const nonBugCount = sprintTasks.filter(t => t.tipo !== 'Bug').length;
+      const realBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && !hasDetalhe(t, duvidaOcultaKeywords) && !hasDetalhe(t, folhaKeywords)).length;
+      const duvidasOcultasCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, duvidaOcultaKeywords)).length;
+      const folhaBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, folhaKeywords)).length;
+
+      return {
+        sprintName,
+        trainingHours,
+        auxilioHours,
+        reuniaoHours,
+        overtimeHours,
+        nonBugCount,
+        realBugsCount,
+        duvidasOcultasCount,
+        folhaBugsCount,
+      };
+    });
+
+    const totals = perSprint.reduce(
+      (acc, s) => ({
+        trainingHours: acc.trainingHours + s.trainingHours,
+        auxilioHours: acc.auxilioHours + s.auxilioHours,
+        reuniaoHours: acc.reuniaoHours + s.reuniaoHours,
+        overtimeHours: acc.overtimeHours + s.overtimeHours,
+        nonBugCount: acc.nonBugCount + s.nonBugCount,
+        realBugsCount: acc.realBugsCount + s.realBugsCount,
+        duvidasOcultasCount: acc.duvidasOcultasCount + s.duvidasOcultasCount,
+        folhaBugsCount: acc.folhaBugsCount + s.folhaBugsCount,
+      }),
+      { trainingHours: 0, auxilioHours: 0, reuniaoHours: 0, overtimeHours: 0, nonBugCount: 0, realBugsCount: 0, duvidasOcultasCount: 0, folhaBugsCount: 0 }
+    );
+
+    return { perSprint, totals };
+  }, [tasks, selectedSprints]);
 
   // Filter analytics based on selected sprints
   const filteredAnalytics = React.useMemo(() => {
@@ -247,6 +331,175 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             </div>
           )}
         </div>
+      </div>
+
+      {/* KPIs de Gestão */}
+      <div ref={managementKpisRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg">
+              <Award className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">KPIs de Gestão (Sprints Selecionados)</h3>
+          </div>
+        </div>
+
+        {selectedSprints.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Selecione pelo menos um sprint para visualizar os KPIs.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {/* Treinamentos (horas) */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                    <Award className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Treinamentos</span>
+                </div>
+                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.trainingHours)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                    {s.sprintName}: <strong>{formatHours(s.trainingHours)}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Auxílios (horas) */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                    <Users className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Auxílios</span>
+                </div>
+                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.auxilioHours)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                    {s.sprintName}: <strong>{formatHours(s.auxilioHours)}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Reuniões (horas) */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-indigo-100 dark:bg-indigo-900/30">
+                    <Calendar className="w-4 h-4 text-indigo-700 dark:text-indigo-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Reuniões</span>
+                </div>
+                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.reuniaoHours)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                    {s.sprintName}: <strong>{formatHours(s.reuniaoHours)}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Horas Extras (horas) */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-yellow-100 dark:bg-yellow-900/30">
+                    <Clock className="w-4 h-4 text-yellow-700 dark:text-yellow-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Horas Extras</span>
+                </div>
+                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.overtimeHours)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 border border-yellow-200/60 dark:border-yellow-800/60">
+                    {s.sprintName}: <strong>{formatHours(s.overtimeHours)}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Tarefas (não-bug) - quantidade */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-sky-100 dark:bg-sky-900/30">
+                    <CheckSquare className="w-4 h-4 text-sky-700 dark:text-sky-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tarefas (não‑bug)</span>
+                </div>
+                <span className="text-xl font-extrabold text-gray-900 dark:text-white">{managementKPIs.totals.nonBugCount}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-sky-50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                    {s.sprintName}: <strong>{s.nonBugCount}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Bugs (reais e dúvidas ocultas) - quantidade */}
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-rose-100 dark:bg-rose-900/30">
+                    <Bug className="w-4 h-4 text-rose-700 dark:text-rose-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bugs</span>
+                </div>
+                <span className="text-xl font-extrabold text-gray-900 dark:text-white">
+                  {managementKPIs.totals.realBugsCount + managementKPIs.totals.duvidasOcultasCount + managementKPIs.totals.folhaBugsCount}
+                </span>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                    <Bug className="w-3 h-3" /> Bugs Reais
+                  </span>
+                  <span className="font-semibold">{managementKPIs.totals.realBugsCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                    <HelpCircle className="w-3 h-3" /> Dúvidas Ocultas
+                  </span>
+                  <span className="font-semibold">{managementKPIs.totals.duvidasOcultasCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                    <FileSpreadsheet className="w-3 h-3" /> Folha
+                  </span>
+                  <span className="font-semibold">{managementKPIs.totals.folhaBugsCount}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {managementKPIs.perSprint.map(s => (
+                  <span key={s.sprintName} className="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs bg-rose-50 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60">
+                    <span className="truncate max-w-[120px]">{s.sprintName}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Bug className="w-3 h-3" /> <strong>{s.realBugsCount}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <HelpCircle className="w-3 h-3" /> <strong>{s.duvidasOcultasCount}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <FileSpreadsheet className="w-3 h-3" /> <strong>{s.folhaBugsCount}</strong>
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
 

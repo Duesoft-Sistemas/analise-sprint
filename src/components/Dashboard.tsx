@@ -55,6 +55,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
   const tasksRef = useRef<HTMLDivElement | null>(null);
   const featureRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<HTMLDivElement | null>(null);
+  const managementRef = useRef<HTMLDivElement | null>(null);
 
   // Sync view with current presentation step
   const currentStep = useMemo(() => {
@@ -96,6 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
       else if (currentStep.multiSection === 'developerAllocation') scrollTo(devsRef.current);
       else if (currentStep.multiSection === 'clientAllocation') scrollTo(analysisRef.current);
       else if (currentStep.multiSection === 'featureAnalysis') scrollTo(tasksRef.current);
+      else if (currentStep.multiSection === 'managementKPIs') scrollTo(managementRef.current);
     }
   }, [presentation.isActive, currentStep]);
 
@@ -367,6 +369,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
           developerAllocationRef={devsRef}
           clientAllocationRef={analysisRef}
           featureAnalysisRef={tasksRef}
+          managementKpisRef={managementRef}
         />
       ) : (
         <>
