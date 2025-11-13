@@ -15,6 +15,7 @@ import {
   isNeutralTask,
   isAuxilioTask,
 } from '../utils/calculations';
+import { isBacklogSprintValue } from '../utils/calculations';
 
 // Helper to check if task has DuvidaOculta in detalhesOcultos array
 function isDuvidaOcultaTask(task: TaskItem): boolean {
@@ -32,7 +33,9 @@ export function calculateSprintAnalytics(
   sprintName: string
 ): SprintAnalytics {
   // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in sprint analytics
-  const sprintTasks = tasks.filter((t) => t.sprint === sprintName && t.sprint && t.sprint.trim() !== '');
+  const sprintTasks = tasks.filter(
+    (t) => t.sprint === sprintName && t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint)
+  );
 
   const completedTasks = sprintTasks.filter((t) => isCompletedStatus(t.status));
   
@@ -253,8 +256,8 @@ function createTotalizer(label: string, tasks: TaskItem[]): Totalizer {
 export function calculateCrossSprintAnalytics(
   tasks: TaskItem[]
 ): CrossSprintAnalytics {
-  const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
-  const tasksWithSprint = tasks.filter((t) => t.sprint && t.sprint.trim() !== '');
+  const backlogTasks = tasks.filter((t) => !t.sprint || isBacklogSprintValue(t.sprint) || t.sprint.trim() === '');
+  const tasksWithSprint = tasks.filter((t) => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
 
   // Sprint distribution
   const sprintMap = new Map<string, TaskItem[]>();
@@ -606,7 +609,6 @@ export interface BacklogAnalytics {
   byComplexity: Totalizer[];
   byFeature: Totalizer[];
   byClient: Totalizer[];
-  byResponsavel: Totalizer[];
   byStatus: Totalizer[];
   tasks: TaskItem[]; // All backlog tasks
 }
@@ -629,26 +631,28 @@ function createBacklogTotalizer(label: string, tasks: TaskItem[]): Totalizer {
  */
 export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   // Filter only backlog tasks (without sprint)
-  const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '');
+  const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+  // Exclude neutral (meeting/training) and auxilio tasks from backlog analysis
+  const backlogFiltered = backlogTasks.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t));
 
   // Summary
-  const isFolha = (t: TaskItem) => (t.detalhesOcultos || []).some(d => normalizeForComparison(d) === 'folha');
-  const bugs = backlogTasks.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolha(t));
-  const dubidasOcultas = backlogTasks.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
-  const folha = backlogTasks.filter((t) => t.tipo === 'Bug' && isFolha(t));
+  const isFolha = (t: TaskItem) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
+  const folhaTasks = backlogFiltered.filter((t) => isFolha(t)); // Folha é um TIPO independente (tarefa ou bug)
+  const bugs = backlogFiltered.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolha(t));
+  const dubidasOcultas = backlogFiltered.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t) && !isFolha(t));
   // Tarefas: tudo que não é bug ou dúvida oculta (inclui Tarefa, História, Outro, etc.)
-  const tarefas = backlogTasks.filter(
+  const tarefas = backlogFiltered.filter(
     (t) => !(t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolha(t)) && 
            !(t.tipo === 'Bug' && isDuvidaOcultaTask(t)) &&
-           !(t.tipo === 'Bug' && isFolha(t))
+           !isFolha(t)
   );
 
   const summary = {
-    totalTasks: backlogTasks.length,
-    totalEstimatedHours: backlogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    totalTasks: backlogFiltered.length,
+    totalEstimatedHours: backlogFiltered.reduce((sum, t) => sum + (t.estimativa || 0), 0),
     bugs: bugs.length,
     dubidasOcultas: dubidasOcultas.length,
-    folha: folha.length,
+    folha: folhaTasks.length,
     tarefas: tarefas.length,
   };
 
@@ -656,13 +660,13 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   const byType = {
     bugs: createBacklogTotalizer('Bugs Reais', bugs),
     dubidasOcultas: createBacklogTotalizer('Dúvidas Ocultas', dubidasOcultas),
-    folha: createBacklogTotalizer('Folha', folha),
+    folha: createBacklogTotalizer('Folha', folhaTasks),
     tarefas: createBacklogTotalizer('Tarefas', tarefas),
   };
 
   // By Complexity
   const complexityMap = new Map<number, TaskItem[]>();
-  backlogTasks.forEach((task) => {
+  backlogFiltered.forEach((task) => {
     const complexity = task.complexidade || 1;
     if (!complexityMap.has(complexity)) {
       complexityMap.set(complexity, []);
@@ -677,30 +681,14 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   }
 
   // By Feature
-  const byFeature = calculateBacklogAnalysisByFeature(backlogTasks);
+  const byFeature = calculateBacklogAnalysisByFeature(backlogFiltered);
 
   // By Client
-  const byClient = calculateBacklogAnalysisByClient(backlogTasks);
-
-  // By Responsável
-  const responsavelMap = new Map<string, TaskItem[]>();
-  backlogTasks.forEach((task) => {
-    const responsavel = task.responsavel || '(Sem Responsável)';
-    if (!responsavelMap.has(responsavel)) {
-      responsavelMap.set(responsavel, []);
-    }
-    responsavelMap.get(responsavel)!.push(task);
-  });
-
-  const byResponsavel: Totalizer[] = [];
-  responsavelMap.forEach((tasks, responsavel) => {
-    byResponsavel.push(createBacklogTotalizer(responsavel, tasks));
-  });
-  byResponsavel.sort((a, b) => b.estimatedHours - a.estimatedHours);
+  const byClient = calculateBacklogAnalysisByClient(backlogFiltered);
 
   // By Status
   const statusMap = new Map<string, TaskItem[]>();
-  backlogTasks.forEach((task) => {
+  backlogFiltered.forEach((task) => {
     const status = task.status || '(Sem Status)';
     if (!statusMap.has(status)) {
       statusMap.set(status, []);
@@ -720,9 +708,8 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
     byComplexity,
     byFeature,
     byClient,
-    byResponsavel,
     byStatus,
-    tasks: backlogTasks,
+    tasks: backlogFiltered,
   };
 }
 

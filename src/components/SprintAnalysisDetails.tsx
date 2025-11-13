@@ -38,7 +38,7 @@ const SprintAnalysisDetails: React.FC<SprintAnalysisDetailsProps> = ({ analytics
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <Layers className="w-5 h-5" />
-            Por Feature
+            Sprint Ativo • Por Feature
           </h3>
           {!isPresentation && (
             <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ const SprintAnalysisDetails: React.FC<SprintAnalysisDetailsProps> = ({ analytics
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Por Cliente
+            Sprint Ativo • Por Cliente
           </h3>
           {!isPresentation && (
             <div className="flex items-center gap-2">

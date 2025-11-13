@@ -4,10 +4,7 @@ import {
   parseTimeToHours,
   determineTaskType,
   parseDate,
-  normalizeText,
-  parseComplexidade,
-  parseNotaTeste,
-  normalizeTaskType,
+  normalizeForComparison,
   parseDetalhesOcultos,
 } from '../utils/calculations';
 
@@ -293,7 +290,7 @@ function parseXlsDataWithMultipleColumns(
       const responsavel = normalizeText(getColumnValue(jsonRow, 'Responsável'));
       const idResponsavel = getColumnValue(jsonRow, 'ID do responsável');
       const status = normalizeText(getColumnValue(jsonRow, 'Status'));
-      const modulo = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Modulo)'));
+      let modulo = normalizeText(getColumnValue(jsonRow, 'Campo personalizado (Modulo)'));
       
       // Ler múltiplas colunas de Feature diretamente dos índices
       // Isso captura TODAS as colunas, mesmo que tenham o mesmo nome
@@ -310,7 +307,7 @@ function parseXlsDataWithMultipleColumns(
           }
         }
       });
-      const features = Array.from(featuresSet);
+      let features = Array.from(featuresSet);
       
       // Ler múltiplas colunas de Categorias diretamente dos índices
       // Isso captura TODAS as colunas, mesmo que tenham o mesmo nome
@@ -362,6 +359,16 @@ function parseXlsDataWithMultipleColumns(
         }
       }
       const detalhesOcultos = Array.from(detalhesOcultosSet);
+
+      // Mapear tarefas de "Folha" para o agrupamento DSFolha no sistema inteiro
+      // Se detalhes ocultos contiver "folha", forçar módulo = DSFolha e garantir feature DSFolha
+      const isFolha = detalhesOcultos.some(d => normalizeForComparison(d) === 'folha');
+      if (isFolha) {
+        if (!features.includes('DSFolha')) {
+          features = ['DSFolha', ...features];
+        }
+        modulo = 'DSFolha';
+      }
       
       const complexidade = parseComplexidade(getColumnValue(jsonRow, 'Campo personalizado (Complexidade)'));
       const notaTeste = parseNotaTeste(getColumnValue(jsonRow, 'Campo personalizado (Nota Teste)'));
@@ -396,7 +403,7 @@ function parseXlsDataWithMultipleColumns(
         detalhesOcultos,
         tipo,
         complexidade: complexidade,
-        notaTeste: notaTeste,
+        notaTeste: notaTeste ?? undefined,
         qualidadeChamado: qualidadeChamado || undefined,
       };
 

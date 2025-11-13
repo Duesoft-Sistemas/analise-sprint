@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet } from 'lucide-react';
+import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType } from '../types';
 import { formatHours, normalizeForComparison } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
 import { useSprintStore } from '../store/useSprintStore';
+import { AnalyticsChart } from './AnalyticsCharts';
 
 interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
@@ -22,11 +23,16 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const [topSprintLimit, setTopSprintLimit] = useState<number | null>(10);
   const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(10);
   const [topClientLimit, setTopClientLimit] = useState<number | null>(10);
+  const [developerViewMode, setDeveloperViewMode] = useState<'chart' | 'list'>('chart');
+  const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
+  const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [selectedSprints, setSelectedSprints] = useState<string[]>(sprints);
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
   const worklogs = useSprintStore((s) => s.worklogs);
   const getSprintPeriod = useSprintStore((s) => s.getSprintPeriod);
+  const setSelectedDeveloper = useSprintStore((s) => s.setSelectedDeveloper);
+  const setAnalyticsFilter = useSprintStore((s) => s.setAnalyticsFilter);
   
   const TOP_OPTIONS = [10, 20, 40, null]; // null = todos
   
@@ -79,7 +85,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       const reuniaoKeywords = ['reuniao', 'reunioes'];
       const overtimeKeywords = ['horaextra', 'hora extra', 'horas extras', 'horasextras'];
       const duvidaOcultaKeywords = ['duvidaoculta', 'duvida oculta'];
-      const folhaKeywords = ['folha'];
+      const isFolhaTask = (t: TaskItemType) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
 
       // Sum training hours from worklogs based on sprint period, regardless of task.sprint
       let trainingHours = 0;
@@ -99,10 +105,9 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       const auxilioHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, auxilioKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
       const reuniaoHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, reuniaoKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
       const overtimeHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, overtimeKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
-      const nonBugCount = sprintTasks.filter(t => t.tipo !== 'Bug').length;
-      const realBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && !hasDetalhe(t, duvidaOcultaKeywords) && !hasDetalhe(t, folhaKeywords)).length;
-      const duvidasOcultasCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, duvidaOcultaKeywords)).length;
-      const folhaBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, folhaKeywords)).length;
+      const nonBugCount = sprintTasks.filter(t => t.tipo !== 'Bug' && !isFolhaTask(t)).length;
+      const realBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && !hasDetalhe(t, duvidaOcultaKeywords) && !isFolhaTask(t)).length;
+      const duvidasOcultasCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, duvidaOcultaKeywords) && !isFolhaTask(t)).length;
 
       return {
         sprintName,
@@ -113,7 +118,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         nonBugCount,
         realBugsCount,
         duvidasOcultasCount,
-        folhaBugsCount,
       };
     });
 
@@ -126,9 +130,8 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         nonBugCount: acc.nonBugCount + s.nonBugCount,
         realBugsCount: acc.realBugsCount + s.realBugsCount,
         duvidasOcultasCount: acc.duvidasOcultasCount + s.duvidasOcultasCount,
-        folhaBugsCount: acc.folhaBugsCount + s.folhaBugsCount,
       }),
-      { trainingHours: 0, auxilioHours: 0, reuniaoHours: 0, overtimeHours: 0, nonBugCount: 0, realBugsCount: 0, duvidasOcultasCount: 0, folhaBugsCount: 0 }
+      { trainingHours: 0, auxilioHours: 0, reuniaoHours: 0, overtimeHours: 0, nonBugCount: 0, realBugsCount: 0, duvidasOcultasCount: 0 }
     );
 
     return { perSprint, totals };
@@ -264,6 +267,66 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     };
   }, [analytics, tasks, selectedSprints]);
 
+  // Build chart data (Totalizer[]) across selected sprints for each section
+  const selectedSprintTasks = React.useMemo(() => {
+    if (selectedSprints.length === 0) return [];
+    return tasks.filter(t => selectedSprints.includes(t.sprint));
+  }, [tasks, selectedSprints]);
+
+  const developerTotalizers = React.useMemo(() => {
+    const map = new Map<string, { count: number; hours: number; estimatedHours: number }>();
+    for (const t of selectedSprintTasks) {
+      if (!t.responsavel) continue;
+      const key = t.responsavel;
+      if (!map.has(key)) map.set(key, { count: 0, hours: 0, estimatedHours: 0 });
+      const agg = map.get(key)!;
+      agg.count += 1;
+      agg.hours += t.tempoGastoNoSprint ?? 0;
+      agg.estimatedHours += (t.estimativaRestante ?? t.estimativa) ?? 0;
+    }
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, count: v.count, hours: v.hours, estimatedHours: v.estimatedHours }))
+      .sort((a, b) => b.estimatedHours - a.estimatedHours);
+  }, [selectedSprintTasks]);
+
+  const clientTotalizers = React.useMemo(() => {
+    const map = new Map<string, { count: number; hours: number; estimatedHours: number }>();
+    for (const t of selectedSprintTasks) {
+      const validClients = (t.categorias || []).filter(c => c && c.trim() !== '');
+      const clients = validClients.length > 0 ? validClients : ['(Sem Cliente)'];
+      for (const c of clients) {
+        const key = c.trim();
+        if (!map.has(key)) map.set(key, { count: 0, hours: 0, estimatedHours: 0 });
+        const agg = map.get(key)!;
+        agg.count += 1;
+        agg.hours += t.tempoGastoNoSprint ?? 0;
+        agg.estimatedHours += (t.estimativaRestante ?? t.estimativa) ?? 0;
+      }
+    }
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, count: v.count, hours: v.hours, estimatedHours: v.estimatedHours }))
+      .sort((a, b) => b.estimatedHours - a.estimatedHours);
+  }, [selectedSprintTasks]);
+
+  const featureTotalizers = React.useMemo(() => {
+    const map = new Map<string, { count: number; hours: number; estimatedHours: number }>();
+    for (const t of selectedSprintTasks) {
+      const validFeatures = (t.feature || []).filter(f => f && f.trim() !== '');
+      const features = validFeatures.length > 0 ? validFeatures : ['(Sem Feature)'];
+      for (const f of features) {
+        const key = f.trim();
+        if (!map.has(key)) map.set(key, { count: 0, hours: 0, estimatedHours: 0 });
+        const agg = map.get(key)!;
+        agg.count += 1;
+        agg.hours += t.tempoGastoNoSprint ?? 0;
+        agg.estimatedHours += (t.estimativaRestante ?? t.estimativa) ?? 0;
+      }
+    }
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, count: v.count, hours: v.hours, estimatedHours: v.estimatedHours }))
+      .sort((a, b) => b.estimatedHours - a.estimatedHours);
+  }, [selectedSprintTasks]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -340,7 +403,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg">
               <Award className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">KPIs de Gestão (Sprints Selecionados)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • KPIs de Gestão (Sprints Selecionados)</h3>
           </div>
         </div>
 
@@ -458,7 +521,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bugs</span>
                 </div>
                 <span className="text-xl font-extrabold text-gray-900 dark:text-white">
-                  {managementKPIs.totals.realBugsCount + managementKPIs.totals.duvidasOcultasCount + managementKPIs.totals.folhaBugsCount}
+                  {managementKPIs.totals.realBugsCount + managementKPIs.totals.duvidasOcultasCount}
                 </span>
               </div>
               <div className="mt-3 space-y-1.5">
@@ -474,12 +537,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </span>
                   <span className="font-semibold">{managementKPIs.totals.duvidasOcultasCount}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                    <FileSpreadsheet className="w-3 h-3" /> Folha
-                  </span>
-                  <span className="font-semibold">{managementKPIs.totals.folhaBugsCount}</span>
-                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
@@ -491,13 +548,12 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                     <span className="inline-flex items-center gap-1">
                       <HelpCircle className="w-3 h-3" /> <strong>{s.duvidasOcultasCount}</strong>
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <FileSpreadsheet className="w-3 h-3" /> <strong>{s.folhaBugsCount}</strong>
-                    </span>
                   </span>
                 ))}
               </div>
             </div>
+
+            {/* (Removido) Card de Folha no multi-sprint a pedido do usuário */}
           </div>
         )}
       </div>
@@ -510,7 +566,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
               <Calendar className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Distribuição por Sprint</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • Distribuição por Sprint</h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -567,9 +623,15 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
               <Users className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Desenvolvedor (Horas Estimadas)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • Alocação por Desenvolvedor (Horas Estimadas)</h3>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setDeveloperViewMode('chart')} className={`p-1.5 rounded-md ${developerViewMode === 'chart' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Gráfico">
+              <BarChart2 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setDeveloperViewMode('list')} className={`p-1.5 rounded-md ${developerViewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Lista">
+              <List className="w-4 h-4" />
+            </button>
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <select
               value={topDeveloperLimit === null ? 'all' : topDeveloperLimit.toString()}
@@ -584,45 +646,53 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             </select>
           </div>
         </div>
-        <div className="space-y-2">
-          {filteredAnalytics.developerAllocation
-            .sort((a, b) => b.totalEstimatedHours - a.totalEstimatedHours)
-            .slice(0, topDeveloperLimit ?? undefined)
-            .map((dev, index) => (
-              <div 
-                key={dev.name} 
-                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-              >
-                <div className="flex-shrink-0 w-8 text-center">
-                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
+        {developerViewMode === 'chart' ? (
+          <AnalyticsChart
+            data={developerTotalizers.slice(0, topDeveloperLimit ?? undefined)}
+            title=""
+            onBarClick={(value) => setSelectedDeveloper(value)}
+          />
+        ) : (
+          <div className="space-y-2">
+            {filteredAnalytics.developerAllocation
+              .sort((a, b) => b.totalEstimatedHours - a.totalEstimatedHours)
+              .slice(0, topDeveloperLimit ?? undefined)
+              .map((dev, index) => (
+                <div 
+                  key={dev.name} 
+                  className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                >
+                  <div className="flex-shrink-0 w-8 text-center">
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{index + 1}</span>
+                  </div>
+                  <div className="flex-shrink-0 min-w-[180px]">
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">{dev.name}</h4>
+                  </div>
+                  <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+                    {dev.sprints.map((sprint) => (
+                      <div
+                        key={sprint.sprintName}
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1 text-xs"
+                        title={`${sprint.sprintName}: ${formatHours(sprint.estimatedHours)}`}
+                      >
+                        <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
+                          {sprint.sprintName}
+                        </span>
+                        <span className="text-blue-700 dark:text-blue-400 font-semibold whitespace-nowrap">
+                          {formatHours(sprint.estimatedHours)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                      {formatHours(dev.totalEstimatedHours)} total
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-shrink-0 min-w-[180px]">
-                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">{dev.name}</h4>
-                </div>
-                <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
-                  {dev.sprints.map((sprint) => (
-                    <div
-                      key={sprint.sprintName}
-                      className="inline-flex items-center gap-1.5 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/20 dark:to-blue-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-md px-2 py-1 text-xs"
-                      title={`${sprint.sprintName}: ${formatHours(sprint.estimatedHours)}`}
-                    >
-                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
-                        {sprint.sprintName}
-                      </span>
-                      <span className="text-blue-700 dark:text-blue-400 font-semibold whitespace-nowrap">
-                        {formatHours(sprint.estimatedHours)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex-shrink-0">
-                  <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
-                    {formatHours(dev.totalEstimatedHours)} total
-                  </span>
-                </div>
-              </div>
-            ))}
-        </div>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Client Allocation */}
@@ -632,9 +702,15 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg">
               <Building2 className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Alocação por Cliente (Horas Estimadas)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • Alocação por Cliente (Horas Estimadas)</h3>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setClientViewMode('chart')} className={`p-1.5 rounded-md ${clientViewMode === 'chart' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Gráfico">
+              <BarChart2 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setClientViewMode('list')} className={`p-1.5 rounded-md ${clientViewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Lista">
+              <List className="w-4 h-4" />
+            </button>
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <select
               value={topClientLimit === null ? 'all' : topClientLimit.toString()}
@@ -649,43 +725,51 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredAnalytics.clientAllocation
-            .sort((a, b) => b.totalHours - a.totalHours)
-            .slice(0, topClientLimit ?? undefined)
-            .map((client) => (
-              <div key={client.client} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-green-500/50 flex flex-col justify-between">
-                <div>
-                  <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{client.client}</h4>
-                  <div className="mt-2">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
-                      {formatHours(client.totalHours)} total
-                    </span>
+        {clientViewMode === 'chart' ? (
+          <AnalyticsChart
+            data={clientTotalizers.slice(0, topClientLimit ?? undefined)}
+            title=""
+            onBarClick={(value) => setAnalyticsFilter({ type: 'client', value })}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredAnalytics.clientAllocation
+              .sort((a, b) => b.totalHours - a.totalHours)
+              .slice(0, topClientLimit ?? undefined)
+              .map((client) => (
+                <div key={client.client} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-green-500/50 flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{client.client}</h4>
+                    <div className="mt-2">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                        {formatHours(client.totalHours)} total
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Distribuição por Sprint:</p>
+                    <div className="flex flex-wrap items-center gap-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                      {client.sprints.map((sprint) => (
+                        <div
+                          key={sprint.sprintName}
+                          className="inline-flex items-center gap-1.5 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-400/20 dark:to-green-500/20 border border-green-200/50 dark:border-green-700/50 rounded-md px-2 py-1 text-xs"
+                          title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
+                        >
+                          <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
+                            {sprint.sprintName}
+                          </span>
+                          <span className="text-green-700 dark:text-green-400 font-semibold whitespace-nowrap">
+                            {formatHours(sprint.hours)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Distribuição por Sprint:</p>
-                  <div className="flex flex-wrap items-center gap-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-1">
-                    {client.sprints.map((sprint) => (
-                      <div
-                        key={sprint.sprintName}
-                        className="inline-flex items-center gap-1.5 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-400/20 dark:to-green-500/20 border border-green-200/50 dark:border-green-700/50 rounded-md px-2 py-1 text-xs"
-                        title={`${sprint.sprintName}: ${formatHours(sprint.hours)}`}
-                      >
-                        <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[120px]">
-                          {sprint.sprintName}
-                        </span>
-                        <span className="text-green-700 dark:text-green-400 font-semibold whitespace-nowrap">
-                          {formatHours(sprint.hours)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))
-          }
-        </div>
+              ))
+            }
+          </div>
+        )}
       </div>
 
       {/* Análise de Features */}
@@ -695,9 +779,15 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
               <Code className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Análise de Features (Horas Gastas)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • Análise de Features (Horas Gastas)</h3>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setFeatureViewMode('chart')} className={`p-1.5 rounded-md ${featureViewMode === 'chart' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Gráfico">
+              <BarChart2 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setFeatureViewMode('list')} className={`p-1.5 rounded-md ${featureViewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`} title="Lista">
+              <List className="w-4 h-4" />
+            </button>
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <select
               value={topFeatureLimit === null ? 'all' : topFeatureLimit.toString()}
@@ -712,64 +802,74 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             </select>
           </div>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Distribuição de tarefas, bugs e dúvidas ocultas por feature
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredAnalytics.byFeature.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-4 col-span-full">Nenhuma feature registrada.</p>
-          ) : (
-            filteredAnalytics.byFeature
-            .sort((a, b) => b.totalHours - a.totalHours)
-              .slice(0, topFeatureLimit ?? undefined)
-              .map((feature) => (
-                <div key={feature.label} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-indigo-500/50 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{feature.label}</h4>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
-                        <CheckSquare className="w-3 h-3" />
-                        {feature.totalTasks} tarefa{feature.totalTasks !== 1 ? 's' : ''}
-                      </span>
-                      <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
-                        <Calendar className="w-3 h-3" />
-                        {formatHours(feature.totalHours)}
-                      </span>
+        {featureViewMode === 'chart' ? (
+          <AnalyticsChart
+            data={featureTotalizers.slice(0, topFeatureLimit ?? undefined)}
+            title=""
+            onBarClick={(value) => setAnalyticsFilter({ type: 'feature', value })}
+          />
+        ) : (
+          <>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Distribuição de tarefas, bugs e dúvidas ocultas por feature
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredAnalytics.byFeature.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-4 col-span-full">Nenhuma feature registrada.</p>
+              ) : (
+                filteredAnalytics.byFeature
+                  .sort((a, b) => b.totalHours - a.totalHours)
+                  .slice(0, topFeatureLimit ?? undefined)
+                  .map((feature) => (
+                    <div key={feature.label} className="bg-white dark:bg-gray-800/50 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-lg hover:border-indigo-500/50 flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-md truncate">{feature.label}</h4>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                            <CheckSquare className="w-3 h-3" />
+                            {feature.totalTasks} tarefa{feature.totalTasks !== 1 ? 's' : ''}
+                          </span>
+                          <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/80 px-2 py-1 rounded-full">
+                            <Calendar className="w-3 h-3" />
+                            {formatHours(feature.totalHours)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                            <CheckSquare className="w-4 h-4 text-blue-500" />
+                            Tarefas
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {feature.totalTarefas} ({feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}%)
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                            <Bug className="w-4 h-4 text-red-500" />
+                            Bugs
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {feature.realBugs} ({feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}%)
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                            <HelpCircle className="w-4 h-4 text-yellow-500" />
+                            Dúvidas Ocultas
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {feature.dubidasOcultas} ({feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}%)
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                        <CheckSquare className="w-4 h-4 text-blue-500" />
-                        Tarefas
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {feature.totalTarefas} ({feature.totalTasks > 0 ? Math.round((feature.totalTarefas / feature.totalTasks) * 100) : 0}%)
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                        <Bug className="w-4 h-4 text-red-500" />
-                        Bugs
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {feature.realBugs} ({feature.totalTasks > 0 ? Math.round((feature.realBugs / feature.totalTasks) * 100) : 0}%)
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                        <HelpCircle className="w-4 h-4 text-yellow-500" />
-                        Dúvidas Ocultas
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {feature.dubidasOcultas} ({feature.totalTasks > 0 ? Math.round((feature.dubidasOcultas / feature.totalTasks) * 100) : 0}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-          )}
-        </div>
+                  ))
+              )}
+            </div>
+          </>
+        )}
       </div>
 
     </div>

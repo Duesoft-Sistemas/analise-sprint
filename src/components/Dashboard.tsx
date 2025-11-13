@@ -404,7 +404,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
               <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
                 <Users className="w-5 h-5 text-white" />
               </div>
-              Desenvolvedores
+              Sprint Ativo • Desenvolvedores
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {sprintAnalytics.developers.map((dev) => (

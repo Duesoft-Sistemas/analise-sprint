@@ -28,7 +28,7 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 
 ### Comportamento de Tarefas sem Sprint
 
-**Tarefas sem sprint definido** (campo Sprint vazio, null ou string vazia) são tratadas como **tarefas de backlog**.
+**Tarefas sem sprint definido** são tratadas como **tarefas de backlog**.
 
 **Regras:**
 - NÃO interferem em métricas de performance
@@ -36,6 +36,19 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 - Worklog de tarefas sem sprint é ignorado
 - São exibidas apenas na análise de backlog (aba multi-sprint)
 - São contabilizadas nas horas de backlog (baseado na estimativa apenas)
+
+**Valores aceitos como “sem sprint” (normalizados, case-insensitive):**
+- Campo vazio, `""`
+- `Backlog`
+- `Sem Sprint`
+- `-` ou `—`
+- `N/A`, `NA`
+- `Não alocado` / `Nao alocado` (e variações sem acento)
+- `None`, `Null`, `Undefined`
+
+**Sprints desconhecidos (não declarados no sprints.xlsx):**
+- Tarefas cujo `Sprint` possui valor válido, mas o nome NÃO aparece no arquivo de sprints (planilha de datas), serão mantidas e tratadas como backlog para fins de análise.
+- Estas tarefas também NÃO são processadas nos cálculos híbridos.
 
 ### Suporte a Múltiplas Colunas
 
@@ -113,6 +126,20 @@ Sistema aceita os seguintes formatos para campos de tempo:
 4. Tenta parsing nativo do JavaScript Date (fallback)
 
 ### Valores Especiais para "Detalhes Ocultos"
+
+#### "Folha" (mapeado para DSFolha)
+
+**Regra global (aplicada em TODO o sistema: backlog e multi‑sprint):**
+
+- Uma tarefa é classificada como “Folha” quando:
+  - `Campo personalizado (Modulo) === "DSFolha"`; ou
+  - `Campo personalizado (Feature)` contém o valor `DSFolha` (qualquer coluna de feature).
+- Normalização automática: se em `Detalhes Ocultos` aparecer o valor “Folha”, o sistema corrige os dados para fins de análise, forçando:
+  - `Modulo = "DSFolha"` e
+  - inclusão de `DSFolha` no array de `Feature` (preservando demais valores).
+- Impacto:
+  - “Folha” aparece como subtipo em Bugs nas visualizações multi‑sprint (KPIs).
+  - No backlog, “Folha” também é mostrado nos cards de tipo.
 
 #### "Auxilio"
 
@@ -371,6 +398,7 @@ Antes de processamento, sistema valida:
 - Backlog NÃO interfere em métricas de performance
 - Backlog NÃO é processado para cálculos híbridos
 - Worklog de backlog é ignorado
+- Análise por responsável: não exibida na aba Backlog (informação redundante para planejamento)
 
 **Tarefas sem Worklog:**
 - `tempoGastoTotal = 0`

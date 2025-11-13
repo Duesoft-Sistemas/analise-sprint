@@ -198,13 +198,15 @@ export function calculatePercentage(value: number, total: number): number {
   return Math.round((value / total) * 100);
 }
 
+ 
+
 /**
- * Check if a task has a sprint assigned (not backlog)
- * IMPORTANT: Tasks without sprint are BACKLOG tasks - they should NOT interfere in performance metrics
+ * Check if a task has a sprint assigned (not backlog or placeholder)
+ * IMPORTANT: Backlog tasks should NOT interfere in performance metrics
  * They are ONLY used for backlog analysis in multi-sprint view
  */
 export function hasSprint(task: { sprint?: string }): boolean {
-  return !!(task.sprint && task.sprint.trim() !== '');
+  return !!(task.sprint && task.sprint.trim() !== '') && !isBacklogSprintValue(task.sprint);
 }
 
 /**
@@ -228,5 +230,34 @@ export function isNeutralTask(task: { detalhesOcultos?: string[] }): boolean {
 export function isAuxilioTask(task: { detalhesOcultos?: string[] }): boolean {
   if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
   return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'auxilio');
+}
+
+/**
+ * Detect if a Sprint cell value should be treated as Backlog.
+ * Accepts common placeholders besides empty string: "backlog", "sem sprint", "-", "n/a", "na",
+ * "não alocado"/"nao alocado", "none", "null", "undefined".
+ */
+export function isBacklogSprintValue(sprint: string | null | undefined): boolean {
+  const raw = (sprint ?? '').trim();
+  if (raw === '') return true;
+  const normalized = normalizeForComparison(raw);
+  const backlogAliases = new Set<string>([
+    'backlog',
+    'semsprint',
+    'sem sprint',
+    '-',
+    '—',
+    'n/a',
+    'na',
+    'nao alocado',
+    'não alocado',
+    'naoalocado',
+    'nao-allocado',
+    'nao_alocado',
+    'none',
+    'null',
+    'undefined',
+  ]);
+  return backlogAliases.has(normalized);
 }
 

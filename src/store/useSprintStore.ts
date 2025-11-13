@@ -19,6 +19,7 @@ import {
   getAllSprints,
 } from '../services/analytics';
 import { calculateAllTasksHybridMetrics } from '../services/hybridCalculations';
+import { isBacklogSprintValue } from '../utils/calculations';
 
 interface SprintStore {
   // Data
@@ -143,9 +144,11 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     if (worklogs.length > 0 && sprintMetadata.length > 0) {
       // Process each sprint separately with its correct period
       // Filter out tasks without sprint (backlog) - they are NOT processed for metrics
-      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '');
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const knownSprintTasks = tasksWithSprint.filter(t => sprintMetadata.some(m => m.sprint === t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !sprintMetadata.some(m => m.sprint === t.sprint));
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasksWithSprint.forEach(task => {
+      knownSprintTasks.forEach(task => {
         if (!tasksBySprint.has(task.sprint)) {
           tasksBySprint.set(task.sprint, []);
         }
@@ -168,19 +171,19 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         processedTasks.push(...processed);
       });
       
-      // IMPORTANT: Add backlog tasks (without sprint) back to processedTasks but WITHOUT hybrid metrics
+      // IMPORTANT: Add backlog tasks (without sprint or unknown sprint) back to processedTasks but WITHOUT hybrid metrics
       // They keep their original structure but won't have tempoGastoTotal, tempoGastoNoSprint, etc.
-      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '');
-      processedTasks.push(...backlogTasks);
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     } else if (worklogs.length > 0) {
       // Fallback: use single period if no metadata
       // Filter out tasks without sprint (backlog) - they are NOT processed for metrics
-      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '');
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
       const { sprintPeriod } = get();
       const processed = calculateAllTasksHybridMetrics(tasksWithSprint, worklogs, sprintPeriod);
       
       // Add backlog tasks back without hybrid metrics
-      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '');
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
       processedTasks = [...processed, ...backlogTasks];
     } else {
       // No worklogs - keep all tasks as-is (including backlog)
@@ -250,8 +253,11 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     // Processar todas as tarefas
     let processedTasks = allTasks;
     if (worklogs.length > 0 && sprintMetadata.length > 0) {
+      const tasksWithSprint = allTasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const knownSprintTasks = tasksWithSprint.filter(t => sprintMetadata.some(m => m.sprint === t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !sprintMetadata.some(m => m.sprint === t.sprint));
       const tasksBySprint = new Map<string, TaskItem[]>();
-      allTasks.forEach(task => {
+      knownSprintTasks.forEach(task => {
         if (!tasksBySprint.has(task.sprint)) {
           tasksBySprint.set(task.sprint, []);
         }
@@ -272,9 +278,16 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Append backlog and unknown-sprint tasks without hybrid metrics
+      const backlogTasks = allTasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     } else if (worklogs.length > 0) {
       const { sprintPeriod } = get();
-      processedTasks = calculateAllTasksHybridMetrics(allTasks, worklogs, sprintPeriod);
+      const tasksWithSprint = allTasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const processed = calculateAllTasksHybridMetrics(tasksWithSprint, worklogs, sprintPeriod);
+      const backlogTasks = allTasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks = [...processed, ...backlogTasks];
     }
     
     // Recalcular sprints
@@ -376,9 +389,19 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Re-add backlog and unknown sprints without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      const unknownSprintTasks = tasks.filter(
+        t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint) && !sprintMetadata.some(m => m.sprint === t.sprint)
+      );
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     } else if (worklogs.length > 0) {
       const { sprintPeriod } = get();
-      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const processed = calculateAllTasksHybridMetrics(tasksWithSprint, worklogs, sprintPeriod);
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks = [...processed, ...backlogTasks];
     }
     
     let sprints: string[];
@@ -420,10 +443,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     let processedTasks = tasks;
     if (sprintMetadata.length > 0) {
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasks.forEach(task => {
-        if (!tasksBySprint.has(task.sprint)) {
-          tasksBySprint.set(task.sprint, []);
-        }
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      tasksWithSprint.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) tasksBySprint.set(task.sprint, []);
         tasksBySprint.get(task.sprint)!.push(task);
       });
       
@@ -441,10 +463,18 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Re-add backlog and unknown sprints without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !sprintMetadata.some(m => m.sprint === t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     } else {
       // Fallback: use single period if no metadata
       const { sprintPeriod } = get();
-      processedTasks = calculateAllTasksHybridMetrics(tasks, worklogs, sprintPeriod);
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const processed = calculateAllTasksHybridMetrics(tasksWithSprint, worklogs, sprintPeriod);
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks = [...processed, ...backlogTasks];
     }
     
     const sprintAnalytics = selectedSprint
@@ -484,10 +514,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     let processedTasks = tasks;
     if (sprintMetadata.length > 0) {
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasks.forEach(task => {
-        if (!tasksBySprint.has(task.sprint)) {
-          tasksBySprint.set(task.sprint, []);
-        }
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      tasksWithSprint.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) tasksBySprint.set(task.sprint, []);
         tasksBySprint.get(task.sprint)!.push(task);
       });
       
@@ -505,9 +534,17 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, allWorklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Re-add backlog and unknown sprints without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !sprintMetadata.some(m => m.sprint === t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     } else {
       const { sprintPeriod } = get();
-      processedTasks = calculateAllTasksHybridMetrics(tasks, allWorklogs, sprintPeriod);
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      const processed = calculateAllTasksHybridMetrics(tasksWithSprint, allWorklogs, sprintPeriod);
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      processedTasks = [...processed, ...backlogTasks];
     }
     
     const sprintAnalytics = selectedSprint
@@ -604,10 +641,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     let processedTasks = tasks;
     if (worklogs.length > 0 && metadata.length > 0) {
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasks.forEach(task => {
-        if (!tasksBySprint.has(task.sprint)) {
-          tasksBySprint.set(task.sprint, []);
-        }
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      tasksWithSprint.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) tasksBySprint.set(task.sprint, []);
         tasksBySprint.get(task.sprint)!.push(task);
       });
       
@@ -625,6 +661,11 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Re-add backlog and unknown sprints without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !metadata.some(m => m.sprint === t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     }
     
     // Build sprint options strictly from metadata
@@ -678,10 +719,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     let processedTasks = tasks;
     if (worklogs.length > 0 && combinedMetadata.length > 0) {
       const tasksBySprint = new Map<string, TaskItem[]>();
-      tasks.forEach(task => {
-        if (!tasksBySprint.has(task.sprint)) {
-          tasksBySprint.set(task.sprint, []);
-        }
+      const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+      tasksWithSprint.forEach(task => {
+        if (!tasksBySprint.has(task.sprint)) tasksBySprint.set(task.sprint, []);
         tasksBySprint.get(task.sprint)!.push(task);
       });
       
@@ -699,6 +739,11 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         const processed = calculateAllTasksHybridMetrics(sprintTasks, worklogs, period);
         processedTasks.push(...processed);
       });
+
+      // Re-add backlog and unknown sprints without hybrid metrics
+      const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+      const unknownSprintTasks = tasksWithSprint.filter(t => !combinedMetadata.some(m => m.sprint === t.sprint));
+      processedTasks.push(...backlogTasks, ...unknownSprintTasks);
     }
     
     // Recalcular sprints ordenados por data
