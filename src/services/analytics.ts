@@ -6,6 +6,7 @@ import {
   CrossSprintAnalytics,
   RiskAlert,
   ProblemAnalysis,
+  WorklogEntry,
 } from '../types';
 import { SprintMetadata } from '../types';
 import {
@@ -17,6 +18,22 @@ import {
   isAuxilioTask,
 } from '../utils/calculations';
 import { isBacklogSprintValue } from '../utils/calculations';
+import { isDateInSprint } from './hybridCalculations';
+
+// Helper function to compare dates without time (only date part)
+function compareDateOnly(date1: Date, date2: Date): number {
+  const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+  const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+  return d1.getTime() - d2.getTime();
+}
+
+// Helper function to check if a date is within a period (date only, no time)
+function isDateInPeriod(date: Date, startDate: Date, endDate: Date): boolean {
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  return dateOnly.getTime() >= startOnly.getTime() && dateOnly.getTime() <= endOnly.getTime();
+}
 
 // Helper to check if task has DuvidaOculta in detalhesOcultos array
 function isDuvidaOcultaTask(task: TaskItem): boolean {
@@ -809,22 +826,41 @@ export interface BacklogFlowAnalytics {
     tasks: number;
     estimatedHours: number;
   };
+  allocation: {
+    currentSprint: {
+      tasks: number;
+      estimatedHours: number;
+    };
+    futureSprints: {
+      tasks: number;
+      estimatedHours: number;
+    };
+    totalAllocated: {
+      tasks: number;
+      estimatedHours: number;
+    };
+  };
 }
 
 /**
- * Calculate inflow/outflow per sprint and backlog size evolution using sprint metadata windows.
- * - inflow: ALL tasks created within [startDate,endDate] (with or without sprint)
- * - outflow: ALL tasks completed in this sprint period (with or without sprint)
+ * Calculate inflow/outflow per period and backlog size evolution using sprint metadata windows.
+ * - inflow: ALL tasks created within [startDate,endDate] (independent of sprint assignment)
+ * - outflow: ALL tasks completed in this period (independent of sprint assignment, uses worklogs to determine completion period)
  * - carriedIn: tasks with sprint == sprintName and criado < startDate
  * - backlogAtStart: count of tasks without sprint created strictly before startDate
  */
 export function calculateBacklogFlowBySprint(
   tasks: TaskItem[],
-  sprintMetadata: SprintMetadata[]
+  sprintMetadata: SprintMetadata[],
+  worklogs: WorklogEntry[] = []
 ): BacklogFlowAnalytics {
+  // Excluir tarefas de auxílio, reunião e treinamento da análise de fluxo
+  // Essas tarefas são overhead e não devem diluir as métricas de capacidade de entrega
+  const filteredTasks = tasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
+  
   // Separate tasks for reference
-  const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
-  const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+  const backlogTasks = filteredTasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+  const tasksWithSprint = filteredTasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
 
   // Order sprints by start date
   const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
@@ -832,12 +868,13 @@ export function calculateBacklogFlowBySprint(
   // Find first sprint start date
   const firstSprintStart = ordered.length > 0 ? ordered[0].dataInicio : null;
 
-  // Calculate legacy inflow (tasks without sprint that have no creation date OR were created before first sprint)
-  // This will be shown as a separate "Anterior" column before the first sprint
+  // Calculate legacy inflow (tasks without sprint that have no creation date OR were created before first period)
+  // This will be shown as a separate "Anterior" column before the first period
   const legacyTasks = firstSprintStart
     ? backlogTasks.filter(t =>
         !t.criado || // no creation date
-        t.criado.getTime() < firstSprintStart.getTime() // created before first sprint
+        isNaN(t.criado.getTime()) || // invalid date
+        compareDateOnly(t.criado, firstSprintStart) < 0 // created before first period (date only)
       )
     : [];
   const legacyInflow = legacyTasks.length > 0 ? {
@@ -850,36 +887,56 @@ export function calculateBacklogFlowBySprint(
     const { sprint, dataInicio, dataFim } = meta;
 
     // INFLOW: ALL tasks created within [start, end] period (independent of status or sprint assignment)
-    // Entradas são baseadas APENAS na data de criação da tarefa
-    const inflowTasks = tasks.filter(t =>
+    // Entradas são baseadas APENAS na data de criação da tarefa (sem considerar horário)
+    // IMPORTANTE: Inclui TODAS as tarefas criadas no período, mesmo que associadas a sprints futuros
+    // Excluir tarefas de auxílio, reunião e treinamento
+    const inflowTasks = filteredTasks.filter(t =>
       t.criado &&
       !isNaN(t.criado.getTime()) &&
-      t.criado.getTime() >= dataInicio.getTime() &&
-      t.criado.getTime() <= dataFim.getTime()
+      isDateInPeriod(t.criado, dataInicio, dataFim)
     );
     const inflow = inflowTasks.length;
 
-    // carried-in (optional diagnostic): tasks that belong to this sprint and were created BEFORE sprint start
+    // carried-in (optional diagnostic): tasks that belong to this sprint and were created BEFORE period start
     const carriedInTasks = tasksWithSprint.filter(t =>
       t.sprint === sprint &&
       t.criado &&
       !isNaN(t.criado.getTime()) &&
-      t.criado.getTime() < dataInicio.getTime()
+      compareDateOnly(t.criado, dataInicio) < 0
     );
     const carriedIn = carriedInTasks.length;
 
-    // OUTFLOW: ALL tasks completed in this sprint period (independent of when they were created)
-    // Saídas são baseadas APENAS em tarefas concluídas que pertencem a este sprint
-    // Como não temos data de conclusão, usamos a heurística: tarefa concluída + sprint atribuído = concluída no período do sprint
-    // Tarefas sem sprint não podem ser incluídas no outflow de um sprint específico pois não sabemos quando foram concluídas
-    const outflowTasks = tasksWithSprint.filter(t =>
-      t.sprint === sprint && isCompletedStatus(t.status)
-    );
+    // OUTFLOW: ALL tasks completed in this period (independent of sprint assignment or when they were created)
+    // Saídas são baseadas em tarefas concluídas que:
+    // 1. Têm worklogs no período (trabalho realizado no período), OU
+    // 2. Pertencem ao sprint do período (alocadas ao sprint do período)
+    // Isso garante que tarefas alocadas ao sprint sejam consideradas mesmo sem worklog registrado
+    // Excluir tarefas de auxílio, reunião e treinamento
+    const outflowTasks = filteredTasks.filter(t => {
+      if (!isCompletedStatus(t.status)) return false;
+      
+      // Verificar se a tarefa tem worklogs no período
+      const taskWorklogs = worklogs.filter(w => 
+        (w.taskId === t.id || w.taskId === t.chave) &&
+        isDateInSprint(w.data, dataInicio, dataFim)
+      );
+      
+      // Se tem worklogs no período, foi concluída no período
+      if (taskWorklogs.length > 0) return true;
+      
+      // Se não tem worklog no período, mas está alocada ao sprint do período, considerar como concluída no período
+      // Isso captura tarefas que foram concluídas mas o worklog não foi registrado corretamente
+      if (t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint) && t.sprint === sprint) {
+        return true;
+      }
+      
+      return false;
+    });
     const outflow = outflowTasks.length;
 
-    // backlog at start: backlog tasks created before sprint start (excluding legacy)
+    // backlog at start: backlog tasks created before period start (excluding legacy)
     const backlogAtStart = backlogTasks.filter(t =>
-      t.criado && t.criado.getTime() < dataInicio.getTime()
+      t.criado && !isNaN(t.criado.getTime()) && compareDateOnly(t.criado, dataInicio) < 0
     ).length;
 
     // Exit ratio and net flow
@@ -909,22 +966,87 @@ export function calculateBacklogFlowBySprint(
     taskList: completedBacklogTasks,
   } : null;
 
+  // Calcular médias apenas com sprints COMPLETAMENTE FINALIZADOS (data de fim no passado)
+  // Excluindo sprint atual para evitar distorções no início do sprint
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  const completedSprints = series.filter(sprintItem => {
+    const sprintMeta = sprintMetadata.find(m => m.sprint === sprintItem.sprintName);
+    if (!sprintMeta) return false;
+    
+    const sprintEnd = new Date(sprintMeta.dataFim);
+    sprintEnd.setHours(23, 59, 59, 999);
+    
+    // Apenas sprints passados: data de fim já passou
+    return sprintEnd.getTime() < now.getTime();
+  });
+
   const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((s, x) => s + x, 0) / arr.length : 0);
   const averages = {
-    avgInflow: avg(series.map(s => s.inflow)),
-    avgOutflow: avg(series.map(s => s.outflow)),
-    avgNetFlow: avg(series.map(s => s.netFlow)),
-    avgExitRatio: avg(series.map(s => (Number.isFinite(s.exitRatio) ? s.exitRatio : 0))),
+    avgInflow: avg(completedSprints.map(s => s.inflow)),
+    avgOutflow: avg(completedSprints.map(s => s.outflow)),
+    avgNetFlow: avg(completedSprints.map(s => s.netFlow)),
+    avgExitRatio: avg(completedSprints.map(s => (Number.isFinite(s.exitRatio) ? s.exitRatio : 0))),
   };
 
-  // Current backlog excludes completed tasks (for backlog analysis)
+  // Current backlog: APENAS tarefas sem sprint (backlog tradicional) que não estão concluídas
+  // Tarefas alocadas a sprints (atuais ou futuros) NÃO devem entrar no backlog atual
+  // Elas são contabilizadas separadamente no card "Alocado em Sprints"
   const pendingBacklogTasks = backlogTasks.filter(t => !isCompletedStatus(t.status));
+  
   const currentBacklog = {
     tasks: pendingBacklogTasks.length,
     estimatedHours: pendingBacklogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
   };
 
-  return { legacyInflow, series, completedWithoutSprint, averages, currentBacklog };
+  // Calcular alocação em sprints
+  // Sprint atual: sprint que está em andamento (data atual está entre início e fim)
+  const currentSprintTasks = tasksWithSprint.filter(t => {
+    if (isCompletedStatus(t.status)) return false; // Excluir concluídas
+    
+    const sprintMeta = sprintMetadata.find(m => m.sprint === t.sprint);
+    if (!sprintMeta) return false;
+    
+    const sprintStart = new Date(sprintMeta.dataInicio);
+    sprintStart.setHours(0, 0, 0, 0);
+    const sprintEnd = new Date(sprintMeta.dataFim);
+    sprintEnd.setHours(23, 59, 59, 999);
+    
+    // Sprint atual: hoje está entre início e fim
+    return now.getTime() >= sprintStart.getTime() && now.getTime() <= sprintEnd.getTime();
+  });
+
+  // Tarefas alocadas a sprints futuros (que ainda não começaram)
+  const futureSprintTasks = tasksWithSprint.filter(t => {
+    if (isCompletedStatus(t.status)) return false; // Excluir concluídas
+    
+    const sprintMeta = sprintMetadata.find(m => m.sprint === t.sprint);
+    if (!sprintMeta) return false;
+    
+    // Sprint futuro: data de início ainda não chegou
+    const sprintStart = new Date(sprintMeta.dataInicio);
+    sprintStart.setHours(0, 0, 0, 0);
+    
+    return sprintStart.getTime() > now.getTime();
+  });
+
+  const allocation = {
+    currentSprint: {
+      tasks: currentSprintTasks.length,
+      estimatedHours: currentSprintTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    },
+    futureSprints: {
+      tasks: futureSprintTasks.length,
+      estimatedHours: futureSprintTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    },
+    totalAllocated: {
+      tasks: tasksWithSprint.filter(t => !isCompletedStatus(t.status)).length,
+      estimatedHours: tasksWithSprint.filter(t => !isCompletedStatus(t.status)).reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    },
+  };
+
+  return { legacyInflow, series, completedWithoutSprint, averages, currentBacklog, allocation };
 }
 
 export interface CapacityRecommendation {
@@ -955,12 +1077,16 @@ export function calculateCapacityRecommendation(
     };
   }
 
+  // Excluir tarefas de auxílio, reunião e treinamento da análise de capacidade
+  const filteredTasks = tasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
+
   // Compute inflow per sprint
-  const flow = calculateBacklogFlowBySprint(tasks, sprintMetadata);
+  const flow = calculateBacklogFlowBySprint(filteredTasks, sprintMetadata);
   const avgInflow = flow.averages.avgInflow;
 
   // For each sprint, compute throughput per dev
-  const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+  // Excluir tarefas de auxílio, reunião e treinamento
+  const tasksWithSprint = filteredTasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
   const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
   const perSprintThroughputPerDev: number[] = [];
 
