@@ -12,11 +12,12 @@ import { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
 import { QualityDashboard } from './QualityDashboard';
 import { InconsistenciesDashboard } from './InconsistenciesDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
+import { BacklogFlowDashboard } from './BacklogFlowDashboard';
 import { SettingsPanel } from './SettingsPanel';
 import SprintAnalysisDetails from './SprintAnalysisDetails';
 import { PresentationSettingsModal } from './PresentationSettingsModal';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow';
 
 interface DashboardProps {
   onViewLabelChange?: (label: string) => void;
@@ -142,6 +143,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
         return 'Inconsistências';
       case 'backlog':
         return 'Backlog';
+      case 'backlogFlow':
+        return 'Fluxo & Capacidade';
       default:
         return '';
     }
@@ -312,6 +315,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
           </button>
           
           <button
+            onClick={() => setViewMode('backlogFlow')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'backlogFlow'
+                ? 'bg-gradient-to-r from-slate-600 to-slate-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Fluxo & Capacidade
+          </button>
+          
+          <button
             onClick={() => setViewMode('inconsistencies')}
             className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
               viewMode === 'inconsistencies'
@@ -360,6 +375,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
         <InconsistenciesDashboard />
       ) : viewMode === 'backlog' ? (
         <BacklogDashboard />
+      ) : viewMode === 'backlogFlow' ? (
+        <BacklogFlowDashboard />
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis
           analytics={crossSprintAnalytics}

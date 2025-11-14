@@ -7,6 +7,7 @@ import {
   RiskAlert,
   ProblemAnalysis,
 } from '../types';
+import { SprintMetadata } from '../types';
 import {
   isCompletedStatus,
   calculateRiskLevel,
@@ -766,5 +767,231 @@ export function calculateProblemAnalysisByClient(tasks: TaskItem[]): ProblemAnal
   }
 
   return analyses.sort((a, b) => b.totalTasks - a.totalTasks);
+}
+
+// =============================================================================
+// BACKLOG FLOW (Inflow/Outflow) BY SPRINT + CAPACITY RECOMMENDATION
+// =============================================================================
+
+export interface BacklogFlowSprintItem {
+  sprintName: string;
+  inflow: number; // tasks created within sprint period and assigned to this sprint
+  inflowTasks: TaskItem[]; // actual tasks for inflow
+  legacyInflow: number; // tasks without sprint that have no creation date or were created before first sprint (only in first sprint)
+  outflow: number; // tasks with this sprint and completed (by completed statuses)
+  outflowTasks: TaskItem[]; // actual tasks for outflow
+  netFlow: number; // outflow - inflow
+  exitRatio: number; // outflow / inflow (0 if inflow = 0; Infinity if inflow=0 and outflow>0)
+  carriedIn: number; // tasks in this sprint created before sprint start
+  carriedInTasks: TaskItem[]; // actual tasks for carried-in
+  backlogAtStart: number; // backlog size (tasks without sprint) existing before sprint start
+}
+
+export interface BacklogFlowAnalytics {
+  legacyInflow: {
+    tasks: number;
+    estimatedHours: number;
+    taskList: TaskItem[]; // actual tasks for legacy inflow
+  } | null; // Tasks without sprint that have no creation date or were created before first sprint (shown as "Anterior" column before first sprint)
+  series: BacklogFlowSprintItem[];
+  completedWithoutSprint: {
+    tasks: number;
+    estimatedHours: number;
+    taskList: TaskItem[]; // actual tasks completed without sprint
+  } | null; // Tasks without sprint that are completed (shown as special column in chart)
+  averages: {
+    avgInflow: number;
+    avgOutflow: number;
+    avgNetFlow: number;
+    avgExitRatio: number;
+  };
+  currentBacklog: {
+    tasks: number;
+    estimatedHours: number;
+  };
+}
+
+/**
+ * Calculate inflow/outflow per sprint and backlog size evolution using sprint metadata windows.
+ * - inflow: ALL tasks created within [startDate,endDate] (with or without sprint)
+ * - outflow: ALL tasks completed in this sprint period (with or without sprint)
+ * - carriedIn: tasks with sprint == sprintName and criado < startDate
+ * - backlogAtStart: count of tasks without sprint created strictly before startDate
+ */
+export function calculateBacklogFlowBySprint(
+  tasks: TaskItem[],
+  sprintMetadata: SprintMetadata[]
+): BacklogFlowAnalytics {
+  // Separate tasks for reference
+  const backlogTasks = tasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
+  const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+
+  // Order sprints by start date
+  const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
+
+  // Find first sprint start date
+  const firstSprintStart = ordered.length > 0 ? ordered[0].dataInicio : null;
+
+  // Calculate legacy inflow (tasks without sprint that have no creation date OR were created before first sprint)
+  // This will be shown as a separate "Anterior" column before the first sprint
+  const legacyTasks = firstSprintStart
+    ? backlogTasks.filter(t =>
+        !t.criado || // no creation date
+        t.criado.getTime() < firstSprintStart.getTime() // created before first sprint
+      )
+    : [];
+  const legacyInflow = legacyTasks.length > 0 ? {
+    tasks: legacyTasks.length,
+    estimatedHours: legacyTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    taskList: legacyTasks,
+  } : null;
+
+  const series: BacklogFlowSprintItem[] = ordered.map((meta) => {
+    const { sprint, dataInicio, dataFim } = meta;
+
+    // INFLOW: ALL tasks created within [start, end] period (independent of status or sprint assignment)
+    // Entradas são baseadas APENAS na data de criação da tarefa
+    const inflowTasks = tasks.filter(t =>
+      t.criado &&
+      !isNaN(t.criado.getTime()) &&
+      t.criado.getTime() >= dataInicio.getTime() &&
+      t.criado.getTime() <= dataFim.getTime()
+    );
+    const inflow = inflowTasks.length;
+
+    // carried-in (optional diagnostic): tasks that belong to this sprint and were created BEFORE sprint start
+    const carriedInTasks = tasksWithSprint.filter(t =>
+      t.sprint === sprint &&
+      t.criado &&
+      !isNaN(t.criado.getTime()) &&
+      t.criado.getTime() < dataInicio.getTime()
+    );
+    const carriedIn = carriedInTasks.length;
+
+    // OUTFLOW: ALL tasks completed in this sprint period (independent of when they were created)
+    // Saídas são baseadas APENAS em tarefas concluídas que pertencem a este sprint
+    // Como não temos data de conclusão, usamos a heurística: tarefa concluída + sprint atribuído = concluída no período do sprint
+    // Tarefas sem sprint não podem ser incluídas no outflow de um sprint específico pois não sabemos quando foram concluídas
+    const outflowTasks = tasksWithSprint.filter(t =>
+      t.sprint === sprint && isCompletedStatus(t.status)
+    );
+    const outflow = outflowTasks.length;
+
+    // backlog at start: backlog tasks created before sprint start (excluding legacy)
+    const backlogAtStart = backlogTasks.filter(t =>
+      t.criado && t.criado.getTime() < dataInicio.getTime()
+    ).length;
+
+    // Exit ratio and net flow
+    const exitRatio = inflow > 0 ? outflow / inflow : (outflow > 0 ? Infinity : 0);
+    const netFlow = outflow - inflow;
+
+    return {
+      sprintName: sprint,
+      inflow,
+      inflowTasks,
+      legacyInflow: 0, // No longer used in sprint items, kept for type compatibility
+      outflow,
+      outflowTasks,
+      netFlow,
+      exitRatio,
+      carriedIn,
+      carriedInTasks,
+      backlogAtStart,
+    };
+  });
+
+  // Calculate completed tasks without sprint (for flow analysis - shown as special column)
+  const completedBacklogTasks = backlogTasks.filter(t => isCompletedStatus(t.status));
+  const completedWithoutSprint = completedBacklogTasks.length > 0 ? {
+    tasks: completedBacklogTasks.length,
+    estimatedHours: completedBacklogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    taskList: completedBacklogTasks,
+  } : null;
+
+  const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((s, x) => s + x, 0) / arr.length : 0);
+  const averages = {
+    avgInflow: avg(series.map(s => s.inflow)),
+    avgOutflow: avg(series.map(s => s.outflow)),
+    avgNetFlow: avg(series.map(s => s.netFlow)),
+    avgExitRatio: avg(series.map(s => (Number.isFinite(s.exitRatio) ? s.exitRatio : 0))),
+  };
+
+  // Current backlog excludes completed tasks (for backlog analysis)
+  const pendingBacklogTasks = backlogTasks.filter(t => !isCompletedStatus(t.status));
+  const currentBacklog = {
+    tasks: pendingBacklogTasks.length,
+    estimatedHours: pendingBacklogTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+  };
+
+  return { legacyInflow, series, completedWithoutSprint, averages, currentBacklog };
+}
+
+export interface CapacityRecommendation {
+  suggestedDevsP50: number;
+  suggestedDevsP80: number;
+  throughputPerDevP50: number;
+  throughputPerDevP80: number;
+  avgInflow: number;
+}
+
+/**
+ * Recommend number of developers to stabilize the system based on historical throughput per dev.
+ * - Throughput per dev per sprint = count(completed tasks in sprint) / unique devs with completed tasks in sprint
+ * - Use percentiles (P50/P80) across sprints for conservative/aggressive scenarios
+ * - suggestedDevs ≈ ceil(avgInflow / theta)
+ */
+export function calculateCapacityRecommendation(
+  tasks: TaskItem[],
+  sprintMetadata: SprintMetadata[]
+): CapacityRecommendation {
+  if (!sprintMetadata || sprintMetadata.length === 0) {
+    return {
+      suggestedDevsP50: 0,
+      suggestedDevsP80: 0,
+      throughputPerDevP50: 0,
+      throughputPerDevP80: 0,
+      avgInflow: 0,
+    };
+  }
+
+  // Compute inflow per sprint
+  const flow = calculateBacklogFlowBySprint(tasks, sprintMetadata);
+  const avgInflow = flow.averages.avgInflow;
+
+  // For each sprint, compute throughput per dev
+  const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
+  const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
+  const perSprintThroughputPerDev: number[] = [];
+
+  for (const meta of ordered) {
+    const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
+    const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
+    const devs = new Set<string>(completed.map(t => t.responsavel).filter(Boolean));
+    const devCount = devs.size || 1; // avoid division by zero
+    const throughput = completed.length;
+    perSprintThroughputPerDev.push(throughput / devCount);
+  }
+
+  const sorted = perSprintThroughputPerDev.slice().sort((a, b) => a - b);
+  const percentile = (p: number) => {
+    if (sorted.length === 0) return 0;
+    const idx = Math.ceil(p * sorted.length) - 1;
+    return sorted[Math.max(0, Math.min(idx, sorted.length - 1))];
+  };
+
+  const thetaP50 = percentile(0.5);
+  const thetaP80 = percentile(0.8);
+
+  const suggestedDevsP50 = thetaP50 > 0 ? Math.ceil(avgInflow / thetaP50) : 0;
+  const suggestedDevsP80 = thetaP80 > 0 ? Math.ceil(avgInflow / thetaP80) : 0;
+
+  return {
+    suggestedDevsP50,
+    suggestedDevsP80,
+    throughputPerDevP50: thetaP50,
+    throughputPerDevP80: thetaP80,
+    avgInflow,
+  };
 }
 

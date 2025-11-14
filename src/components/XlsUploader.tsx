@@ -29,8 +29,6 @@ export const XlsUploader: React.FC = () => {
   // Usar os nomes dos arquivos do store quando disponível - FONTE ÚNICA DE VERDADE
   const storeLayoutFileNames = useSprintStore((state) => state.layoutFileNames);
   const storeWorklogFileNames = useSprintStore((state) => state.worklogFileNames);
-  const storeTasks = useSprintStore((state) => state.tasks);
-  const storeWorklogs = useSprintStore((state) => state.worklogs);
 
   const handleSprintsFile = useCallback(
     async (file: File) => {
@@ -96,14 +94,18 @@ export const XlsUploader: React.FC = () => {
 
       if (result.success && result.data) {
         // Verificar diretamente no store se já existem tarefas ou arquivos carregados
-        // Isso evita problemas de sincronização com estado local
-        const hasExisting = storeTasks.length > 0 || storeLayoutFileNames.length > 0;
+        // IMPORTANTE: Buscar o estado atualizado do store dentro da função para evitar race conditions
+        const currentTasks = useSprintStore.getState().tasks;
+        const currentLayoutFileNames = useSprintStore.getState().layoutFileNames;
+        const hasExisting = currentTasks.length > 0 || currentLayoutFileNames.length > 0;
+        
         if (hasExisting) {
           addTasks(result.data, file.name);
         } else {
           setTasks(result.data, file.name);
         }
-        setLayoutFileName(file.name);
+        // Não precisa setar layoutFileName aqui, pois o store já gerencia através de layoutFileNames
+        // e layoutFileName é atualizado automaticamente pelo store
         setError(null);
       } else {
         setError(result.error || 'Erro ao processar o arquivo de layout');
@@ -111,7 +113,7 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingLayout(false);
     },
-    [setTasks, addTasks, storeTasks, storeLayoutFileNames]
+    [setTasks, addTasks]
   );
 
   const handleWorklogFile = useCallback(
@@ -137,14 +139,18 @@ export const XlsUploader: React.FC = () => {
 
       if (result.success && result.data) {
         // Verificar diretamente no store se já existem worklogs ou arquivos carregados
-        // Isso evita problemas de sincronização com estado local
-        const hasExisting = storeWorklogs.length > 0 || storeWorklogFileNames.length > 0;
+        // IMPORTANTE: Buscar o estado atualizado do store dentro da função para evitar race conditions
+        const currentWorklogs = useSprintStore.getState().worklogs;
+        const currentWorklogFileNames = useSprintStore.getState().worklogFileNames;
+        const hasExisting = currentWorklogs.length > 0 || currentWorklogFileNames.length > 0;
+        
         if (hasExisting) {
           addWorklogs(result.data, file.name);
         } else {
           setWorklogs(result.data, file.name);
         }
-        setWorklogFileName(file.name);
+        // Não precisa setar worklogFileName aqui, pois o store já gerencia através de worklogFileNames
+        // e worklogFileName é atualizado automaticamente pelo store
         setError(null);
       } else {
         setError(result.error || 'Erro ao processar o arquivo de worklog');
@@ -152,7 +158,7 @@ export const XlsUploader: React.FC = () => {
 
       setIsLoadingWorklog(false);
     },
-    [setWorklogs, addWorklogs, storeWorklogs, storeWorklogFileNames]
+    [setWorklogs, addWorklogs]
   );
 
   // Sprints file handlers
