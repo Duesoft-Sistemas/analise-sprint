@@ -25,6 +25,7 @@ export const BacklogFlowDashboard: React.FC = () => {
   const worklogs = useSprintStore((s) => s.worklogs);
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showCapacityHelp, setShowCapacityHelp] = useState(false);
 
   const backlogFlow = useMemo(() => {
     if (!sprintMetadata || sprintMetadata.length === 0) return null;
@@ -343,7 +344,83 @@ export const BacklogFlowDashboard: React.FC = () => {
       {/* Capacity Recommendation */}
       {capacityReco && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Recomendação de Capacidade</h4>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Recomendação de Capacidade</h4>
+            <button
+              onClick={() => setShowCapacityHelp(!showCapacityHelp)}
+              className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="Como usar essas métricas"
+            >
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </button>
+          </div>
+          
+          {showCapacityHelp && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3 text-sm">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Como Funciona:</h5>
+                    <p className="text-blue-800 dark:text-blue-200 text-xs mb-2">
+                      A recomendação calcula quantos desenvolvedores adicionais você precisa para equilibrar entrada e saída (saída ≈ entrada).
+                    </p>
+                    <p className="text-blue-800 dark:text-blue-200 text-xs">
+                      Fórmula: <strong>Devs Necessários = ceil(Inflow Médio / Throughput por Dev)</strong>
+                    </p>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <h6 className="font-semibold text-sm">Throughput (θ)</h6>
+                      </div>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                        Média de tarefas concluídas por desenvolvedor por sprint.
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <strong>Como calcula:</strong> (Tarefas concluídas no sprint) / (Devs com tarefas concluídas)
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <h6 className="font-semibold text-sm">Percentis (P50/P80)</h6>
+                      </div>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                        P50 = mediana (50% dos sprints acima), P80 = conservador (80% dos sprints acima).
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <strong>Uso:</strong> P50 para cenário otimista, P80 para cenário conservador.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-lg p-3 border border-green-300 dark:border-green-700">
+                    <h6 className="font-semibold text-sm mb-2">Exemplo Prático:</h6>
+                    <div className="space-y-1 text-xs text-gray-700 dark:text-gray-300">
+                      <p><strong>Cenário:</strong> Inflow médio = 79 tickets/sprint, Throughput P80 = 8.38 tickets/dev/sprint</p>
+                      <p><strong>Cálculo:</strong> 79 / 8.38 = 9.4 devs → Recomendação: +10 devs (arredondado para cima)</p>
+                      <p><strong>Interpretação:</strong> Com 10 devs adicionais (no cenário conservador), você conseguiria processar aproximadamente o influxo médio.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                    <h6 className="font-semibold text-sm mb-2">Como Usar para Decisão:</h6>
+                    <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-300 list-disc list-inside">
+                      <li><strong>P50:</strong> Use para estimativa otimista - assume que seus devs vão performar na mediana histórica</li>
+                      <li><strong>P80:</strong> Use para planejamento conservador - assume pior cenário (mais seguro para compromissos)</li>
+                      <li><strong>Se +0 devs:</strong> Capacidade atual é suficiente (no melhor cenário) ou está equilibrada</li>
+                      <li><strong>Se +10 devs:</strong> Precisa aumentar capacidade para equilibrar entrada/saída</li>
+                      <li><strong>Compare P50 vs P80:</strong> Diferença mostra margem de segurança entre cenário otimista e conservador</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SummaryCard
               icon={<TrendingUp className="w-5 h-5" />}
