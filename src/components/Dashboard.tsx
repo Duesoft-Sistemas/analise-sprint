@@ -13,11 +13,12 @@ import { QualityDashboard } from './QualityDashboard';
 import { InconsistenciesDashboard } from './InconsistenciesDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
 import { BacklogFlowDashboard } from './BacklogFlowDashboard';
+import { WorklogDashboard } from './WorklogDashboard';
 import { SettingsPanel } from './SettingsPanel';
 import SprintAnalysisDetails from './SprintAnalysisDetails';
 import { PresentationSettingsModal } from './PresentationSettingsModal';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog';
 
 interface DashboardProps {
   onViewLabelChange?: (label: string) => void;
@@ -57,6 +58,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
   const featureRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<HTMLDivElement | null>(null);
   const managementRef = useRef<HTMLDivElement | null>(null);
+  const backlogRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowRef = useRef<HTMLDivElement | null>(null);
 
   // Sync view with current presentation step
   const currentStep = useMemo(() => {
@@ -99,6 +102,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
       else if (currentStep.multiSection === 'clientAllocation') scrollTo(analysisRef.current);
       else if (currentStep.multiSection === 'featureAnalysis') scrollTo(tasksRef.current);
       else if (currentStep.multiSection === 'managementKPIs') scrollTo(managementRef.current);
+    } else if (currentStep.view === 'backlog') {
+      scrollTo(backlogRef.current);
+    } else if (currentStep.view === 'backlogFlow') {
+      scrollTo(backlogFlowRef.current);
     }
   }, [presentation.isActive, currentStep]);
 
@@ -145,6 +152,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
         return 'Backlog';
       case 'backlogFlow':
         return 'Fluxo & Capacidade';
+      case 'worklog':
+        return 'Análise de Worklogs';
       default:
         return '';
     }
@@ -239,7 +248,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
 
       {/* Header with Sprint Selector and View Toggles */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && <SprintSelector />}
+        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && viewMode !== 'worklog' && <SprintSelector />}
         
         <div className="flex flex-wrap gap-3">
           <button
@@ -327,6 +336,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
           </button>
           
           <button
+            onClick={() => setViewMode('worklog')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
+              viewMode === 'worklog'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            Worklogs
+          </button>
+          
+          <button
             onClick={() => setViewMode('inconsistencies')}
             className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
               viewMode === 'inconsistencies'
@@ -374,9 +395,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
       ) : viewMode === 'inconsistencies' ? (
         <InconsistenciesDashboard />
       ) : viewMode === 'backlog' ? (
-        <BacklogDashboard />
+        <div ref={backlogRef}>
+          <BacklogDashboard />
+        </div>
       ) : viewMode === 'backlogFlow' ? (
-        <BacklogFlowDashboard />
+        <div ref={backlogFlowRef}>
+          <BacklogFlowDashboard />
+        </div>
+      ) : viewMode === 'worklog' ? (
+        <WorklogDashboard />
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis
           analytics={crossSprintAnalytics}

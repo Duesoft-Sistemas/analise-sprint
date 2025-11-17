@@ -543,7 +543,8 @@ export type ViewMode =
   | 'evolution'
   | 'quality'
   | 'inconsistencies'
-  | 'backlog';
+  | 'backlog'
+  | 'backlogFlow';
 
 export type SprintPresentationSection =
   | 'summary'

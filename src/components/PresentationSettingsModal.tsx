@@ -202,6 +202,14 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
                 />
                 Backlog
               </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow')}
+                  onChange={() => toggleStep({ view: 'backlogFlow' })}
+                />
+                Fluxo & Capacidade
+              </label>
             </div>
           </div>
 

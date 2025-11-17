@@ -279,7 +279,7 @@ Arquivo Excel contendo registros detalhados de tempo trabalhado. Necessário par
 |--------|------------|------|-----------|---------|-------------------|
 | ID da tarefa | Sim | String | Chave ou ID da tarefa | PROJ-101, DM-2018 | "ID da tarefa", "Task ID", "Chave", "Chave da item", "Issue Key", "Issue" |
 | Tempo gasto | Sim | Number/String | Tempo trabalhado | 1h, 2h 30m, 7200 | "Tempo gasto", "Time Spent", "Time spent", "Hours", "Horas", "Duration" |
-| Data | Sim | Date | Data do lançamento do worklog | 2025-10-15 | "Data", "Date", "Data de registro", "Log Date", "Started", "Created date (worklog)", "Created date" |
+| Data | Sim | Date | Data do lançamento do worklog | 2025-10-15 | "Data", "Date", "Data de registro", "Log Date", "Started" |
 
 ### Formatos Aceitos
 

@@ -5,7 +5,7 @@ Definição das métricas de entradas e saídas por sprint para avaliar a saúde
 ## Fontes de Dados
 - `layout.xlsx` (tarefas) — campo `Criado`, `Sprint`, `Status`, `Responsável`, `Estimativa`.
 - `sprints.xlsx` (períodos de sprint) — `Sprint`, `Data Início`, `Data Fim`.
-- `worklog.xlsx` (opcional) — não é usado nesta seção para inflow/outflow, apenas para análises de horas em outras abas.
+- `worklog.xlsx` (opcional) — usado para análises de horas e performance, mas não é obrigatório para cálculo de outflow.
 
 Observações:
 - Tarefas sem sprint são tratadas como Backlog e não entram em métricas de performance ou híbridas (ver FORMATO_DADOS.md).
@@ -16,9 +16,12 @@ Considerando o período de sprint `[Data Início, Data Fim]`:
 
 - **Inflow (entradas)**: **TODAS as tarefas criadas** dentro da janela `[Início, Fim]`, independentemente de terem sprint ou não. Representa a chegada total de trabalho no período.
 - **Legacy Inflow (entradas anteriores)**: tarefas SEM sprint que **não têm data de criação** OU foram criadas **antes do primeiro sprint conhecido**. Esses tickets aparecem em uma coluna especial "Anterior" **antes do primeiro sprint** no gráfico, representando o backlog existente antes do controle de sprints.
-- **Outflow (saídas)**: **TODAS as tarefas concluídas** no período do sprint:
-  - Tarefas COM sprint: devem pertencer ao sprint e estar com status concluído.
-  - Tarefas SEM sprint: devem estar concluídas e terem sido criadas no período (proxy, já que não temos data de conclusão).
+- **Outflow (saídas)**: **Tarefas concluídas alocadas ao sprint do período**:
+  - A tarefa deve estar com status concluído.
+  - A tarefa deve estar alocada ao sprint do período (`t.sprint === sprint`).
+  - A tarefa não pode ser backlog.
+  - Se está concluída e no sprint, conta como saída do período (independente de worklog).
+  - Tarefas de backlog concluídas não são contabilizadas como saídas nesta análise (aparecem na coluna "Concluídas sem Sprint").
 - **Net Flow**: `Outflow − Inflow` (positivo reduz pressão, negativo aumenta). As entradas anteriores são mostradas separadamente e não entram no cálculo de Net Flow por sprint.
 - **Exit Ratio**: `Outflow / Inflow` (≥ 1 indica estabilização; se `Inflow = 0` e `Outflow > 0`, considerar `∞`). As entradas anteriores não entram no cálculo de Exit Ratio por sprint.
 - Carried‑in (diagnóstico opcional): tarefas do `Sprint` criadas antes de `Início` (itens trazidos do backlog para execução no sprint).
@@ -50,7 +53,7 @@ Notas:
 - Card de Capacidade: `+X devs (P50)`, `+Y devs (P80)`, com `θ` mostrado.
 
 ## Separação de Análises
-- **Análise de Fluxo (esta aba)**: Considera tarefas concluídas sem sprint como saídas (mostradas na coluna especial).
+- **Análise de Fluxo (esta aba)**: Considera tarefas concluídas alocadas ao sprint do período. Se está concluída e no sprint, conta como saída. Tarefas de backlog concluídas não são contabilizadas como saídas (aparecem na coluna "Concluídas sem Sprint").
 - **Análise de Backlog (aba Backlog)**: Não considera tarefas concluídas — mostra apenas pendentes para planejamento de alocação.
 
 ## Semáforos (Sugestão)
@@ -59,8 +62,10 @@ Notas:
 - Vermelho: `Exit Ratio < 0.9` por ≥ 3 sprints, `Net Flow` negativo persistente.
 
 ## Limitações e Premissas
-- Sem `done_at`, a saída é aproximada por “tarefas marcadas como concluídas no sprint”. É uma prática comum em boards ágeis.
+- Sem `done_at`, a saída é determinada pela alocação da tarefa ao sprint. Se a tarefa está concluída e alocada ao sprint do período, conta como saída daquele período.
+- Tarefas concluídas sem worklog são contabilizadas como saídas se estiverem alocadas ao sprint. Isso garante que não perdemos dados mesmo quando o desenvolvedor não registra worklog.
 - Backlog é baseado em tarefas sem sprint; horas exibidas vêm de `Estimativa` (worklog ignorado para backlog).
+- A lógica de outflow está alinhada com a métrica "Sprint Ativo", garantindo que os números batam entre as duas visualizações.
 
 ## Referências
 - [Formato dos Dados](FORMATO_DADOS.md)

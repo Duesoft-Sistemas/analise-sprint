@@ -216,7 +216,7 @@ export const BacklogFlowDashboard: React.FC = () => {
           icon={<Inbox className="w-5 h-5" />}
           label="Entrada no Backlog (méd.)"
           value={backlogFlow.averages.avgInflow.toFixed(1)}
-          subtitle="tickets/sprint"
+          subtitle={`Bugs: ${backlogFlow.averages.avgInflowByType.bugs.toFixed(1)}, D. Oculta: ${backlogFlow.averages.avgInflowByType.duvidasOcultas.toFixed(1)}, Tarefas: ${backlogFlow.averages.avgInflowByType.tarefas.toFixed(1)}`}
           color="gray"
           onClick={() => setActiveFilter(activeFilter?.type === 'avgInflow' ? null : { type: 'avgInflow' })}
           isClickable={true}
@@ -226,7 +226,7 @@ export const BacklogFlowDashboard: React.FC = () => {
           icon={<CheckSquare className="w-5 h-5" />}
           label="Outflow (médio)"
           value={backlogFlow.averages.avgOutflow.toFixed(1)}
-          subtitle="tickets/sprint"
+          subtitle={`Bugs: ${backlogFlow.averages.avgOutflowByType.bugs.toFixed(1)}, D. Oculta: ${backlogFlow.averages.avgOutflowByType.duvidasOcultas.toFixed(1)}, Tarefas: ${backlogFlow.averages.avgOutflowByType.tarefas.toFixed(1)}`}
           color="green"
           onClick={() => setActiveFilter(activeFilter?.type === 'avgOutflow' ? null : { type: 'avgOutflow' })}
           isClickable={true}
@@ -274,6 +274,50 @@ export const BacklogFlowDashboard: React.FC = () => {
         />
       </div>
 
+      {/* KPIs - Hours */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <SummaryCard
+          icon={<Clock className="w-5 h-5" />}
+          label="Entrada no Backlog (méd.)"
+          value={formatHours(backlogFlow.averages.avgInflowHours)}
+          subtitle={`Bugs: ${formatHours(backlogFlow.averages.avgInflowByType.bugsHours)}, D. Oculta: ${formatHours(backlogFlow.averages.avgInflowByType.duvidasOcultasHours)}, Tarefas: ${formatHours(backlogFlow.averages.avgInflowByType.tarefasHours)}`}
+          color="gray"
+          onClick={() => setActiveFilter(activeFilter?.type === 'avgInflow' ? null : { type: 'avgInflow' })}
+          isClickable={true}
+          isActive={activeFilter?.type === 'avgInflow'}
+        />
+        <SummaryCard
+          icon={<CheckSquare className="w-5 h-5" />}
+          label="Outflow (médio)"
+          value={formatHours(backlogFlow.averages.avgOutflowHours)}
+          subtitle={`Bugs: ${formatHours(backlogFlow.averages.avgOutflowByType.bugsHours)}, D. Oculta: ${formatHours(backlogFlow.averages.avgOutflowByType.duvidasOcultasHours)}, Tarefas: ${formatHours(backlogFlow.averages.avgOutflowByType.tarefasHours)}`}
+          color="green"
+          onClick={() => setActiveFilter(activeFilter?.type === 'avgOutflow' ? null : { type: 'avgOutflow' })}
+          isClickable={true}
+          isActive={activeFilter?.type === 'avgOutflow'}
+        />
+        <SummaryCard
+          icon={<TrendingUp className="w-5 h-5" />}
+          label="Net Flow (médio)"
+          value={formatHours(backlogFlow.averages.avgNetFlowHours)}
+          subtitle="saídas − entradas (horas)"
+          color="blue"
+          onClick={() => setActiveFilter(activeFilter?.type === 'avgNetFlow' ? null : { type: 'avgNetFlow' })}
+          isClickable={true}
+          isActive={activeFilter?.type === 'avgNetFlow'}
+        />
+        <SummaryCard
+          icon={<BarChart3 className="w-5 h-5" />}
+          label="Exit Ratio (méd.)"
+          value={Number.isFinite(backlogFlow.averages.avgExitRatioHours) ? backlogFlow.averages.avgExitRatioHours.toFixed(2) : '∞'}
+          subtitle="outflow / inflow (horas)"
+          color="purple"
+          onClick={() => setActiveFilter(activeFilter?.type === 'avgExitRatio' ? null : { type: 'avgExitRatio' })}
+          isClickable={true}
+          isActive={activeFilter?.type === 'avgExitRatio'}
+        />
+      </div>
+
       {/* Chart */}
       {backlogFlow.series.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
@@ -288,18 +332,24 @@ export const BacklogFlowDashboard: React.FC = () => {
                   // Add "Anterior" column before sprints if legacy inflow exists
                   ...(backlogFlow.legacyInflow ? [{
                     sprint: 'Anterior',
-                    'Entradas no Backlog': backlogFlow.legacyInflow.tasks,
-                    'Entradas Legadas': null,
-                    Saídas: null,
+                    'Entradas - Bugs': backlogFlow.legacyInflow.byType.bugs,
+                    'Entradas - Dúvidas Ocultas': backlogFlow.legacyInflow.byType.duvidasOcultas,
+                    'Entradas - Tarefas': backlogFlow.legacyInflow.byType.tarefas,
+                    'Saídas - Bugs': null,
+                    'Saídas - Dúvidas Ocultas': null,
+                    'Saídas - Tarefas': null,
                     filterType: 'legacyInflow' as const,
                   }] : []),
                   // Sprint series
                   ...backlogFlow.series.map(s => ({
-                    sprint: s.sprintName, // Mantém 'sprint' como key do gráfico, mas representa período
-                    'Entradas no Backlog': s.inflow,
-                    'Entradas Legadas': null,
-                    Saídas: s.outflow,
-                    sprintName: s.sprintName, // Nome do período (pode ser sprint ou outro período)
+                    sprint: s.sprintName,
+                    'Entradas - Bugs': s.inflowByType.bugs,
+                    'Entradas - Dúvidas Ocultas': s.inflowByType.duvidasOcultas,
+                    'Entradas - Tarefas': s.inflowByType.tarefas,
+                    'Saídas - Bugs': s.outflowByType.bugs,
+                    'Saídas - Dúvidas Ocultas': s.outflowByType.duvidasOcultas,
+                    'Saídas - Tarefas': s.outflowByType.tarefas,
+                    sprintName: s.sprintName,
                   }))
                 ]}
                 margin={{ top: 10, right: 20, left: 0, bottom: 20 }}
@@ -310,8 +360,6 @@ export const BacklogFlowDashboard: React.FC = () => {
                   if (payload.filterType === 'legacyInflow') {
                     setActiveFilter({ type: 'legacyInflow' });
                   } else if (payload.sprintName) {
-                    // Quando clica em qualquer barra do sprint, seleciona o sprint
-                    // Por padrão mostra entradas, mas o usuário pode alternar na seção da lista
                     setActiveFilter({ type: 'inflow', sprintName: payload.sprintName });
                   }
                 }}
@@ -320,14 +368,206 @@ export const BacklogFlowDashboard: React.FC = () => {
                 <XAxis dataKey="sprint" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" height={50} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (value === null || value === undefined) return null;
-                    return [value, name];
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const data = payload[0].payload;
+                    
+                    // Calcular totais
+                    const totalEntradas = (data['Entradas - Bugs'] || 0) + 
+                                         (data['Entradas - Dúvidas Ocultas'] || 0) + 
+                                         (data['Entradas - Tarefas'] || 0);
+                    const totalSaidas = (data['Saídas - Bugs'] || 0) + 
+                                       (data['Saídas - Dúvidas Ocultas'] || 0) + 
+                                       (data['Saídas - Tarefas'] || 0);
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+                        <p className="font-semibold text-sm text-gray-900 dark:text-white mb-2">
+                          {data.sprint}
+                        </p>
+                        <div className="space-y-1 text-xs">
+                          <div className="font-semibold text-gray-700 dark:text-gray-300">
+                            Entradas: <span className="text-gray-900 dark:text-white">{totalEntradas}</span>
+                          </div>
+                          {data['Entradas - Bugs'] !== null && data['Entradas - Bugs'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Bugs: {data['Entradas - Bugs']}
+                            </div>
+                          )}
+                          {data['Entradas - Dúvidas Ocultas'] !== null && data['Entradas - Dúvidas Ocultas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Dúvidas Ocultas: {data['Entradas - Dúvidas Ocultas']}
+                            </div>
+                          )}
+                          {data['Entradas - Tarefas'] !== null && data['Entradas - Tarefas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Tarefas: {data['Entradas - Tarefas']}
+                            </div>
+                          )}
+                          <div className="font-semibold text-gray-700 dark:text-gray-300 mt-2">
+                            Saídas: <span className="text-gray-900 dark:text-white">{totalSaidas}</span>
+                          </div>
+                          {data['Saídas - Bugs'] !== null && data['Saídas - Bugs'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Bugs: {data['Saídas - Bugs']}
+                            </div>
+                          )}
+                          {data['Saídas - Dúvidas Ocultas'] !== null && data['Saídas - Dúvidas Ocultas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Dúvidas Ocultas: {data['Saídas - Dúvidas Ocultas']}
+                            </div>
+                          )}
+                          {data['Saídas - Tarefas'] !== null && data['Saídas - Tarefas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Tarefas: {data['Saídas - Tarefas']}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
                   }}
                 />
-                <Bar dataKey="Entradas no Backlog" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Entradas Legadas" fill="#9ca3af" radius={[4,4,0,0]} />
-                <Bar dataKey="Saídas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Entradas */}
+                <Bar dataKey="Entradas - Bugs" fill="#dc2626" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Entradas - Dúvidas Ocultas" fill="#f59e0b" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Entradas - Tarefas" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Saídas */}
+                <Bar dataKey="Saídas - Bugs" fill="#16a34a" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Saídas - Dúvidas Ocultas" fill="#84cc16" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Saídas - Tarefas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {backlogFlow.legacyInflow && (
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+              <p>
+                * Coluna "Anterior": {backlogFlow.legacyInflow.tasks} tarefas sem sprint criadas antes do primeiro sprint ou sem data de criação ({formatHours(backlogFlow.legacyInflow.estimatedHours)} estimadas)
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart - Hours */}
+      {backlogFlow.series.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Entradas vs Saídas por Período (horas estimadas)</h4>
+          </div>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={[
+                  // Add "Anterior" column before sprints if legacy inflow exists
+                  ...(backlogFlow.legacyInflow ? [{
+                    sprint: 'Anterior',
+                    'Entradas - Bugs': backlogFlow.legacyInflow.byType.bugsHours,
+                    'Entradas - Dúvidas Ocultas': backlogFlow.legacyInflow.byType.duvidasOcultasHours,
+                    'Entradas - Tarefas': backlogFlow.legacyInflow.byType.tarefasHours,
+                    'Saídas - Bugs': null,
+                    'Saídas - Dúvidas Ocultas': null,
+                    'Saídas - Tarefas': null,
+                    filterType: 'legacyInflow' as const,
+                  }] : []),
+                  // Sprint series
+                  ...backlogFlow.series.map(s => ({
+                    sprint: s.sprintName,
+                    'Entradas - Bugs': s.inflowByType.bugsHours,
+                    'Entradas - Dúvidas Ocultas': s.inflowByType.duvidasOcultasHours,
+                    'Entradas - Tarefas': s.inflowByType.tarefasHours,
+                    'Saídas - Bugs': s.outflowByType.bugsHours,
+                    'Saídas - Dúvidas Ocultas': s.outflowByType.duvidasOcultasHours,
+                    'Saídas - Tarefas': s.outflowByType.tarefasHours,
+                    sprintName: s.sprintName,
+                  }))
+                ]}
+                margin={{ top: 10, right: 20, left: 0, bottom: 20 }}
+                onClick={(data: any) => {
+                  if (!data || !data.activePayload || data.activePayload.length === 0) return;
+                  const payload = data.activePayload[0].payload;
+                  
+                  if (payload.filterType === 'legacyInflow') {
+                    setActiveFilter({ type: 'legacyInflow' });
+                  } else if (payload.sprintName) {
+                    setActiveFilter({ type: 'inflow', sprintName: payload.sprintName });
+                  }
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                <XAxis dataKey="sprint" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" height={50} />
+                <YAxis 
+                  tick={{ fontSize: 12 }} 
+                  tickFormatter={(value) => formatHours(value)}
+                />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const data = payload[0].payload;
+                    
+                    // Calcular totais
+                    const totalEntradas = (data['Entradas - Bugs'] || 0) + 
+                                         (data['Entradas - Dúvidas Ocultas'] || 0) + 
+                                         (data['Entradas - Tarefas'] || 0);
+                    const totalSaidas = (data['Saídas - Bugs'] || 0) + 
+                                       (data['Saídas - Dúvidas Ocultas'] || 0) + 
+                                       (data['Saídas - Tarefas'] || 0);
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+                        <p className="font-semibold text-sm text-gray-900 dark:text-white mb-2">
+                          {data.sprint}
+                        </p>
+                        <div className="space-y-1 text-xs">
+                          <div className="font-semibold text-gray-700 dark:text-gray-300">
+                            Entradas: <span className="text-gray-900 dark:text-white">{formatHours(totalEntradas)}</span>
+                          </div>
+                          {data['Entradas - Bugs'] !== null && data['Entradas - Bugs'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Bugs: {formatHours(data['Entradas - Bugs'])}
+                            </div>
+                          )}
+                          {data['Entradas - Dúvidas Ocultas'] !== null && data['Entradas - Dúvidas Ocultas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Dúvidas Ocultas: {formatHours(data['Entradas - Dúvidas Ocultas'])}
+                            </div>
+                          )}
+                          {data['Entradas - Tarefas'] !== null && data['Entradas - Tarefas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Tarefas: {formatHours(data['Entradas - Tarefas'])}
+                            </div>
+                          )}
+                          <div className="font-semibold text-gray-700 dark:text-gray-300 mt-2">
+                            Saídas: <span className="text-gray-900 dark:text-white">{formatHours(totalSaidas)}</span>
+                          </div>
+                          {data['Saídas - Bugs'] !== null && data['Saídas - Bugs'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Bugs: {formatHours(data['Saídas - Bugs'])}
+                            </div>
+                          )}
+                          {data['Saídas - Dúvidas Ocultas'] !== null && data['Saídas - Dúvidas Ocultas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Dúvidas Ocultas: {formatHours(data['Saídas - Dúvidas Ocultas'])}
+                            </div>
+                          )}
+                          {data['Saídas - Tarefas'] !== null && data['Saídas - Tarefas'] !== undefined && (
+                            <div className="ml-2 text-gray-600 dark:text-gray-400">
+                              • Tarefas: {formatHours(data['Saídas - Tarefas'])}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                {/* Entradas */}
+                <Bar dataKey="Entradas - Bugs" fill="#dc2626" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Entradas - Dúvidas Ocultas" fill="#f59e0b" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Entradas - Tarefas" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Saídas */}
+                <Bar dataKey="Saídas - Bugs" fill="#16a34a" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Saídas - Dúvidas Ocultas" fill="#84cc16" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                <Bar dataKey="Saídas - Tarefas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -611,7 +851,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle,
         <p className="text-xs font-medium opacity-80">{label}</p>
       </div>
       <p className="text-2xl font-bold mb-1">{value}</p>
-      <p className="text-xs opacity-70">{subtitle}</p>
+      <p className="text-xs opacity-70 leading-relaxed">{subtitle}</p>
     </div>
   );
 }

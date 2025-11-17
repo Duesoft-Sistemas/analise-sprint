@@ -103,7 +103,7 @@ Arquivo Excel com 3 colunas obrigatórias:
 - `Tempo gasto`, `Time Spent`, `Time spent`, `Hours`, `Horas`, `Duration`
 
 **Data:**
-- `Data`, `Date`, `Data de registro`, `Log Date`, `Started`, `Created date (worklog)`, `Created date`
+- `Data`, `Date`, `Data de registro`, `Log Date`, `Started`
 
 ### Formato de Dados Worklog
 

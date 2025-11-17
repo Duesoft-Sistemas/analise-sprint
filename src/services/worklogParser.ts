@@ -16,7 +16,7 @@ interface WorklogRow {
 const WORKLOG_COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'ID da tarefa': ['ID da tarefa', 'Task ID', 'Chave', 'Chave da item', 'Issue Key', 'Issue'],
   'Tempo gasto': ['Tempo gasto', 'Time Spent', 'Time spent', 'Hours', 'Horas', 'Duration'],
-  'Data': ['Data', 'Date', 'Data de registro', 'Log Date', 'Started', 'Created date (worklog)', 'Created date'],
+  'Data': ['Data', 'Date', 'Data de registro', 'Log Date', 'Started'],
 };
 
 /**
