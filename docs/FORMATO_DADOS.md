@@ -228,6 +228,7 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 Para cálculos de performance e disponibilidade, estes status são considerados concluídos:
 
 - `teste`
+- `teste dev`
 - `teste gap`
 - `compilar`
 - `concluído`
@@ -242,6 +243,7 @@ Para cálculos de performance e disponibilidade, estes status são considerados 
 - Apenas tarefas concluídas são consideradas no cálculo de Performance Score
 - Tarefas não concluídas aparecem nas métricas informativas mas não afetam score
 - Se houver problemas após "teste", a métrica de retrabalho captura o impacto
+- Status "teste dev" é considerado concluído (desenvolvedor já entregou sua parte)
 - Status "teste gap" é considerado concluído (desenvolvedor já entregou sua parte)
 
 ---

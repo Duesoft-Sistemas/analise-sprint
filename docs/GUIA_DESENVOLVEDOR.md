@@ -11,7 +11,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 - **Bônus:** Senioridade (fazer tarefas complexas bem, +15), Auxílio (+10), Horas Extras (+10)
 
 **⚠️ IMPORTANTE - Leia Antes:**
-- ✅ Só conta tarefas **concluídas** (`teste`, `teste gap`, `compilar`, `concluído`, `concluido`)
+- ✅ Só conta tarefas **concluídas** (`teste`, `teste dev`, `teste gap`, `compilar`, `concluído`, `concluido`)
 - ✅ **Obrigatório:** Tarefas devem ter **sprint** definido (tarefas sem sprint = backlog, não contam)
 - ✅ **Obrigatório:** Sistema usa **worklog** para calcular tempo, nunca a planilha!
 - ✅ **Sem worklog = 0 horas = todas tarefas ineficientes!**
@@ -246,7 +246,7 @@ O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "Ho
 ## 🔍 Regras Importantes
 
 **✅ O que ENTRA no score:**
-- Tarefas **concluídas** (`teste`, `teste gap`, `compilar`, `concluído`, `concluido`)
+- Tarefas **concluídas** (`teste`, `teste dev`, `teste gap`, `compilar`, `concluído`, `concluido`)
 - Com **sprint** definido (tarefas sem sprint = backlog, não contam)
 - Com **estimativa** e **worklog** registrado
 - Tempo sempre do **worklog**, nunca da planilha!

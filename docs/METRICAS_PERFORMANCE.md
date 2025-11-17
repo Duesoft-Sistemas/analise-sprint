@@ -27,7 +27,7 @@ Sistema fornece três níveis de análise:
 
 Apenas tarefas que atendem TODOS os critérios são consideradas nos cálculos de performance:
 
-1. Status concluído: `teste`, `teste gap`, `compilar`, `concluído`, `concluido`
+1. Status concluído: `teste`, `teste dev`, `teste gap`, `compilar`, `concluído`, `concluido`
 2. Sprint definido: Tarefa deve ter sprint não vazio. Tarefas sem sprint = backlog, não contam
 3. Estimativa presente: Tarefa deve ter estimativa > 0
 4. Worklog presente: Para cálculo de tempo gasto (se ausente, tempo gasto = 0)

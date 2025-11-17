@@ -234,10 +234,11 @@ export const InconsistenciesDashboard: React.FC = () => {
       const isTestStage =
         statusNorm.includes('teste gap') ||
         statusNorm.includes('testegap') ||
+        statusNorm.includes('teste dev') ||
         statusNorm === 'teste' || // status exatamente "teste"
         statusNorm.startsWith('teste '); // variantes que começam com "teste "
       
-      // Não reportar como inconsistência quando estiver em fase de teste/teste gap
+      // Não reportar como inconsistência quando estiver em fase de teste/teste dev/teste gap
       return isDone && !isTestStage && isMissingTestScore && !isExcluded;
     });
   }, [filteredTasks]);

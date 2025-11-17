@@ -64,12 +64,13 @@ export function formatHours(hours: number): string {
 }
 
 // Check if status indicates task is completed by the developer
-// Includes: teste, teste gap, compilar, concluído/concluido
+// Includes: teste, teste dev, teste gap, compilar, concluído/concluido
 // Rationale: Once dev moves to test, they've delivered their part
 // If issues arise, rework column will track quality impact
 export function isCompletedStatus(status: string): boolean {
   const completedStatuses = [
     'teste',        // In testing - dev has delivered
+    'teste dev',    // Dev testing - dev has delivered
     'teste gap',    // Gap testing - dev has delivered
     'compilar',     // Ready to compile/deploy
     'concluído',    // Completed (with accent)
