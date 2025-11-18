@@ -332,9 +332,11 @@ export const BacklogFlowDashboard: React.FC = () => {
                   // Add "Anterior" column before sprints if legacy inflow exists
                   ...(backlogFlow.legacyInflow ? [{
                     sprint: 'Anterior',
+                    'Entradas no Backlog': backlogFlow.legacyInflow.tasks,
                     'Entradas - Bugs': backlogFlow.legacyInflow.byType.bugs,
                     'Entradas - Dúvidas Ocultas': backlogFlow.legacyInflow.byType.duvidasOcultas,
                     'Entradas - Tarefas': backlogFlow.legacyInflow.byType.tarefas,
+                    Saídas: null,
                     'Saídas - Bugs': null,
                     'Saídas - Dúvidas Ocultas': null,
                     'Saídas - Tarefas': null,
@@ -343,9 +345,11 @@ export const BacklogFlowDashboard: React.FC = () => {
                   // Sprint series
                   ...backlogFlow.series.map(s => ({
                     sprint: s.sprintName,
+                    'Entradas no Backlog': s.inflow,
                     'Entradas - Bugs': s.inflowByType.bugs,
                     'Entradas - Dúvidas Ocultas': s.inflowByType.duvidasOcultas,
                     'Entradas - Tarefas': s.inflowByType.tarefas,
+                    Saídas: s.outflow,
                     'Saídas - Bugs': s.outflowByType.bugs,
                     'Saídas - Dúvidas Ocultas': s.outflowByType.duvidasOcultas,
                     'Saídas - Tarefas': s.outflowByType.tarefas,
@@ -427,14 +431,10 @@ export const BacklogFlowDashboard: React.FC = () => {
                     );
                   }}
                 />
-                {/* Entradas */}
-                <Bar dataKey="Entradas - Bugs" fill="#dc2626" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Entradas - Dúvidas Ocultas" fill="#f59e0b" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Entradas - Tarefas" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                {/* Saídas */}
-                <Bar dataKey="Saídas - Bugs" fill="#16a34a" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Saídas - Dúvidas Ocultas" fill="#84cc16" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Saídas - Tarefas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Entradas - apenas barra total */}
+                <Bar dataKey="Entradas no Backlog" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Saídas - apenas barra total */}
+                <Bar dataKey="Saídas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -462,9 +462,11 @@ export const BacklogFlowDashboard: React.FC = () => {
                   // Add "Anterior" column before sprints if legacy inflow exists
                   ...(backlogFlow.legacyInflow ? [{
                     sprint: 'Anterior',
+                    'Entradas no Backlog': backlogFlow.legacyInflow.estimatedHours,
                     'Entradas - Bugs': backlogFlow.legacyInflow.byType.bugsHours,
                     'Entradas - Dúvidas Ocultas': backlogFlow.legacyInflow.byType.duvidasOcultasHours,
                     'Entradas - Tarefas': backlogFlow.legacyInflow.byType.tarefasHours,
+                    Saídas: null,
                     'Saídas - Bugs': null,
                     'Saídas - Dúvidas Ocultas': null,
                     'Saídas - Tarefas': null,
@@ -473,9 +475,11 @@ export const BacklogFlowDashboard: React.FC = () => {
                   // Sprint series
                   ...backlogFlow.series.map(s => ({
                     sprint: s.sprintName,
+                    'Entradas no Backlog': s.inflowHours,
                     'Entradas - Bugs': s.inflowByType.bugsHours,
                     'Entradas - Dúvidas Ocultas': s.inflowByType.duvidasOcultasHours,
                     'Entradas - Tarefas': s.inflowByType.tarefasHours,
+                    Saídas: s.outflowHours,
                     'Saídas - Bugs': s.outflowByType.bugsHours,
                     'Saídas - Dúvidas Ocultas': s.outflowByType.duvidasOcultasHours,
                     'Saídas - Tarefas': s.outflowByType.tarefasHours,
@@ -560,14 +564,10 @@ export const BacklogFlowDashboard: React.FC = () => {
                     );
                   }}
                 />
-                {/* Entradas */}
-                <Bar dataKey="Entradas - Bugs" fill="#dc2626" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Entradas - Dúvidas Ocultas" fill="#f59e0b" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Entradas - Tarefas" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                {/* Saídas */}
-                <Bar dataKey="Saídas - Bugs" fill="#16a34a" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Saídas - Dúvidas Ocultas" fill="#84cc16" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="Saídas - Tarefas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Entradas - apenas barra total */}
+                <Bar dataKey="Entradas no Backlog" fill="#6b7280" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
+                {/* Saídas - apenas barra total */}
+                <Bar dataKey="Saídas" fill="#10b981" radius={[4,4,0,0]} style={{ cursor: 'pointer' }} />
               </BarChart>
             </ResponsiveContainer>
           </div>

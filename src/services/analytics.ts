@@ -552,13 +552,31 @@ export function calculateBacklogAnalysisByFeature(backlogTasks: TaskItem[]): Tot
 
   const totalizers: Totalizer[] = [];
 
+  // Helper function to calculate breakdown by type
+  const calculateBreakdownByType = (taskList: TaskItem[]) => {
+    const bugs = taskList.filter(t => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
+    const duvidasOcultas = taskList.filter(t => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
+    const tarefas = taskList.filter(t => t.tipo !== 'Bug');
+    
+    return {
+      bugs: bugs.length,
+      duvidasOcultas: duvidasOcultas.length,
+      tarefas: tarefas.length,
+      bugsHours: bugs.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      duvidasOcultasHours: duvidasOcultas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      tarefasHours: tarefas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    };
+  };
+
   for (const [feature, featureTasks] of featureMap.entries()) {
     // Backlog usa apenas estimativa (não tem tempo gasto processado)
+    const breakdown = calculateBreakdownByType(featureTasks);
     totalizers.push({
       label: feature,
       count: featureTasks.length,
       hours: 0, // Backlog não tem horas trabalhadas
       estimatedHours: featureTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      byType: breakdown,
     });
   }
 
@@ -590,13 +608,31 @@ export function calculateBacklogAnalysisByClient(backlogTasks: TaskItem[]): Tota
 
   const totalizers: Totalizer[] = [];
 
+  // Helper function to calculate breakdown by type
+  const calculateBreakdownByType = (taskList: TaskItem[]) => {
+    const bugs = taskList.filter(t => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
+    const duvidasOcultas = taskList.filter(t => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
+    const tarefas = taskList.filter(t => t.tipo !== 'Bug');
+    
+    return {
+      bugs: bugs.length,
+      duvidasOcultas: duvidasOcultas.length,
+      tarefas: tarefas.length,
+      bugsHours: bugs.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      duvidasOcultasHours: duvidasOcultas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      tarefasHours: tarefas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    };
+  };
+
   for (const [client, clientTasks] of clientMap.entries()) {
     // Backlog usa apenas estimativa (não tem tempo gasto processado)
+    const breakdown = calculateBreakdownByType(clientTasks);
     totalizers.push({
       label: client,
       count: clientTasks.length,
       hours: 0, // Backlog não tem horas trabalhadas
       estimatedHours: clientTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      byType: breakdown,
     });
   }
 

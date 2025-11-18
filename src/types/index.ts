@@ -48,6 +48,15 @@ export interface Totalizer {
   count: number;
   hours: number;
   estimatedHours: number;
+  // Optional breakdown by type for backlog analysis
+  byType?: {
+    bugs: number;
+    duvidasOcultas: number;
+    tarefas: number;
+    bugsHours: number;
+    duvidasOcultasHours: number;
+    tarefasHours: number;
+  };
 }
 
 // Bug totalizer with special handling

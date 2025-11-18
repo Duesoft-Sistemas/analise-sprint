@@ -48,11 +48,29 @@ const CustomLegend = () => (
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    const hasBreakdown = data.byType !== undefined && data.byType !== null;
+    
     return (
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl">
-        <p className="font-bold text-gray-900 dark:text-white mb-2 pb-2 border-b border-gray-300 dark:border-gray-600">{label}</p>
-        <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">{data.count}</span> tarefas</p>
-        <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">{formatHours(data.estimatedHours)}</span> estimadas</p>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+        <p className="font-bold text-sm text-gray-900 dark:text-white mb-2 pb-2 border-b border-gray-300 dark:border-gray-600">{label}</p>
+        <div className="space-y-1 text-xs">
+          <div className="font-semibold text-gray-700 dark:text-gray-300">
+            Total: <span className="text-gray-900 dark:text-white">{data.count}</span> tarefas ({formatHours(data.estimatedHours)} estimadas)
+          </div>
+          {hasBreakdown && (
+            <div className="mt-2 space-y-1 pl-2 border-l-2 border-gray-300 dark:border-gray-600">
+              <div className="text-gray-600 dark:text-gray-400">
+                <span className="font-medium text-red-600 dark:text-red-400">Bugs:</span> {data.byType.bugs} ({formatHours(data.byType.bugsHours)})
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">
+                <span className="font-medium text-yellow-600 dark:text-yellow-400">Dúvidas Ocultas:</span> {data.byType.duvidasOcultas} ({formatHours(data.byType.duvidasOcultasHours)})
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">
+                <span className="font-medium text-blue-600 dark:text-blue-400">Tarefas:</span> {data.byType.tarefas} ({formatHours(data.byType.tarefasHours)})
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -66,6 +84,7 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, title, onB
       'Horas Estimadas': item.estimatedHours,
       count: item.count,
       estimatedHours: item.estimatedHours,
+      byType: item.byType, // Include breakdown by type for tooltip
     }))
     .sort((a, b) => b['Horas Estimadas'] - a['Horas Estimadas']);
   
