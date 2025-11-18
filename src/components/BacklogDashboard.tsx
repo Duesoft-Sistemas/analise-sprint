@@ -19,7 +19,7 @@ import {
 import { FileSpreadsheet } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
-import { formatHours, normalizeForComparison, isCompletedStatus, isBacklogSprintValue, isAuxilioTask, isNeutralTask } from '../utils/calculations';
+import { formatHours, normalizeForComparison, isCompletedStatus, isBacklogSprintValue, isAuxilioTask, isNeutralTask, taskHasCategory } from '../utils/calculations';
 import { TaskItem } from '../types';
 import { AnalyticsChart } from './AnalyticsCharts';
 
@@ -152,7 +152,7 @@ export const BacklogDashboard: React.FC = () => {
     }
 
     if (filterClient && filterClient !== 'all') {
-      filtered = filtered.filter((t) => t.categorias.includes(filterClient));
+      filtered = filtered.filter((t) => taskHasCategory(t.categorias, filterClient));
     }
 
     return filtered;

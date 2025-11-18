@@ -19,7 +19,7 @@ import {
   getAllSprints,
 } from '../services/analytics';
 import { calculateAllTasksHybridMetrics } from '../services/hybridCalculations';
-import { isBacklogSprintValue } from '../utils/calculations';
+import { isBacklogSprintValue, taskHasCategory } from '../utils/calculations';
 
 interface SprintStore {
   // Data
@@ -971,7 +971,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
 
     if (taskFilters.categoria) {
-      filtered = filtered.filter((t) => t.categorias.includes(taskFilters.categoria!));
+      filtered = filtered.filter((t) => taskHasCategory(t.categorias, taskFilters.categoria));
     }
 
     if (taskFilters.sprint) {
@@ -986,7 +986,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       if (analyticsFilter.type === 'feature') {
         filtered = filtered.filter((t) => t.feature.includes(analyticsFilter.value));
       } else if (analyticsFilter.type === 'client') {
-        filtered = filtered.filter((t) => t.responsavel === analyticsFilter.value);
+        filtered = filtered.filter((t) => taskHasCategory(t.categorias, analyticsFilter.value));
       }
     }
 

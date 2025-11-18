@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Search, Filter, X, FileDown, XCircle, ChevronDown, ChevronRight, Filter as FilterIcon, RotateCw } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
-import { formatHours, isCompletedStatus, normalizeForComparison } from '../utils/calculations';
+import { formatHours, isCompletedStatus, normalizeForComparison, taskHasCategory } from '../utils/calculations';
 import { exportTasksToExcel } from '../services/excelExportService';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { TaskFilters } from './TaskFilters';
@@ -76,7 +76,7 @@ export const TaskList: React.FC = () => {
       filtered = filtered.filter((t) => t.modulo === taskFilters.modulo);
     }
     if (taskFilters.categoria) {
-      filtered = filtered.filter((t) => t.categorias.includes(taskFilters.categoria!));
+      filtered = filtered.filter((t) => taskHasCategory(t.categorias, taskFilters.categoria));
     }
     if (taskFilters.sprint) {
       filtered = filtered.filter((t) => t.sprint === taskFilters.sprint);
@@ -110,7 +110,7 @@ export const TaskList: React.FC = () => {
       result = result.filter((t) => t.modulo === filterModule);
     }
     if (filterClient) {
-      result = result.filter((t) => t.categorias.includes(filterClient));
+      result = result.filter((t) => taskHasCategory(t.categorias, filterClient));
     }
     if (filterType) {
       result = result.filter((t) => t.tipo === filterType);
@@ -162,7 +162,7 @@ export const TaskList: React.FC = () => {
       if (analyticsFilter.type === 'feature') {
         result = result.filter(t => t.feature.includes(analyticsFilter.value));
       } else if (analyticsFilter.type === 'client') {
-        result = result.filter(t => t.categorias.includes(analyticsFilter.value));
+        result = result.filter(t => taskHasCategory(t.categorias, analyticsFilter.value));
       }
     }
 
@@ -189,9 +189,19 @@ export const TaskList: React.FC = () => {
   }, [baseFilteredTasks]);
 
   const uniqueClients = useMemo(() => {
-    const clients = new Set<string>();
-    baseFilteredTasks.forEach((t) => t.categorias.forEach((c) => clients.add(c)));
-    return Array.from(clients).sort();
+    const clients = new Map<string, string>();
+    baseFilteredTasks.forEach((t) =>
+      t.categorias.forEach((c) => {
+        if (!c) return;
+        const trimmed = c.trim();
+        if (!trimmed) return;
+        const normalized = normalizeForComparison(trimmed);
+        if (!clients.has(normalized)) {
+          clients.set(normalized, trimmed);
+        }
+      })
+    );
+    return Array.from(clients.values()).sort((a, b) => a.localeCompare(b));
   }, [baseFilteredTasks]);
 
   const uniqueStatuses = useMemo(() => {

@@ -43,6 +43,22 @@ export function normalizeForComparison(text: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+export function taskHasCategory(
+  taskCategories: Array<string | null | undefined> = [],
+  target?: string | null
+): boolean {
+  if (!target) return false;
+
+  const normalizedTarget = normalizeForComparison(target.trim());
+  if (!normalizedTarget) return false;
+
+  return taskCategories.some((category) => {
+    if (!category) return false;
+    const normalizedCategory = normalizeForComparison(category.trim());
+    return normalizedCategory === normalizedTarget;
+  });
+}
+
 // Format hours to readable string
 export function formatHours(hours: number): string {
   if (hours === null || hours === undefined || isNaN(hours)) return '0h';

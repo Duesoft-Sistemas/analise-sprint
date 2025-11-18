@@ -23,7 +23,7 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 | Status | String | Status atual da tarefa | Em progresso, Concluído | "Status" |
 | Campo personalizado (Modulo) | String | Módulo da aplicação | Autenticação | "Campo personalizado (Modulo)", "Campo personalizado (Módulo)" |
 | Campo personalizado (Feature) | String/Array | Feature relacionada | Login | "Campo personalizado (Feature)" (qualquer coluna contendo "feature") |
-| Categorias | String/Array | Cliente(s) | Cliente A, Cliente B | "Categorias" (qualquer coluna contendo "categoria") |
+| Categorias | String/Array | Cliente(s) | Cliente A, Cliente B | "Categorias" (qualquer coluna contendo "categoria"). Valores são normalizados (trim, sem acento, case-insensitive) antes de agrupar/filtrar |
 | Campo personalizado (Detalhes Ocultos) | String/Array | Informações adicionais | Auxilio, Reunião, HoraExtra, DuvidaOculta | "Campo personalizado (Detalhes Ocultos)" (qualquer coluna contendo "detalhes ocultos") |
 
 ### Comportamento de Tarefas sem Sprint
