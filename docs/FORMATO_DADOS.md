@@ -166,7 +166,7 @@ Sistema aceita os seguintes formatos para campos de tempo:
 **Impacto:**
 - ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras.
 - Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
-- O bônus é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus é concedido se a **média das notas de teste (≥ 3.0)** de TODAS as tarefas marcadas como "HoraExtra" for adequada. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
 - O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excedem 40h na semana.
 
 #### "DuvidaOculta" ou "Dúvida Oculta"
@@ -419,7 +419,7 @@ Antes de processamento, sistema valida:
 
 **Tarefas marcadas como "HoraExtra":**
 - Apenas tarefas marcadas explicitamente como "HoraExtra" no campo "Detalhes Ocultos" são consideradas para o bônus.
-- O bônus só é concedido se a **média das notas de teste (≥ 4.0)** de TODAS as tarefas marcadas como "HoraExtra" for alta. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
+- O bônus só é concedido se a **média das notas de teste (≥ 3.0)** de TODAS as tarefas marcadas como "HoraExtra" for adequada. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
 - O bônus é calculado com base nas horas totais que excedem 40h na semana.
 - O total de horas para o cálculo (acima de 40h) considera **todas as tarefas concluídas**, não apenas as marcadas como "HoraExtra".
 

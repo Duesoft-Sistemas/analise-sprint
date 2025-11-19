@@ -126,7 +126,7 @@ export const MAX_AUXILIO_BONUS = 10;
 export const MAX_OVERTIME_BONUS = 10;
 
 /** Nota mínima de teste para considerar horas extras (1-5) */
-export const MIN_OVERTIME_TEST_NOTE = 4;
+export const MIN_OVERTIME_TEST_NOTE = 3;
 
 /** Horas padrão por semana (base para cálculo de horas extras) */
 export const STANDARD_WEEKLY_HOURS = 40;

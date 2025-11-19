@@ -1510,10 +1510,12 @@ export interface CapacityRecommendation {
  * - Throughput per dev per sprint = count(completed tasks in sprint) / unique devs with completed tasks in sprint
  * - Use percentiles (P50/P80) across sprints for conservative/aggressive scenarios
  * - suggestedDevs ≈ ceil(avgInflow / theta)
+ * @param selectedDevs Optional set of developer names to include in the analysis. If provided, only these devs will be considered.
  */
 export function calculateCapacityRecommendation(
   tasks: TaskItem[],
-  sprintMetadata: SprintMetadata[]
+  sprintMetadata: SprintMetadata[],
+  selectedDevs?: Set<string> | null
 ): CapacityRecommendation {
   if (!sprintMetadata || sprintMetadata.length === 0) {
     return {
@@ -1522,6 +1524,9 @@ export function calculateCapacityRecommendation(
       throughputPerDevP50: 0,
       throughputPerDevP80: 0,
       avgInflow: 0,
+      avgCurrentDevs: selectedDevs && selectedDevs.size > 0 ? selectedDevs.size : 0,
+      totalDevsNeededP50: 0,
+      totalDevsNeededP80: 0,
     };
   }
 
@@ -1539,9 +1544,15 @@ export function calculateCapacityRecommendation(
   for (const meta of ordered) {
     const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
     const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
-    const devs = new Set<string>(completed.map(t => t.responsavel).filter(Boolean));
+    
+    // Filter by selected devs if provided
+    const filteredCompleted = selectedDevs && selectedDevs.size > 0
+      ? completed.filter(t => t.responsavel && selectedDevs.has(t.responsavel))
+      : completed;
+    
+    const devs = new Set<string>(filteredCompleted.map(t => t.responsavel).filter(Boolean));
     const devCount = devs.size || 1; // avoid division by zero
-    const throughput = completed.length;
+    const throughput = filteredCompleted.length;
     perSprintThroughputPerDev.push(throughput / devCount);
   }
 
@@ -1559,18 +1570,27 @@ export function calculateCapacityRecommendation(
   const totalDevsNeededP50 = thetaP50 > 0 ? Math.ceil(avgInflow / thetaP50) : 0;
   const totalDevsNeededP80 = thetaP80 > 0 ? Math.ceil(avgInflow / thetaP80) : 0;
 
-  // Calculate average current devs (from recent sprints - last 3 sprints or all if less than 3)
-  const recentSprints = ordered.slice(-3);
-  const currentDevCounts: number[] = [];
-  for (const meta of recentSprints) {
-    const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
-    const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
-    const devs = new Set<string>(completed.map(t => t.responsavel).filter(Boolean));
-    currentDevCounts.push(devs.size || 0);
+  // Calculate current devs: if devs are selected, use that count; otherwise, calculate from recent sprints
+  let avgCurrentDevs: number;
+  
+  if (selectedDevs && selectedDevs.size > 0) {
+    // User selected specific devs - use that as the current capacity
+    avgCurrentDevs = selectedDevs.size;
+  } else {
+    // No devs selected - calculate average from recent sprints (last 3 sprints or all if less than 3)
+    const recentSprints = ordered.slice(-3);
+    const currentDevCounts: number[] = [];
+    for (const meta of recentSprints) {
+      const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
+      const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
+      
+      const devs = new Set<string>(completed.map(t => t.responsavel).filter(Boolean));
+      currentDevCounts.push(devs.size || 0);
+    }
+    avgCurrentDevs = currentDevCounts.length > 0
+      ? Math.round(currentDevCounts.reduce((sum, count) => sum + count, 0) / currentDevCounts.length)
+      : 0;
   }
-  const avgCurrentDevs = currentDevCounts.length > 0
-    ? Math.round(currentDevCounts.reduce((sum, count) => sum + count, 0) / currentDevCounts.length)
-    : 0;
 
   // Calculate additional devs needed (total needed - current)
   const suggestedDevsP50 = Math.max(0, totalDevsNeededP50 - avgCurrentDevs);

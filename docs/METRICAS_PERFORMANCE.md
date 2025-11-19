@@ -97,7 +97,7 @@ Score Máximo: 140
 - **Regra Especial:** Para o cálculo do bônus, o tempo considerado (`auxilioHours`) é a soma do `tempoGastoNoSprint` de todas as tarefas identificadas como "Auxilio", **independentemente do seu status de conclusão**. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
 
 **6. Bônus de Horas Extras (0-10):**
-- Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta (nota média das tarefas com "HoraExtra" ≥ 4.0).
+- Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida adequada (nota média das tarefas com "HoraExtra" ≥ 3.0).
 - Escala progressiva baseada nas horas totais que excedem 40h/semana.
 - Função de cálculo:
   ```
@@ -269,7 +269,7 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
  ### Bônus de Horas Extras
  
  - **O que é:** Reconhece esforço adicional com alta qualidade.
- - **Cálculo:** Baseado nas horas que excedem 40h/semana, com nota média de teste ≥ 4.0.
+ - **Cálculo:** Baseado nas horas que excedem 40h/semana, com nota média de teste ≥ 3.0.
  
 ## Score de Performance Final (Máx 140)
  

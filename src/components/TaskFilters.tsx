@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X, FileDown, Filter as FilterIcon } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 
 interface TaskFiltersProps {
@@ -30,7 +30,6 @@ interface TaskFiltersProps {
   setFilterTestNote: (value: string) => void;
   hasFilters: boolean;
   clearFilters: () => void;
-  onExport: () => void;
 }
 
 export const TaskFilters: React.FC<TaskFiltersProps> = ({
@@ -61,7 +60,6 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   setFilterTestNote,
   hasFilters,
   clearFilters,
-  onExport,
 }) => {
   return (
     <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -197,13 +195,6 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
               Limpar Filtros
             </button>
           )}
-          <button
-            onClick={onExport}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-          >
-            <FileDown className="w-4 h-4" />
-            Exportar
-          </button>
         </div>
       </div>
     </div>

@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, X, FileDown, XCircle, ChevronDown, ChevronRight, Filter as FilterIcon, RotateCw } from 'lucide-react';
+import { Filter as FilterIcon, RotateCw } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
 import { formatHours, isCompletedStatus, normalizeForComparison, taskHasCategory } from '../utils/calculations';
-import { exportTasksToExcel } from '../services/excelExportService';
-import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { TaskFilters } from './TaskFilters';
 
 const getDetalheTagColor = (detalhe: string) => {
@@ -217,8 +215,18 @@ export const TaskList: React.FC = () => {
     return Array.from(types).sort();
   }, [baseFilteredTasks]);
 
-  const hasFilters =
-    searchTerm || filterFeature || filterModule || filterClient || filterStatus.length > 0 || filterNoEstimate || filterDelayed || filterAhead || filterType || filterTestNote !== 'all';
+  const hasFilters = Boolean(
+    searchTerm ||
+      filterFeature ||
+      filterModule ||
+      filterClient ||
+      filterStatus.length > 0 ||
+      filterNoEstimate ||
+      filterDelayed ||
+      filterAhead ||
+      filterType ||
+      filterTestNote !== 'all'
+  );
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -239,37 +247,16 @@ export const TaskList: React.FC = () => {
     );
   };
 
-  const handleExport = () => {
-    if (selectedSprint) {
-      exportTasksToExcel(filteredTasks, selectedSprint);
-    }
-  };
-
-  const selectDeveloper = useSprintStore((state) => state.selectDeveloper);
+  const setSelectedDeveloper = useSprintStore((state) => state.setSelectedDeveloper);
 
   const handleClearFilter = () => {
     if (analyticsFilter) {
       setAnalyticsFilter(null);
     } else if (selectedDeveloper) {
-      selectDeveloper(null);
+      setSelectedDeveloper(null);
     }
   };
   
-  const FilterPill: React.FC<{
-    type: string;
-    value: string;
-    onClear: () => void;
-  }> = ({ type, value, onClear }) => (
-    <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full px-4 py-2 text-sm font-medium">
-      <span>
-        {type}: <strong>{value}</strong>
-      </span>
-      <button onClick={onClear} className="p-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
-        <XCircle className="w-4 h-4" />
-      </button>
-    </div>
-  );
-
   // Calculate totals and averages for filtered tasks
   const totals = useMemo(() => {
     if (filteredTasks.length === 0) {
@@ -352,7 +339,6 @@ export const TaskList: React.FC = () => {
         setFilterTestNote={setFilterTestNote}
         hasFilters={hasFilters}
         clearFilters={clearFilters}
-        onExport={handleExport}
       />
 
       {(selectedDeveloper || analyticsFilter) && (

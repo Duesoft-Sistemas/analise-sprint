@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List } from 'lucide-react';
-import { CrossSprintAnalytics, TaskItem as TaskItemType } from '../types';
+import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { CrossSprintAnalytics, TaskItem as TaskItemType, WorklogEntry } from '../types';
 import { formatHours, normalizeForComparison } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
 import { useSprintStore } from '../store/useSprintStore';
 import { AnalyticsChart } from './AnalyticsCharts';
+import { STANDARD_WEEKLY_HOURS } from '../config/performanceConfig';
 
 interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
@@ -23,7 +24,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const [topSprintLimit, setTopSprintLimit] = useState<number | null>(20);
   const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(20);
   const [topClientLimit, setTopClientLimit] = useState<number | null>(20);
-  const [developerViewMode, setDeveloperViewMode] = useState<'chart' | 'list'>('chart');
+  const [developerViewMode, setDeveloperViewMode] = useState<'chart' | 'list'>('list');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [showSprintSelector, setShowSprintSelector] = useState(false);
@@ -33,6 +34,19 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const getSprintPeriod = useSprintStore((s) => s.getSprintPeriod);
   const setSelectedDeveloper = useSprintStore((s) => s.setSelectedDeveloper);
   const setAnalyticsFilter = useSprintStore((s) => s.setAnalyticsFilter);
+  
+  // Estados para controlar expansão dos cards de KPIs
+  const [expandedKPIs, setExpandedKPIs] = useState<Set<string>>(new Set());
+  
+  const toggleKPIExpansion = (kpiType: string) => {
+    const newExpanded = new Set(expandedKPIs);
+    if (newExpanded.has(kpiType)) {
+      newExpanded.delete(kpiType);
+    } else {
+      newExpanded.add(kpiType);
+    }
+    setExpandedKPIs(newExpanded);
+  };
   
   const TOP_OPTIONS = [10, 20, 40, null]; // null = todos
   
@@ -60,16 +74,102 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     }
   }, [sprints.length]); // Only depend on sprints.length to avoid loops
 
+  // Helper function to get the start of the week (Monday) for a given date
+  const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    const weekStart = new Date(d);
+    weekStart.setDate(diff);
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
+  };
+
+  // Helper function to calculate overtime hours from worklogs
+  // Overtime = worklog hours that exceed 40h per week per developer
+  const calculateOvertimeHours = (
+    worklogs: WorklogEntry[],
+    sprintStart: Date,
+    sprintEnd: Date,
+    taskToDeveloper: Map<string, string>
+  ): number => {
+    // Group worklogs by developer and week
+    const devWeekMap = new Map<string, Map<string, number>>(); // developer -> weekKey -> hours
+    
+    worklogs.forEach(w => {
+      const worklogDate = w.data instanceof Date ? w.data : new Date(w.data);
+      const worklogTime = worklogDate.getTime();
+      
+      // Only consider worklogs within sprint period
+      if (worklogTime < sprintStart.getTime() || worklogTime > sprintEnd.getTime()) {
+        return;
+      }
+      
+      const developer = taskToDeveloper.get(w.taskId);
+      if (!developer) return;
+      
+      const weekStart = getWeekStart(worklogDate);
+      const weekKey = weekStart.toISOString().split('T')[0]; // Use ISO date as week key
+      
+      if (!devWeekMap.has(developer)) {
+        devWeekMap.set(developer, new Map());
+      }
+      const weekMap = devWeekMap.get(developer)!;
+      
+      const currentHours = weekMap.get(weekKey) || 0;
+      weekMap.set(weekKey, currentHours + (w.tempoGasto || 0));
+    });
+    
+    // Calculate overtime: for each developer-week, if hours > 40, count the excess
+    let totalOvertime = 0;
+    devWeekMap.forEach((weekMap, developer) => {
+      weekMap.forEach((hours, weekKey) => {
+        if (hours > STANDARD_WEEKLY_HOURS) {
+          totalOvertime += hours - STANDARD_WEEKLY_HOURS;
+        }
+      });
+    });
+    
+    return totalOvertime;
+  };
+
   // Management KPIs (per sprint and totals) for selected sprints
   const managementKPIs = React.useMemo(() => {
-    // Precompute training task IDs (id or key) from all tasks, not only by t.sprint
+    // Precompute task IDs (id or key) from all tasks for each category, not only by t.sprint
     const treinamentoKeywords = ['treinamento', 'treinamentos'];
+    const auxilioKeywords = ['auxilio'];
+    const reuniaoKeywords = ['reuniao', 'reunioes'];
+    
     const trainingTaskIds = new Set<string>();
+    const auxilioTaskIds = new Set<string>();
+    const reuniaoTaskIds = new Set<string>();
+    
     tasks.forEach(t => {
-      const isTraining = t.detalhesOcultos && t.detalhesOcultos.some(d => treinamentoKeywords.includes(normalizeForComparison(d)));
-      if (isTraining) {
+      if (!t.detalhesOcultos || t.detalhesOcultos.length === 0) return;
+      
+      const detalhes = t.detalhesOcultos.map(d => normalizeForComparison(d));
+      
+      if (detalhes.some(d => treinamentoKeywords.includes(d))) {
         if (t.id) trainingTaskIds.add(t.id);
         if (t.chave) trainingTaskIds.add(t.chave);
+      }
+      if (detalhes.some(d => auxilioKeywords.includes(d))) {
+        if (t.id) auxilioTaskIds.add(t.id);
+        if (t.chave) auxilioTaskIds.add(t.chave);
+      }
+      if (detalhes.some(d => reuniaoKeywords.includes(d))) {
+        if (t.id) reuniaoTaskIds.add(t.id);
+        if (t.chave) reuniaoTaskIds.add(t.chave);
+      }
+    });
+
+    // Create mapping from task ID/key to developer for overtime calculation
+    const taskToDeveloper = new Map<string, string>();
+    tasks.forEach(t => {
+      if (t.responsavel) {
+        if (t.id) taskToDeveloper.set(t.id, t.responsavel);
+        if (t.chave) taskToDeveloper.set(t.chave, t.responsavel);
       }
     });
 
@@ -81,30 +181,43 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         return t.detalhesOcultos.some(d => keywords.includes(normalizeForComparison(d)));
       };
 
-      const auxilioKeywords = ['auxilio'];
-      const reuniaoKeywords = ['reuniao', 'reunioes'];
-      const overtimeKeywords = ['horaextra', 'hora extra', 'horas extras', 'horasextras'];
       const duvidaOcultaKeywords = ['duvidaoculta', 'duvida oculta'];
       const isFolhaTask = (t: TaskItemType) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
 
-      // Sum training hours from worklogs based on sprint period, regardless of task.sprint
+      // Sum hours from worklogs based on sprint period, regardless of task.sprint
+      // This ensures we capture all time spent during the sprint period, even if the task
+      // is associated with a different sprint
       let trainingHours = 0;
+      let auxilioHours = 0;
+      let reuniaoHours = 0;
+      let overtimeHours = 0;
+      
       const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
       if (period) {
         const start = period.startDate.getTime();
         const end = period.endDate.getTime();
-        trainingHours = worklogs.reduce((sum, w) => {
-          if (!trainingTaskIds.has(w.taskId)) return sum;
+        
+        worklogs.forEach(w => {
           const ts = w.data instanceof Date ? w.data.getTime() : new Date(w.data).getTime();
           if (ts >= start && ts <= end) {
-            return sum + (w.tempoGasto || 0);
+            const tempoGasto = w.tempoGasto || 0;
+            
+            if (trainingTaskIds.has(w.taskId)) {
+              trainingHours += tempoGasto;
+            }
+            if (auxilioTaskIds.has(w.taskId)) {
+              auxilioHours += tempoGasto;
+            }
+            if (reuniaoTaskIds.has(w.taskId)) {
+              reuniaoHours += tempoGasto;
+            }
           }
-          return sum;
-        }, 0);
+        });
+        
+        // Calculate overtime hours: worklog that exceeds 40h per week per developer
+        overtimeHours = calculateOvertimeHours(worklogs, period.startDate, period.endDate, taskToDeveloper);
       }
-      const auxilioHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, auxilioKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
-      const reuniaoHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, reuniaoKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
-      const overtimeHours = sprintTasks.reduce((sum, t) => sum + (hasDetalhe(t, overtimeKeywords) ? (t.tempoGastoNoSprint ?? 0) : 0), 0);
+      
       const nonBugCount = sprintTasks.filter(t => t.tipo !== 'Bug' && !isFolhaTask(t)).length;
       const realBugsCount = sprintTasks.filter(t => t.tipo === 'Bug' && !hasDetalhe(t, duvidaOcultaKeywords) && !isFolhaTask(t)).length;
       const duvidasOcultasCount = sprintTasks.filter(t => t.tipo === 'Bug' && hasDetalhe(t, duvidaOcultaKeywords) && !isFolhaTask(t)).length;
@@ -135,7 +248,124 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     );
 
     return { perSprint, totals };
-  }, [tasks, selectedSprints]);
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod]);
+
+  // Calculate totals per developer for each KPI category
+  const kpiByDeveloper = React.useMemo(() => {
+    const treinamentoKeywords = ['treinamento', 'treinamentos'];
+    const auxilioKeywords = ['auxilio'];
+    const reuniaoKeywords = ['reuniao', 'reunioes'];
+    
+    // Create mapping from task ID/key to developer
+    const taskToDeveloper = new Map<string, string>();
+    tasks.forEach(t => {
+      if (t.responsavel) {
+        if (t.id) taskToDeveloper.set(t.id, t.responsavel);
+        if (t.chave) taskToDeveloper.set(t.chave, t.responsavel);
+      }
+    });
+    
+    // Create sets of task IDs for each category
+    const trainingTaskIds = new Set<string>();
+    const auxilioTaskIds = new Set<string>();
+    const reuniaoTaskIds = new Set<string>();
+    
+    tasks.forEach(t => {
+      if (!t.detalhesOcultos || t.detalhesOcultos.length === 0) return;
+      
+      const detalhes = t.detalhesOcultos.map(d => normalizeForComparison(d));
+      
+      if (detalhes.some(d => treinamentoKeywords.includes(d))) {
+        if (t.id) trainingTaskIds.add(t.id);
+        if (t.chave) trainingTaskIds.add(t.chave);
+      }
+      if (detalhes.some(d => auxilioKeywords.includes(d))) {
+        if (t.id) auxilioTaskIds.add(t.id);
+        if (t.chave) auxilioTaskIds.add(t.chave);
+      }
+      if (detalhes.some(d => reuniaoKeywords.includes(d))) {
+        if (t.id) reuniaoTaskIds.add(t.id);
+        if (t.chave) reuniaoTaskIds.add(t.chave);
+      }
+    });
+    
+    // Initialize maps for each category
+    const trainingByDev = new Map<string, number>();
+    const auxilioByDev = new Map<string, number>();
+    const reuniaoByDev = new Map<string, number>();
+    const overtimeByDev = new Map<string, number>();
+    
+    // Process worklogs for selected sprints
+    selectedSprints.forEach(sprintName => {
+      const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
+      if (!period) return;
+      
+      const start = period.startDate.getTime();
+      const end = period.endDate.getTime();
+      
+      // Group worklogs by developer and week for overtime calculation
+      const devWeekMap = new Map<string, Map<string, number>>(); // developer -> weekKey -> hours
+      
+      worklogs.forEach(w => {
+        const ts = w.data instanceof Date ? w.data.getTime() : new Date(w.data).getTime();
+        if (ts >= start && ts <= end) {
+          const tempoGasto = w.tempoGasto || 0;
+          const developer = taskToDeveloper.get(w.taskId);
+          
+          if (!developer) return;
+          
+          // Training, auxilio, reuniao: sum by task category
+          if (trainingTaskIds.has(w.taskId)) {
+            trainingByDev.set(developer, (trainingByDev.get(developer) || 0) + tempoGasto);
+          }
+          if (auxilioTaskIds.has(w.taskId)) {
+            auxilioByDev.set(developer, (auxilioByDev.get(developer) || 0) + tempoGasto);
+          }
+          if (reuniaoTaskIds.has(w.taskId)) {
+            reuniaoByDev.set(developer, (reuniaoByDev.get(developer) || 0) + tempoGasto);
+          }
+          
+          // Overtime: group by developer and week
+          const worklogDate = w.data instanceof Date ? w.data : new Date(w.data);
+          const weekStart = getWeekStart(worklogDate);
+          const weekKey = weekStart.toISOString().split('T')[0];
+          
+          if (!devWeekMap.has(developer)) {
+            devWeekMap.set(developer, new Map());
+          }
+          const weekMap = devWeekMap.get(developer)!;
+          const currentHours = weekMap.get(weekKey) || 0;
+          weekMap.set(weekKey, currentHours + tempoGasto);
+        }
+      });
+      
+      // Calculate overtime per developer: for each developer-week, if hours > 40, count the excess
+      devWeekMap.forEach((weekMap, developer) => {
+        let devOvertime = 0;
+        weekMap.forEach((hours, weekKey) => {
+          if (hours > STANDARD_WEEKLY_HOURS) {
+            devOvertime += hours - STANDARD_WEEKLY_HOURS;
+          }
+        });
+        if (devOvertime > 0) {
+          overtimeByDev.set(developer, (overtimeByDev.get(developer) || 0) + devOvertime);
+        }
+      });
+    });
+    
+    // Convert maps to sorted arrays
+    const toArray = (map: Map<string, number>) => 
+      Array.from(map.entries())
+        .map(([developer, hours]) => ({ developer, hours }))
+        .sort((a, b) => b.hours - a.hours);
+    
+    return {
+      training: toArray(trainingByDev),
+      auxilio: toArray(auxilioByDev),
+      reuniao: toArray(reuniaoByDev),
+      overtime: toArray(overtimeByDev),
+    };
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod]);
 
   // Filter analytics based on selected sprints
   const filteredAnalytics = React.useMemo(() => {
@@ -166,14 +396,35 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       sprintMap.get(task.sprint)!.push(task);
     }
 
-    const sprintDistribution = Array.from(sprintMap.entries()).map(
-      ([sprintName, sprintTasks]) => ({
-        sprintName,
-        tasks: sprintTasks.length,
-        hours: sprintTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
-        estimatedHours: sprintTasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+
+    const sprintDistribution = Array.from(sprintMap.entries())
+      .map(([sprintName, sprintTasks]) => {
+        const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
+        return {
+          sprintName,
+          tasks: sprintTasks.length,
+          hours: sprintTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
+          estimatedHours: sprintTasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
+          startDate: period?.startDate ? new Date(period.startDate) : null,
+          endDate: period?.endDate ? new Date(period.endDate) : null,
+        };
       })
-    );
+      // Filter: only open sprints (endDate >= today)
+      .filter((sprint) => {
+        if (!sprint.endDate) return false; // Exclude sprints without period info
+        const endDate = new Date(sprint.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        return endDate >= now;
+      })
+      // Sort: by startDate ascending (oldest first)
+      .sort((a, b) => {
+        if (!a.startDate && !b.startDate) return 0;
+        if (!a.startDate) return 1;
+        if (!b.startDate) return -1;
+        return a.startDate.getTime() - b.startDate.getTime();
+      });
 
     // Developer allocation - apenas sprints selecionados
     const devSprintMap = new Map<string, Map<string, TaskItemType[]>>();
@@ -193,15 +444,36 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
 
     const developerAllocation = Array.from(devSprintMap.entries()).map(
       ([name, sprints]) => {
-        const sprintsData = Array.from(sprints.entries()).map(
-          ([sprintName, tasks]) => ({
-            sprintName,
-            // When showing allocation per sprint, use tempoGastoNoSprint (hours in that specific sprint)
-            // Each sprint is analyzed separately, so we need sprint-specific hours
-            hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
-            estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+        
+        const sprintsData = Array.from(sprints.entries())
+          .map(([sprintName, tasks]) => {
+            const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
+            return {
+              sprintName,
+              // When showing allocation per sprint, use tempoGastoNoSprint (hours in that specific sprint)
+              // Each sprint is analyzed separately, so we need sprint-specific hours
+              hours: tasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0),
+              estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativaRestante ?? t.estimativa), 0),
+              startDate: period?.startDate ? new Date(period.startDate) : null,
+              endDate: period?.endDate ? new Date(period.endDate) : null,
+            };
           })
-        );
+          // Filter: only open sprints (endDate >= today)
+          .filter((sprint) => {
+            if (!sprint.endDate) return false; // Exclude sprints without period info
+            const endDate = new Date(sprint.endDate);
+            endDate.setHours(0, 0, 0, 0);
+            return endDate >= now;
+          })
+          // Sort: by startDate ascending (oldest first)
+          .sort((a, b) => {
+            if (!a.startDate && !b.startDate) return 0;
+            if (!a.startDate) return 1;
+            if (!b.startDate) return -1;
+            return a.startDate.getTime() - b.startDate.getTime();
+          });
 
         return {
           name,
@@ -265,7 +537,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       clientAllocation,
       byFeature: calculateProblemAnalysisByFeature(tasksWithSprint),
     };
-  }, [analytics, tasks, selectedSprints]);
+  }, [analytics, tasks, selectedSprints, getSprintPeriod]);
 
   // Build chart data (Totalizer[]) across selected sprints for each section
   const selectedSprintTasks = React.useMemo(() => {
@@ -420,7 +692,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </div>
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Treinamentos</span>
                 </div>
-                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.trainingHours)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.trainingHours)}</span>
+                  <button
+                    onClick={() => toggleKPIExpansion('training')}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title={expandedKPIs.has('training') ? 'Recolher' : 'Expandir'}
+                  >
+                    {expandedKPIs.has('training') ? (
+                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
@@ -429,6 +714,23 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </span>
                 ))}
               </div>
+              {expandedKPIs.has('training') && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Por Desenvolvedor:</div>
+                  <div className="space-y-1.5">
+                    {kpiByDeveloper.training.length > 0 ? (
+                      kpiByDeveloper.training.map(({ developer, hours }) => (
+                        <div key={developer} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 dark:text-gray-300">{developer}</span>
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">{formatHours(hours)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">Nenhum registro</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Auxílios (horas) */}
@@ -440,7 +742,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </div>
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Auxílios</span>
                 </div>
-                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.auxilioHours)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.auxilioHours)}</span>
+                  <button
+                    onClick={() => toggleKPIExpansion('auxilio')}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title={expandedKPIs.has('auxilio') ? 'Recolher' : 'Expandir'}
+                  >
+                    {expandedKPIs.has('auxilio') ? (
+                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
@@ -449,6 +764,23 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </span>
                 ))}
               </div>
+              {expandedKPIs.has('auxilio') && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Por Desenvolvedor:</div>
+                  <div className="space-y-1.5">
+                    {kpiByDeveloper.auxilio.length > 0 ? (
+                      kpiByDeveloper.auxilio.map(({ developer, hours }) => (
+                        <div key={developer} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 dark:text-gray-300">{developer}</span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">{formatHours(hours)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">Nenhum registro</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Reuniões (horas) */}
@@ -460,7 +792,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </div>
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Reuniões</span>
                 </div>
-                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.reuniaoHours)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.reuniaoHours)}</span>
+                  <button
+                    onClick={() => toggleKPIExpansion('reuniao')}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title={expandedKPIs.has('reuniao') ? 'Recolher' : 'Expandir'}
+                  >
+                    {expandedKPIs.has('reuniao') ? (
+                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
@@ -469,6 +814,23 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </span>
                 ))}
               </div>
+              {expandedKPIs.has('reuniao') && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Por Desenvolvedor:</div>
+                  <div className="space-y-1.5">
+                    {kpiByDeveloper.reuniao.length > 0 ? (
+                      kpiByDeveloper.reuniao.map(({ developer, hours }) => (
+                        <div key={developer} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 dark:text-gray-300">{developer}</span>
+                          <span className="font-semibold text-indigo-700 dark:text-indigo-300">{formatHours(hours)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">Nenhum registro</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Horas Extras (horas) */}
@@ -480,7 +842,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </div>
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Horas Extras</span>
                 </div>
-                <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.overtimeHours)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.overtimeHours)}</span>
+                  <button
+                    onClick={() => toggleKPIExpansion('overtime')}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title={expandedKPIs.has('overtime') ? 'Recolher' : 'Expandir'}
+                  >
+                    {expandedKPIs.has('overtime') ? (
+                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
@@ -489,6 +864,23 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   </span>
                 ))}
               </div>
+              {expandedKPIs.has('overtime') && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Por Desenvolvedor:</div>
+                  <div className="space-y-1.5">
+                    {kpiByDeveloper.overtime.length > 0 ? (
+                      kpiByDeveloper.overtime.map(({ developer, hours }) => (
+                        <div key={developer} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 dark:text-gray-300">{developer}</span>
+                          <span className="font-semibold text-yellow-700 dark:text-yellow-300">{formatHours(hours)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">Nenhum registro</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tarefas (não-bug) - quantidade */}
@@ -585,7 +977,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         </div>
         <div className="space-y-2">
           {filteredAnalytics.sprintDistribution
-            .sort((a, b) => b.tasks - a.tasks)
             .slice(0, topSprintLimit ?? undefined)
             .map((sprint, index) => (
             <div

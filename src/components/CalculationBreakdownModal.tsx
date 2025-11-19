@@ -85,7 +85,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       items: [
         {
           label: 'Eficiência Geral (para Performance Score)',
-          value: `${metrics.accuracyRate.toFixed(1)}%`,
+          value: `${(metrics.accuracyRate ?? 0).toFixed(1)}%`,
           formula: `(Pontos de Eficiência / Total de Tarefas) × 100 = (${weightedScore} / ${completedWithEstimates.length}) × 100`,
           explanation: 'Esta é a métrica de eficiência consolidada usada no cálculo do seu Performance Score. Bugs aceitáveis valem 0.5 pontos.',
           subItems: [
@@ -104,14 +104,14 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             },
             {
               label: 'Contribuição para Score Base',
-              value: `${(metrics.accuracyRate * 0.5).toFixed(1)} pontos`,
-              formula: `50% de ${metrics.accuracyRate.toFixed(1)}%`
+              value: `${((metrics.accuracyRate ?? 0) * 0.5).toFixed(1)} pontos`,
+              formula: `50% de ${(metrics.accuracyRate ?? 0).toFixed(1)}%`
             }
           ]
         },
         {
           label: 'Taxa de Eficiência (Bugs)',
-          value: `${metrics.bugAccuracyRate.toFixed(1)}%`,
+          value: `${(metrics.bugAccuracyRate ?? 0).toFixed(1)}%`,
           formula: `(Bugs Eficientes / Total de Bugs) × 100 = (${efficientBugs.length} / ${bugs.length}) × 100`,
           explanation: 'Percentual de BUGS executados de forma eficiente, usando a zona de complexidade (baseado apenas nas horas gastas).',
           tasks: bugs.map(t => {
@@ -161,12 +161,12 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
         },
         {
           label: 'Desvio Médio de Estimativa (Features)',
-          value: `${metrics.featureEstimationAccuracy > 0 ? '+' : ''}${metrics.featureEstimationAccuracy.toFixed(1)}%`,
+          value: `${(metrics.featureEstimationAccuracy ?? 0) > 0 ? '+' : ''}${(metrics.featureEstimationAccuracy ?? 0).toFixed(1)}%`,
           formula: 'Média do desvio percentual para TAREFAS e HISTÓRIAS com estimativa.',
           explanation: `Média do desvio de todas as features e histórias. ${
-            metrics.featureEstimationAccuracy < -10
+            (metrics.featureEstimationAccuracy ?? 0) < -10
             ? 'Tendência a subestimar (gastou mais que estimado)' 
-            : metrics.featureEstimationAccuracy > 10
+            : (metrics.featureEstimationAccuracy ?? 0) > 10
             ? 'Tendência a superestimar (gastou menos que estimado)'
             : 'Estimativas balanceadas'}. A lista abaixo detalha o desvio de cada tarefa.`,
           tasks: features.map(t => {
@@ -249,7 +249,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
     // =============================================================================
     // 5. CALCULAR PERFORMANCE SCORE
     // =============================================================================
-    const executionEfficiency = metrics.accuracyRate;
+    const executionEfficiency = metrics.accuracyRate ?? 0;
 
     const scoreHasQuality = qualityTasks.length > 0;
 
@@ -266,8 +266,8 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                 label: 'Score Base',
                 value: baseScore.toFixed(1),
                 formula: scoreHasQuality
-                    ? `(50% × Qualidade) + (50% × Eficiência) = (0.5 × ${qualityScore.toFixed(1)}) + (0.5 × ${metrics.accuracyRate.toFixed(1)})`
-                    : `Eficiência = ${metrics.accuracyRate.toFixed(1)} (sem componente de qualidade)`,
+                    ? `(50% × Qualidade) + (50% × Eficiência) = (0.5 × ${qualityScore.toFixed(1)}) + (0.5 × ${(metrics.accuracyRate ?? 0).toFixed(1)})`
+                    : `Eficiência = ${(metrics.accuracyRate ?? 0).toFixed(1)} (sem componente de qualidade)`,
                 subItems: scoreHasQuality ? [
                     {
                         label: 'Componente Qualidade',
@@ -276,8 +276,8 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                     },
                     {
                         label: 'Componente Eficiência',
-                        value: `${(metrics.accuracyRate * 0.5).toFixed(1)}`,
-                        formula: `50% × ${metrics.accuracyRate.toFixed(1)}`,
+                        value: `${((metrics.accuracyRate ?? 0) * 0.5).toFixed(1)}`,
+                        formula: `50% × ${(metrics.accuracyRate ?? 0).toFixed(1)}`,
                     },
                 ] : [],
             },
@@ -362,13 +362,13 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 
                     const avgNote = qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 0), 0) / qualityOvertimeTasks.length;
 
-                    if (avgNote < 4) {
-                        return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 4.0 = 0 pontos`;
+                    if (avgNote < 3) {
+                        return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 3.0 = 0 pontos`;
                     }
 
-                    return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 4.0 → ${metrics.overtimeBonus} pontos`;
+                    return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 3.0 → ${metrics.overtimeBonus} pontos`;
                 })(),
-                explanation: `Reconhece esforço adicional com alta qualidade (média de nota ≥ 4.0).`,
+                explanation: `Reconhece esforço adicional com qualidade adequada (média de nota ≥ 3.0).`,
                 tasks: metrics.overtimeBonusTasks?.map(task => ({
                   taskKey: task.chave || task.id,
                   taskSummary: task.resumo || 'Sem resumo',
@@ -381,7 +381,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             },
             {
                 label: 'Score Final',
-                value: `${metrics.performanceScore.toFixed(1)}`,
+                value: `${(metrics.performanceScore ?? 0).toFixed(1)}`,
                 formula: `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.seniorityEfficiencyBonus} + ${metrics.competenceBonus || 0} + ${metrics.auxilioBonus} + ${metrics.overtimeBonus}`,
                 explanation: `Score máximo: 140.`,
             },
@@ -396,19 +396,19 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       items: [
         {
           label: 'Taxa de Utilização',
-          value: `${metrics.utilizationRate.toFixed(1)}%`,
+          value: `${(metrics.utilizationRate ?? 0).toFixed(1)}%`,
           formula: `(Total Horas Trabalhadas / 40h) × 100 = (${formatHours(metrics.totalHoursWorked)} / 40h) × 100`,
           explanation: 'Métrica de contexto - não impacta o score. Todos os devs trabalham ~40h.',
         },
         {
           label: 'Taxa de Conclusão',
-          value: `${metrics.completionRate.toFixed(1)}%`,
+          value: `${(metrics.completionRate ?? 0).toFixed(1)}%`,
           formula: `(Tarefas Concluídas / Tarefas Iniciadas) × 100 = (${metrics.tasksCompleted} / ${metrics.tasksStarted}) × 100`,
           explanation: 'Métrica informativa - não impacta o score. Pode ser afetada por interrupções/realocações.',
         },
         {
           label: 'Percentual de Bugs',
-          value: `${metrics.bugRate.toFixed(1)}%`,
+          value: `${(metrics.bugRate ?? 0).toFixed(1)}%`,
           formula: `(Tarefas tipo Bug / Total Tarefas) × 100`,
           explanation: 'Métrica informativa apenas. Bugs são um tipo de tarefa como qualquer outro.',
         },

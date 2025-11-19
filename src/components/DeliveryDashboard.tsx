@@ -10,13 +10,13 @@ import {
   FileText,
   Download,
   Building2,
-  Filter,
   Search,
+  FileWarning,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, SprintPeriod } from '../types';
-import { formatHours, isCompletedStatus, taskHasCategory } from '../utils/calculations';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -206,7 +206,6 @@ function calculateClientSchedules(
 
 function calculateDeliveryAnalytics(
   tasks: TaskItem[],
-  sprintMetadata: { sprint: string; dataInicio: Date; dataFim: Date }[],
   getSprintPeriod: (sprintName: string) => SprintPeriod | null
 ): DeliveryAnalytics {
   const hoje = new Date();
@@ -363,10 +362,9 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   taskListRef,
 }) => {
   const tasks = useSprintStore((state) => state.tasks);
-  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
   const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
   const [searchClient, setSearchClient] = useState<string>('');
-  const [selectedFilter, setSelectedFilter] = useState<{ type: 'status' | 'client' | 'sprint'; value: string } | null>(null);
+  const [, setSelectedFilter] = useState<{ type: 'status' | 'client' | 'sprint'; value: string } | null>(null);
   const [taskListFilter, setTaskListFilter] = useState<'dataLimite' | 'previsao' | 'todas'>('todas');
   const [topClients, setTopClients] = useState<string>('20'); // Filtro top N clientes (default: Top 20)
   
@@ -398,8 +396,8 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   };
   
   const analytics = useMemo(() => {
-    return calculateDeliveryAnalytics(tasks, sprintMetadata, getSprintPeriod);
-  }, [tasks, sprintMetadata, getSprintPeriod]);
+    return calculateDeliveryAnalytics(tasks, getSprintPeriod);
+  }, [tasks, getSprintPeriod]);
   
   // Calcular cronogramas por cliente (apenas tarefas com data limite + previsões de sprints futuros)
   const clientSchedules = useMemo(() => {
@@ -442,6 +440,49 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     
     // Combinar ambas para o cronograma por cliente
     return calculateClientSchedules(tasksComDataLimite, tasksComPrevisao);
+  }, [tasks, getSprintPeriod]);
+
+  const clientUnplannedTasks = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const map = new Map<string, TaskItem[]>();
+
+    const addTaskToClient = (cliente: string, task: TaskItem) => {
+      const key = cliente && cliente.trim() !== '' ? cliente : 'Sem Cliente';
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(task);
+    };
+
+    tasks.forEach(task => {
+      if (task.dataLimite) {
+        return;
+      }
+
+      const sprintName = task.sprint?.trim();
+      if (sprintName) {
+        const sprintPeriod = getSprintPeriod(sprintName);
+        if (sprintPeriod) {
+          const sprintEndDate = new Date(sprintPeriod.endDate);
+          sprintEndDate.setHours(0, 0, 0, 0);
+          const sprintAindaVaiAcontecer = sprintEndDate.getTime() >= hoje.getTime();
+
+          if (sprintAindaVaiAcontecer) {
+            // Estas tarefas já são consideradas na seção de previsão
+            return;
+          }
+        }
+      }
+
+      const categorias = (task.categorias || []).filter(cat => cat && cat.trim() !== '');
+      const clientes = categorias.length > 0 ? categorias : ['Sem Cliente'];
+
+      clientes.forEach(cliente => addTaskToClient(cliente, task));
+    });
+
+    return map;
   }, [tasks, getSprintPeriod]);
   
   // Separar para as duas áreas principais
@@ -521,12 +562,17 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   }, [analytics]);
   
   // Função para exportar PDF do cronograma de um cliente (lista simples)
-  const exportClientPDF = async (schedule: ClientDeliverySchedule) => {
+  const exportClientPDF = async (
+    schedule: ClientDeliverySchedule,
+    options?: { includeUnplanned?: boolean; unplannedTasks?: TaskItem[] }
+  ) => {
     // Criar PDF em paisagem (landscape)
     const pdf = new jsPDF('landscape', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 15;
+    const includeUnplanned = Boolean(options?.includeUnplanned && options?.unplannedTasks?.length);
+    const unplannedTasks = includeUnplanned ? options?.unplannedTasks ?? [] : [];
     
     // Função helper para adicionar logo
     const addLogo = async (): Promise<{ width: number; height: number } | null> => {
@@ -716,7 +762,6 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         4: { cellWidth: 35 }, // Status
       },
       didParseCell: (data: any) => {
-        const rowIndex = data.row.index;
         const colIndex = data.column.index;
         
         // Centralizar texto nas colunas Tipo e Status
@@ -725,6 +770,62 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         }
       },
     });
+    
+    if (includeUnplanned) {
+      const lastTableY = ((pdf as any).lastAutoTable?.finalY || headerHeight + 10) + 12;
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Tarefas sem previsão definida', margin, lastTableY);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+
+      const backlogTableData = [...unplannedTasks]
+        .sort((a, b) => {
+          const codeA = (a.chave || a.id || '').toUpperCase();
+          const codeB = (b.chave || b.id || '').toUpperCase();
+          return codeA.localeCompare(codeB);
+        })
+        .map(task => [
+          task.chave || task.id || '-',
+          task.resumo || '',
+          (task.sprint && task.sprint.trim() !== '' ? task.sprint : 'Backlog'),
+          task.status || 'Sem Status',
+          task.estimativa ? formatHours(task.estimativa) : '-',
+        ]);
+
+      autoTable(pdf, {
+        startY: lastTableY + 4,
+        head: [['Código', 'Descrição', 'Origem', 'Status', 'Horas']],
+        body: backlogTableData,
+        margin: { left: margin, right: margin },
+        styles: {
+          fontSize: 9,
+          cellPadding: 4,
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [99, 102, 241],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 10,
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: pageWidth - 2 * margin - 30 - 35 - 40 - 25 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 25 },
+        },
+        didParseCell: (data: any) => {
+          const colIndex = data.column.index;
+          if (colIndex >= 2) {
+            data.cell.styles.halign = 'center';
+          }
+        },
+      });
+    }
     
     // Rodapé
     const totalPages = (pdf as any).internal?.getNumberOfPages() || 1;
@@ -740,7 +841,9 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     }
     
     // Salvar PDF
-    pdf.save(`Programacao_${schedule.cliente.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    const sanitizedClient = schedule.cliente.replace(/[^a-z0-9]/gi, '_');
+    const suffix = includeUnplanned ? '_com_backlog' : '';
+    pdf.save(`Programacao_${sanitizedClient}${suffix}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
   
   return (
@@ -1183,16 +1286,49 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                        <strong>{schedule.totalTarefas}</strong> tarefas
                      </div>
                    </button>
-                   <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       exportClientPDF(schedule);
-                     }}
-                     className="flex-shrink-0 p-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all"
-                     title="Exportar PDF"
-                   >
-                     <Download className="w-4 h-4" />
-                   </button>
+                   <div className="flex items-center gap-2">
+                     <button
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         exportClientPDF(schedule);
+                       }}
+                       className="flex-shrink-0 p-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all"
+                       title="Exportar PDF (tarefas previstas)"
+                     >
+                       <Download className="w-4 h-4" />
+                     </button>
+                     {(() => {
+                       const unplanned = clientUnplannedTasks.get(schedule.cliente) || [];
+                       const hasUnplanned = unplanned.length > 0;
+                       return (
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (!hasUnplanned) {
+                               return;
+                             }
+                             exportClientPDF(schedule, {
+                               includeUnplanned: true,
+                               unplannedTasks: unplanned,
+                             });
+                           }}
+                           className={`flex-shrink-0 p-2 rounded-lg border border-dashed ${
+                             hasUnplanned
+                               ? 'border-indigo-400 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                               : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-60'
+                           } transition-all`}
+                           title={
+                             hasUnplanned
+                               ? 'Exportar PDF incluindo tarefas não previstas'
+                               : 'Sem tarefas não previstas para este cliente'
+                           }
+                           disabled={!hasUnplanned}
+                         >
+                           <FileWarning className="w-4 h-4" />
+                         </button>
+                       );
+                     })()}
+                   </div>
                  </div>
                ));
              })()}

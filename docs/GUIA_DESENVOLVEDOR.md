@@ -222,13 +222,13 @@ Cálculo:
 → Qualidade: 80 pontos (nota média geral 4.0)
 → Eficiência: 75 pontos
 → Base: (80 + 75) / 2 = 77.5 pontos
-→ Bonus Horas Extras: +7 pontos (8h extras com média de HE ≥ 4.0 → escala 8h = 7 pontos)
+→ Bonus Horas Extras: +7 pontos (8h extras com média de HE ≥ 3.0 → escala 8h = 7 pontos)
 
 Performance Score: 84.5 pontos ⭐⭐⭐⭐
 
 ⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras.
 Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
-O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "HoraExtra" for ≥ 4.0.
+O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "HoraExtra" for ≥ 3.0.
 💡 DICA: Você pode ter múltiplos valores separados por vírgula, ex: "Auxilio, HoraExtra"
 ```
 
