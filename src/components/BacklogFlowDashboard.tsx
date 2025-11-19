@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogFlowBySprint, calculateCapacityRecommendation } from '../services/analytics';
 import { Inbox, CheckSquare, TrendingUp, BarChart3, Clock, X, List, Calendar, Info, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
-import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask } from '../utils/calculations';
+import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask, isImpedimentoTrabalhoTask } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TaskItem } from '../types';
 
@@ -1378,8 +1378,13 @@ const AllocationDetailsView: React.FC<AllocationDetailsViewProps> = ({ filter, b
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  // Excluir tarefas de auxílio, reunião e treinamento
-  const filteredTasks = tasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t));
+  // Excluir tarefas de auxílio, reunião, treinamento e impedimento de trabalho
+  // Impedimento de trabalho: importado para contabilizar horas, mas não usado para análise de capacidade/performance
+  const filteredTasks = tasks.filter(t => 
+    !isAuxilioTask(t) && 
+    !isNeutralTask(t) && 
+    !isImpedimentoTrabalhoTask(t)
+  );
 
   const getTasks = () => {
     if (filter.type === 'currentBacklog') {

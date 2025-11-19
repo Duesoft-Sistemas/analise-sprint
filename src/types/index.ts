@@ -16,7 +16,7 @@ export interface TaskItem {
   feature: string[]; // Array de features - pode haver múltiplas colunas na planilha
   categorias: string[];
   detalhesOcultos: string[]; // Array de detalhes ocultos - pode haver múltiplas colunas na planilha
-  // Valores aceitos (case-insensitive, normalizados): "DuvidaOculta", "Reuniao"/"Reunião", "Auxilio"/"Auxílio", "HoraExtra"/"Hora Extra"
+  // Valores aceitos (case-insensitive, normalizados): "DuvidaOculta", "Reuniao"/"Reunião", "Auxilio"/"Auxílio"
   tipo: 'Bug' | 'Tarefa' | 'História' | 'Outro';
   complexidade: number; // 1 to 5
   notaTeste?: number; // 1-5 (default 5 if missing)
@@ -231,17 +231,17 @@ export interface SprintPerformanceMetrics {
   performanceByComplexity: { level: number; avgHours: number; accuracy: number }[];
   
   // Overall Score
-  performanceScore: number; // 0-150 weighted score (base + seniority bonus + auxilio bonus + overtime bonus)
+  performanceScore: number; // 0-130 weighted score (base + seniority bonus + auxilio bonus)
   baseScore: number; // 0-100 base score without bonuses
   seniorityEfficiencyBonus: number; // 0-15 bonus for executing complex tasks with high efficiency
   competenceBonus: number; // Adicionado
   auxilioBonus: number; // 0-10 bonus for helping other developers
-  overtimeBonus: number; // 0-10 bonus for working extra hours (>40h) with high quality
+  overtimeBonus: number; // 0-10 bonus for working extra hours (>40h) with high quality (DEPRECATED - sempre 0)
   
   // Bonus tasks breakdown
   seniorityBonusTasks?: TaskItem[];
   competenceBonusTasks?: TaskItem[];
-  overtimeBonusTasks?: TaskItem[];
+  overtimeBonusTasks?: TaskItem[]; // DEPRECATED - sempre array vazio
   
   // Raw data
   tasks: TaskPerformanceMetrics[];

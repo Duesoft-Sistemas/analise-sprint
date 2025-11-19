@@ -16,6 +16,7 @@ import {
   normalizeForComparison,
   isNeutralTask,
   isAuxilioTask,
+  isImpedimentoTrabalhoTask,
 } from '../utils/calculations';
 import { isBacklogSprintValue } from '../utils/calculations';
 
@@ -406,8 +407,8 @@ export function calculateRiskAlerts(
       });
     }
 
-    // Tarefas sem estimativa (e que não sejam de auxílio/reunião)
-    if ((!task.estimativa || task.estimativa === 0) && !isNeutralTask(task) && !isAuxilioTask(task)) {
+    // Tarefas sem estimativa (e que não sejam de auxílio/reunião/impedimento)
+    if ((!task.estimativa || task.estimativa === 0) && !isNeutralTask(task) && !isAuxilioTask(task) && !isImpedimentoTrabalhoTask(task)) {
       alerts.push({
         type: 'missingEstimate',
         severity: 'medium',

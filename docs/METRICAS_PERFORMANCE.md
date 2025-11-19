@@ -36,6 +36,7 @@ Apenas tarefas que atendem TODOS os critérios são consideradas nos cálculos d
 - Tarefas de backlog (sem sprint): NÃO interferem em métricas de performance, mesmo que tenham worklog e estejam concluídas
 - Tarefas em progresso (status diferente de concluído)
 - Tarefas marcadas como "Reunião" (neutras, não afetam score)
+- Tarefas marcadas como "ImpedimentoTrabalho" com tipo "Testes": Importadas para contabilização de horas, mas EXCLUÍDAS de todos os cálculos de performance/score
 - Tarefas sem estimativa (aparecem apenas em métricas informativas)
 
 ## Performance Score
@@ -47,9 +48,9 @@ Score geral combinando qualidade e eficiência de execução.
 ```
 Base Score (0-100) = (Qualidade × 0.50) + (Eficiência de Execução × 0.50)
 
-Performance Score = Base Score + Bonus Senioridade (0-15) + Bonus Competência (0-5) + Bonus Auxílio (0-10) + Bonus Horas Extras (0-10)
+Performance Score = Base Score + Bonus Senioridade (0-15) + Bonus Competência (0-5) + Bonus Auxílio (0-10)
 
-Score Máximo: 140
+Score Máximo: 130
 ```
 
 ### Componentes
@@ -96,26 +97,11 @@ Score Máximo: 140
   ```
 - **Regra Especial:** Para o cálculo do bônus, o tempo considerado (`auxilioHours`) é a soma do `tempoGastoNoSprint` de todas as tarefas identificadas como "Auxilio", **independentemente do seu status de conclusão**. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
 
-**6. Bônus de Horas Extras (0-10):**
-- Reconhece esforço adicional em momentos difíceis quando a qualidade é mantida adequada (nota média das tarefas com "HoraExtra" ≥ 3.0).
-- Escala progressiva baseada nas horas totais que excedem 40h/semana.
-- Função de cálculo:
-  ```
-  overtimeHours >= 16: 10 pontos
-  overtimeHours >= 12: 9 pontos
-  overtimeHours >= 8: 7 pontos
-  overtimeHours >= 6: 5 pontos
-  overtimeHours >= 4: 4 pontos
-  overtimeHours >= 2: 2 pontos
-  overtimeHours >= 1: 1 ponto
-  overtimeHours < 1: 0 pontos
-  ```
-
 ### Classificações de Score
 
 | Range | Classificação |
 |-------|--------------|
-| 115-150 | Excepcional |
+| 115-130 | Excepcional |
 | 90-114 | Excelente |
 | 75-89 | Muito Bom |
 | 60-74 | Bom |
@@ -266,16 +252,11 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
  - **O que é:** Recompensa ajudar outros desenvolvedores.
  - **Cálculo:** Baseado na quantidade de horas gastas em tarefas de "Auxílio".
  
- ### Bônus de Horas Extras
- 
- - **O que é:** Reconhece esforço adicional com alta qualidade.
- - **Cálculo:** Baseado nas horas que excedem 40h/semana, com nota média de teste ≥ 3.0.
- 
-## Score de Performance Final (Máx 140)
+## Score de Performance Final (Máx 130)
  
  O score final é a soma do Score Base com todos os bônus aplicáveis.
  
- `Score Base (0-100) + Bônus Senioridade (0-15) + Bônus Competência (0-5) + Bônus Auxílio (0-10) + Bônus Horas Extras (0-10)`
+ `Score Base (0-100) + Bônus Senioridade (0-15) + Bônus Competência (0-5) + Bônus Auxílio (0-10)`
 
 ## Casos Especiais e Edge Cases
 
@@ -337,6 +318,20 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
 - São excluídas do conjunto de tarefas de trabalho (`workTasks`)
 - Horas são exibidas apenas como informação (campo `reunioesHours`)
 - Usa `tempoGastoNoSprint` para cálculo de horas
+
+**Tarefas marcadas como "ImpedimentoTrabalho" (tipo "Testes"):**
+- Campo "Detalhes Ocultos" = "ImpedimentoTrabalho" (normalização case-insensitive, sem acentos)
+- Campo "Tipo de item" = "Testes" (normalizado para "Outro" no sistema)
+- Identificação: normalização NFD + lowercase compara "impedimentotrabalho" e verifica se tipo é "Outro" ou "Testes"
+- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho", etc. (todos reconhecidos)
+- ✅ **Horas são contabilizadas normalmente:** As horas trabalhadas aparecem no worklog e nas análises de horas totais
+- ❌ **EXCLUÍDAS de Performance Score:** Não afetam nenhum cálculo de performance, eficiência, qualidade ou score
+- ❌ **EXCLUÍDAS de análises de capacidade:** Não são consideradas em análises de capacidade, planejamento de sprints ou recomendações de alocação
+- ❌ **EXCLUÍDAS de métricas de desenvolvedor:** Não afetam accuracy rate, quality score, performance score, etc.
+- ❌ **EXCLUÍDAS de cálculos de eficiência:** Não são consideradas no cálculo de eficiência de execução
+- ❌ **EXCLUÍDAS de cálculos de qualidade:** Não são consideradas no cálculo de quality score
+- São excluídas do conjunto de tarefas de trabalho (`workTasks`)
+- O tempo é contabilizado apenas para fins de rastreamento e relatórios, mas não para avaliação de desempenho
 
 ## Referências
 

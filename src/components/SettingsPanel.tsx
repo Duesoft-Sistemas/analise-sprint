@@ -23,11 +23,9 @@ import {
   MAX_INTERMEDIATE_COMPLEXITY_BONUS,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_AUXILIO_BONUS,
-  MAX_OVERTIME_BONUS,
   MAX_COMPLEXITY_3_BONUS,
   PERFORMANCE_SCORE_CLASSIFICATIONS,
   AUXILIO_BONUS_SCALE,
-  OVERTIME_BONUS_SCALE,
 } from '../config/performanceConfig';
 
 interface SettingsPanelProps {
@@ -290,12 +288,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
                           <strong>Bonus de Auxílio:</strong> até +{MAX_AUXILIO_BONUS} pontos por ajudar outros desenvolvedores (escala progressiva)
                         </p>
                       </div>
-                      <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                        <p className="text-sm text-orange-800 dark:text-orange-200">
-                          <Info className="w-4 h-4 inline mr-1" />
-                          <strong>Bonus de Horas Extras:</strong> até +{MAX_OVERTIME_BONUS} pontos. Concedido se a <strong>média das notas (≥ 3.0)</strong> das tarefas marcadas como "HoraExtra" for adequada.
-                        </p>
-                      </div>
                     </div>
                 </div>
               )}
@@ -348,32 +340,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
                     </table>
                   </div>
 
-                  <div>
-                    <h4 className="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Bônus de Horas Extras</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Reconhece esforço adicional com alta qualidade, com base nas horas que excedem 40h/semana.
-                    </p>
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-gray-100 dark:bg-gray-700">
-                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Horas Extras Mínimas</th>
-                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center">Pontos de Bônus</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {OVERTIME_BONUS_SCALE.map((scale) => (
-                          <tr key={`overtime-${scale.minHours}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold">
-                              ≥ {scale.minHours}h
-                            </td>
-                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center font-bold text-orange-600 dark:text-orange-400">
-                              +{scale.points}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
               )}
             </div>

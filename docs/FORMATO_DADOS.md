@@ -24,7 +24,7 @@ Arquivo Excel (.xlsx ou .xls) contendo as tarefas do sprint. Deve ser exportado 
 | Campo personalizado (Modulo) | String | Módulo da aplicação | Autenticação | "Campo personalizado (Modulo)", "Campo personalizado (Módulo)" |
 | Campo personalizado (Feature) | String/Array | Feature relacionada | Login | "Campo personalizado (Feature)" (qualquer coluna contendo "feature") |
 | Categorias | String/Array | Cliente(s) | Cliente A, Cliente B | "Categorias" (qualquer coluna contendo "categoria"). Valores são normalizados (trim, sem acento, case-insensitive) antes de agrupar/filtrar |
-| Campo personalizado (Detalhes Ocultos) | String/Array | Informações adicionais | Auxilio, Reunião, HoraExtra, DuvidaOculta | "Campo personalizado (Detalhes Ocultos)" (qualquer coluna contendo "detalhes ocultos") |
+| Campo personalizado (Detalhes Ocultos) | String/Array | Informações adicionais | Auxilio, Reunião, DuvidaOculta | "Campo personalizado (Detalhes Ocultos)" (qualquer coluna contendo "detalhes ocultos") |
 
 ### Comportamento de Tarefas sem Sprint
 
@@ -64,7 +64,7 @@ Sistema suporta múltiplas colunas de "Feature", "Categorias" e "Detalhes Oculto
 - Processamento manual por índices de coluna (captura TODAS as colunas, mesmo com mesmo nome)
 - Valores de todas as colunas correspondentes são combinados em Set (estrutura de dados que remove duplicatas automaticamente)
 - Valores vazios são ignorados (trim, undefined, null, string "undefined", string "null")
-- Valores podem ser separados por vírgula, ponto-e-vírgula ou pipe na mesma célula (ex: "Auxilio, HoraExtra")
+- Valores podem ser separados por vírgula, ponto-e-vírgula ou pipe na mesma célula (ex: "Auxilio, Reunião")
 - Após normalização de encoding, valores são adicionados ao Set
 - Resultado final: array único sem duplicatas, ordenado pela ordem de processamento
 
@@ -155,20 +155,6 @@ Sistema aceita os seguintes formatos para campos de tempo:
 - Escala progressiva: 0.5h+ = 1pt, 2h+ = 2pts, 4h+ = 4pts, 6h+ = 5pts, 8h+ = 7pts, 12h+ = 9pts, 16h+ = 10pts
 - **Qualidade Neutra:** Tarefas de auxílio não são consideradas no cálculo da média de qualidade.
 
-#### "HoraExtra" ou "Hora Extra" ou "Horas Extras" ou "HorasExtras"
-
-**Propósito:** Identificar tarefas realizadas em horas extras (acima de 40h/semana)
-
-**Identificação:**
-- Campo "Detalhes Ocultos" = "HoraExtra", "Hora Extra", "Horas Extras" ou "HorasExtras" (case-insensitive, normalizado)
-- Variantes aceitas: "HoraExtra", "Hora Extra", "Horas Extras", "HorasExtras", "horaextra", etc.
-
-**Impacto:**
-- ⚠️ **IMPORTANTE:** Este bônus não é um incentivo para trabalhar horas extras.
-- Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
-- O bônus é concedido se a **média das notas de teste (≥ 3.0)** de TODAS as tarefas marcadas como "HoraExtra" for adequada. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
-- O bônus é calculado com base nas horas totais de **todas as tarefas concluídas** que excedem 40h na semana.
-
 #### "DuvidaOculta" ou "Dúvida Oculta"
 
 **Propósito:** Identificar bugs que são na verdade dúvidas ocultas do cliente
@@ -182,11 +168,31 @@ Sistema aceita os seguintes formatos para campos de tempo:
 - Não afeta Performance Score diretamente
 - Aparece separadamente nas métricas de problemas (bugs vs dúvidas ocultas)
 
+#### "ImpedimentoTrabalho"
+
+**Propósito:** Identificar tarefas de impedimento de trabalho que devem ser importadas para contabilização de horas, mas não devem ser usadas para cálculos de performance ou score.
+
+**Identificação:**
+- Campo "Detalhes Ocultos" = "ImpedimentoTrabalho" (case-insensitive, normalizado)
+- Campo "Tipo de item" = "Testes" (normalizado para "Outro" no sistema)
+- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho", etc.
+
+**Impacto:**
+- ✅ **Horas são contabilizadas normalmente:** As horas trabalhadas em tarefas de impedimento são contabilizadas no worklog e aparecem nas análises de horas totais trabalhadas
+- ❌ **Excluídas de Performance Score:** Tarefas de impedimento NÃO são consideradas em nenhum cálculo de performance, eficiência, qualidade ou score
+- ❌ **Excluídas de análises de capacidade:** Tarefas de impedimento NÃO são consideradas em análises de capacidade, planejamento de sprints ou recomendações de alocação
+- ❌ **Excluídas de métricas de desenvolvedor:** Tarefas de impedimento NÃO afetam métricas individuais de desenvolvedores (accuracy rate, quality score, etc.)
+- ✅ **Aparecem em visualizações gerais:** As tarefas aparecem nas listas de tarefas e análises gerais, mas não influenciam métricas de performance
+
+**Regra de Negócio:**
+- Essas tarefas representam tempo gasto em impedimentos que não devem ser considerados para avaliação de performance individual
+- O tempo é contabilizado para fins de rastreamento e relatórios, mas não para avaliação de desempenho
+
 ### Suporte a Múltiplos Valores e Múltiplas Colunas
 
 **Múltiplos Valores na Mesma Célula:**
 - Valores podem ser separados por vírgula (`,`), ponto-e-vírgula (`;`) ou pipe (`|`)
-- Exemplo: `"Auxilio, HoraExtra"` ou `"Reunião; Auxilio"` ou `"HoraExtra|Auxilio"`
+- Exemplo: `"Auxilio, Reunião"` ou `"Reunião; Auxilio"` ou `"Auxilio|Reunião"`
 - Todos os valores são processados e adicionados ao array de detalhes ocultos da tarefa
 
 **Múltiplas Colunas:**
@@ -213,12 +219,12 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 - Remove diacríticos duplicados
 - Converte para lowercase
 - Usado para identificar valores (case-insensitive, sem acentos)
-- Valores aceitos: "Auxilio", "Reuniao"/"Reunião", "HoraExtra"/"Hora Extra"/"Horas Extras"/"HorasExtras", "DuvidaOculta"/"Dúvida Oculta", "Treinamento"
+- Valores aceitos: "Auxilio", "Reuniao"/"Reunião", "DuvidaOculta"/"Dúvida Oculta", "Treinamento", "ImpedimentoTrabalho"
 - Variantes aceitas: "Auxilio", "auxilio", "Auxílio" → todos reconhecidos como "auxilio"
 - Variantes aceitas: "Reunião", "Reuniao", "reunião", "reuniao" → todos reconhecidos
-- Variantes aceitas: "HoraExtra", "Hora Extra", "Horas Extras", "HorasExtras" → todos reconhecidos como "horaextra"
 - Variantes aceitas: "DuvidaOculta", "Dúvida Oculta", "duvidaoculta" → todos reconhecidos como "duvidaoculta"
 - Variantes aceitas: "Treinamento", "treinamento" → todos reconhecidos como "treinamento"
+- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho" → todos reconhecidos como "impedimentotrabalho"
 - Valores podem ser combinados: uma tarefa pode ter múltiplos valores separados por vírgula/ponto-e-vírgula
 
 ### Status Considerados "Concluídos"
@@ -417,11 +423,13 @@ Antes de processamento, sistema valida:
 - Horas são exibidas apenas como informação
 - **Qualidade Neutra:** Tarefas de reunião e treinamento não são consideradas no cálculo da média de qualidade.
 
-**Tarefas marcadas como "HoraExtra":**
-- Apenas tarefas marcadas explicitamente como "HoraExtra" no campo "Detalhes Ocultos" são consideradas para o bônus.
-- O bônus só é concedido se a **média das notas de teste (≥ 3.0)** de TODAS as tarefas marcadas como "HoraExtra" for adequada. Tarefas de "Auxílio", "Reunião" e "Treinamento" marcadas como hora extra são desconsideradas no cálculo desta média.
-- O bônus é calculado com base nas horas totais que excedem 40h na semana.
-- O total de horas para o cálculo (acima de 40h) considera **todas as tarefas concluídas**, não apenas as marcadas como "HoraExtra".
+**Tarefas marcadas como "ImpedimentoTrabalho":**
+- Tarefas com "Detalhes Ocultos" = "ImpedimentoTrabalho" e "Tipo de item" = "Testes" são importadas normalmente.
+- Horas trabalhadas são contabilizadas normalmente no worklog e aparecem nas análises de horas totais.
+- **IMPORTANTE:** Essas tarefas são **EXCLUÍDAS** de todos os cálculos de performance, score, eficiência, qualidade e análises de capacidade.
+- Essas tarefas não afetam métricas individuais de desenvolvedores (accuracy rate, quality score, performance score, etc.).
+- Essas tarefas não são consideradas em análises de capacidade, planejamento de sprints ou recomendações de alocação.
+- O tempo é contabilizado apenas para fins de rastreamento e relatórios, mas não para avaliação de desempenho.
 
 ## Referências
 

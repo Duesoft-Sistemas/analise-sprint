@@ -122,15 +122,6 @@ export const MAX_COMPLEXITY_3_BONUS = 5;
 /** Bonus máximo por ajudar outros desenvolvedores (auxílio) */
 export const MAX_AUXILIO_BONUS = 10;
 
-/** Bonus máximo por horas extras trabalhadas com qualidade alta */
-export const MAX_OVERTIME_BONUS = 10;
-
-/** Nota mínima de teste para considerar horas extras (1-5) */
-export const MIN_OVERTIME_TEST_NOTE = 3;
-
-/** Horas padrão por semana (base para cálculo de horas extras) */
-export const STANDARD_WEEKLY_HOURS = 40;
-
 // =============================================================================
 // ESCALAS DE BÔNUS PROGRESSIVO
 // =============================================================================
@@ -153,17 +144,6 @@ export const AUXILIO_BONUS_SCALE: BonusScale[] = [
   { minHours: 0.5, points: 1 },
 ];
 
-/** Escala de bônus para horas extras */
-export const OVERTIME_BONUS_SCALE: BonusScale[] = [
-  { minHours: 16, points: 10 },
-  { minHours: 12, points: 9 },
-  { minHours: 8, points: 7 },
-  { minHours: 6, points: 5 },
-  { minHours: 4, points: 4 },
-  { minHours: 2, points: 2 },
-  { minHours: 1, points: 1 },
-];
-
 // =============================================================================
 // CLASSIFICAÇÕES DE PERFORMANCE SCORE
 // =============================================================================
@@ -171,7 +151,7 @@ export const OVERTIME_BONUS_SCALE: BonusScale[] = [
 // =============================================================================
 
 export const PERFORMANCE_SCORE_CLASSIFICATIONS = {
-  exceptional: { min: 115, max: 150, label: '🏆 Excepcional', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
+  exceptional: { min: 115, max: 130, label: '🏆 Excepcional', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },
   excellent: { min: 90, max: 114, label: '⭐⭐⭐⭐⭐ Excelente', color: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-300 dark:border-green-700' },
   veryGood: { min: 75, max: 89, label: '⭐⭐⭐⭐ Muito Bom', color: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-300 dark:border-blue-700' },
   good: { min: 60, max: 74, label: '⭐⭐⭐ Bom', color: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700' },

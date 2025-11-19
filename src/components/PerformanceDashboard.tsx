@@ -161,7 +161,6 @@ export const PerformanceDashboard: React.FC = () => {
             baseScore: customMetrics.avgPerformanceScore,
             seniorityEfficiencyBonus: 0,
             auxilioBonus: 0,
-            overtimeBonus: 0,
             tasks: [],
           };
           
@@ -316,7 +315,6 @@ export const PerformanceDashboard: React.FC = () => {
         totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
         totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
         avgAuxilioBonus: sprintMetrics.reduce((sum, m) => sum + m.auxilioBonus, 0) / sprintMetrics.length,
-        avgOvertimeBonus: sprintMetrics.reduce((sum, m) => sum + m.overtimeBonus, 0) / sprintMetrics.length,
       };
     }
   }, [sortedMetrics, viewMode]);
@@ -541,7 +539,7 @@ export const PerformanceDashboard: React.FC = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
               {summaryStats.avgPerformanceScore.toFixed(0)}
-              <span className="text-lg text-gray-500 dark:text-gray-400">/140</span>
+              <span className="text-lg text-gray-500 dark:text-gray-400">/130</span>
             </p>
           </div>
 
@@ -592,7 +590,7 @@ export const PerformanceDashboard: React.FC = () => {
               <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Desenvolvedores com Sobrecarga (Horas Extras)
+                  Desenvolvedores com Sobrecarga
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   Os seguintes desenvolvedores estão trabalhando mais de 40h neste sprint:
@@ -682,7 +680,6 @@ export const PerformanceDashboard: React.FC = () => {
                 baseScore: allSprintsMetrics.avgPerformanceScore,
                 seniorityEfficiencyBonus: 0,
                 auxilioBonus: 0,
-                overtimeBonus: 0,
                 tasks: [],
               };
             }
@@ -708,7 +705,6 @@ export const PerformanceDashboard: React.FC = () => {
                           totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
                           performanceScore: summaryStats.avgPerformanceScore,
                           auxilioBonus: summaryStats.avgAuxilioBonus || 0,
-                          overtimeBonus: summaryStats.avgOvertimeBonus || 0,
                         }
                       : undefined
                   }

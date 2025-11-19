@@ -8,7 +8,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 
 - **Qualidade:** Nota de teste (1-5). Tarefas sem nota são desconsideradas no cálculo.
 - **Eficiência:** Features compara estimativa vs tempo gasto. Bugs verifica horas gastas (não usa estimativa).
-- **Bônus:** Senioridade (fazer tarefas complexas bem, +15), Auxílio (+10), Horas Extras (+10)
+- **Bônus:** Senioridade (fazer tarefas complexas bem, +15), Competência (tarefas médias bem, +5), Auxílio (+10)
 
 **⚠️ IMPORTANTE - Leia Antes:**
 - ✅ Só conta tarefas **concluídas** (`teste`, `teste dev`, `teste gap`, `compilar`, `concluído`, `concluido`)
@@ -83,7 +83,7 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 
 ### Os Bônus (0-50 pontos)
 
-**Total máximo de bônus:** 15 (Senioridade) + 5 (Competência) + 10 (Auxílio) + 10 (Horas Extras) = 40 pontos
+**Total máximo de bônus:** 15 (Senioridade) + 5 (Competência) + 10 (Auxílio) = 30 pontos
 
 Você ganha pontos extras por:
 
@@ -102,9 +102,8 @@ Você ganha pontos extras por:
 3. **Auxílio à Equipe** (+0 a 10 pontos) 🤝
    - Recompensa ajudar outros desenvolvedores.
    - **Cálculo:** Baseado nas horas gastas em tarefas de "Auxílio".
+   - **Importante:** O bônus considera **todas as tarefas de auxílio**, mesmo que não estejam concluídas. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
 
-4. **Horas Extras com Qualidade** (+0 a 10 pontos) ⏰
-   - Reconhece o esforço extra quando ele é produtivo e mantém a alta qualidade.
 
 ## 💡 Exemplos Práticos
 
@@ -210,33 +209,12 @@ Cálculo:
 Performance Score: 118 pontos 🏆 Excepcional!
 ```
 
-### Exemplo 7: Maria - Horas Extras com Qualidade Alta ⏰
-```
-Maria trabalhou em um sprint difícil:
-- 8 tarefas concluídas
-- Trabalhou 48h no total (8h extras acima de 40h)
-- 2 das tarefas foram marcadas como "HoraExtra" no campo "Detalhes Ocultos"
-- A média das notas dessas 2 tarefas foi 4.5 (ambas com alta qualidade)
-
-Cálculo:
-→ Qualidade: 80 pontos (nota média geral 4.0)
-→ Eficiência: 75 pontos
-→ Base: (80 + 75) / 2 = 77.5 pontos
-→ Bonus Horas Extras: +7 pontos (8h extras com média de HE ≥ 3.0 → escala 8h = 7 pontos)
-
-Performance Score: 84.5 pontos ⭐⭐⭐⭐
-
-⚠️ IMPORTANTE: Este bônus não é um incentivo para trabalhar horas extras.
-Ele reconhece esforço adicional em momentos difíceis quando a qualidade é mantida alta.
-O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "HoraExtra" for ≥ 3.0.
-💡 DICA: Você pode ter múltiplos valores separados por vírgula, ex: "Auxilio, HoraExtra"
-```
 
 ## 🎨 O Que Significa Meu Score?
 
 | Pontos | Classificação | O Que Significa? |
 |--------|--------------|------------------|
-| 115-140 | 🏆 Excepcional | Você está indo muito bem! Parabéns! |
+| 115-130 | 🏆 Excepcional | Você está indo muito bem! Parabéns! (Máximo: 130 pontos) |
 | 90-114 | ⭐⭐⭐⭐⭐ Excelente | Ótimo trabalho! Continue assim! |
 | 75-89 | ⭐⭐⭐⭐ Muito Bom | Bom desempenho, alguns pontos para melhorar |
 | 60-74 | ⭐⭐⭐ Bom | Desempenho adequado, tem espaço para crescer |
@@ -255,14 +233,15 @@ O bônus é concedido se a **nota MÉDIA** de TODAS as tarefas marcadas como "Ho
 - Tarefas sem sprint (backlog) - mesmo que tenham worklog e estejam concluídas
 - Tarefas em progresso ou sem estimativa
 - Tarefas marcadas como "Reunião" ou "Treinamento" (neutras)
+- Tarefas marcadas como "ImpedimentoTrabalho" com tipo "Testes" (importadas para contabilização de horas, mas excluídas de performance/score)
 - Métricas de utilização/conclusão (apenas informativas)
 
 **📝 Sobre Detalhes Ocultos:**
-- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "Treinamento", "HoraExtra", "DuvidaOculta"
-- Valores podem ser separados por vírgula na mesma célula: "Auxilio, HoraExtra"
+- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "Treinamento", "DuvidaOculta", "ImpedimentoTrabalho"
+- Valores podem ser separados por vírgula na mesma célula: "Auxilio, Reunião"
+- **IMPORTANTE:** Tarefas com "ImpedimentoTrabalho" e tipo "Testes" são importadas para contabilização de horas, mas são EXCLUÍDAS de todos os cálculos de performance/score
 - Sistema suporta múltiplas colunas de "Detalhes Ocultos" (similar a Features e Categorias)
 - Valores são normalizados automaticamente (case-insensitive, sem acentos)
-- **Para horas extras:** Coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras") no campo "Detalhes Ocultos" da tarefa
 - **Para auxílio:** Coloque "Auxilio" no campo "Detalhes Ocultos" da tarefa
 - **Para reuniões:** Coloque "Reunião" no campo "Detalhes Ocultos" da tarefa (não afeta score)
 - **Para treinamentos:** Coloque "Treinamento" no campo "Detalhes Ocultos" da tarefa (não afeta score)
@@ -288,9 +267,6 @@ A: ⚠️ **Sem worklog = 0 horas = todas tarefas ineficientes!** O sistema usa 
 **Q: E se a tarefa não tiver nota de teste?**
 A: Tarefas sem nota de teste são ignoradas no cálculo de qualidade. Elas não prejudicam nem ajudam sua média. Apenas tarefas com nota (1 a 5) são consideradas.
 
-**Q: Como marcar tarefas como horas extras?**  
-A: No campo "Detalhes Ocultos" da tarefa, coloque "HoraExtra" (ou "Hora Extra", "Horas Extras", "HorasExtras"). O sistema aceita variações e múltiplos valores separados por vírgula (ex: "Auxilio, HoraExtra"). ⏰
-
 **Q: Tarefa atravessa sprints?**  
 A: Para **Performance (avaliação)**, o sistema usa estimativa original e tempo total de TODOS os sprints. Para **Capacidade (planejamento)**, usa estimativa restante e tempo gasto NESTE sprint.
 
@@ -307,8 +283,7 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 4. **Bônus de Senioridade:** Eficiência em tarefas de alta complexidade (4-5) com nota de teste ≥ 4 × 15.
 5. **Bônus de Competência:** Eficiência em tarefas de média complexidade (3) com nota de teste ≥ 4 × 5.
 6. **Bônus de Auxílio:** Escala progressiva (2h=2pts, 4h=4pts, 6h=5pts, 8h=7pts, 12h=9pts, 16h+=10pts).
-7. **Bônus de Horas Extras:** Escala progressiva baseada em horas extras trabalhadas com qualidade alta.
-8. **Score Final:** Base + Todos os Bônus (máximo 140 pontos)
+7. **Score Final:** Base + Todos os Bônus (máximo 130 pontos)
 
 ## 🎯 Resumo Final
 
@@ -321,4 +296,3 @@ Onde **Bônus** é a soma de:
 - Bônus de Senioridade
 - Bônus de Competência
 - Bônus de Auxílio
-- Bônus de Horas Extras

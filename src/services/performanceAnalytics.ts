@@ -9,16 +9,13 @@ import {
   MetricExplanation,
   CustomPeriodMetrics,
 } from '../types';
-import { isCompletedStatus, isNeutralTask, isAuxilioTask, normalizeForComparison, formatHours } from '../utils/calculations';
+import { isCompletedStatus, isNeutralTask, isAuxilioTask, isImpedimentoTrabalhoTask, normalizeForComparison, formatHours } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_COMPLEXITY_3_BONUS,
-  MIN_OVERTIME_TEST_NOTE,
-  STANDARD_WEEKLY_HOURS,
   AUXILIO_BONUS_SCALE,
-  OVERTIME_BONUS_SCALE,
 } from '../config/performanceConfig';
 
 // =============================================================================
@@ -76,8 +73,8 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   performanceScore: {
-    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bônus (Senioridade + Comp. Média + Auxílio + H. Extras)',
-    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência. BÔNUS DE SENIORIDADE: Executar tarefas complexas (nível 4-5) com alta eficiência adiciona até +15 pontos. BÔNUS DE COMPETÊNCIA: Executar tarefas de complexidade média (nível 3) com alta eficiência adiciona um bônus de até +5 pontos. BÔNUS DE AUXÍLIOS: Ajudar outros desenvolvedores adiciona até +10 pontos. BÔNUS DE HORAS EXTRAS: Trabalhar horas extras com qualidade adequada (nota ≥ 3) adiciona até +10 pontos. O score máximo é 140.',
+    formula: 'Base: (50% × Qualidade) + (50% × Eficiência) + Bônus (Senioridade + Comp. Média + Auxílio)',
+    description: 'Score geral ponderado combinando qualidade (Nota de Teste) e eficiência. BÔNUS DE SENIORIDADE: Executar tarefas complexas (nível 4-5) com alta eficiência adiciona até +15 pontos. BÔNUS DE COMPETÊNCIA: Executar tarefas de complexidade média (nível 3) com alta eficiência adiciona um bônus de até +5 pontos. BÔNUS DE AUXÍLIOS: Ajudar outros desenvolvedores adiciona até +10 pontos. O score máximo é 130.',
     interpretation: '115+ = excepcional (com bônus), 90-114 = excelente, 75-89 = muito bom, 60-74 = bom, 45-59 = adequado, <45 = precisa melhorias. O Bônus de Senioridade recompensa a execução de tarefas de alta complexidade, enquanto o Bônus de Competência incentiva a eficiência em tarefas de média complexidade. Ambos são indicadores chave de desempenho.',
     example: 'Base: Qualidade 90 + Eficiência 75 = 82.5. Bônus: +12 (senioridade) + 4 (comp. média) + 7 (auxílio) = 105.5. Score Final: 105.5 🏆⭐',
   },
@@ -243,49 +240,6 @@ function calculateAuxilioBonus(auxilioHours: number): number {
   return 0;
 }
 
-function isOvertimeTask(task: TaskItem): boolean {
-  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  const overtimeKeywords = ['horaextra', 'hora extra', 'horas extras', 'horasextras'];
-  return task.detalhesOcultos.some(d => overtimeKeywords.includes(normalizeForComparison(d)));
-}
-
-function calculateOvertimeBonus(
-  tasks: TaskPerformanceMetrics[],
-  totalWorkHours: number
-): { bonus: number; tasks: TaskItem[] } {
-  const overtimeHours = Math.max(0, totalWorkHours - STANDARD_WEEKLY_HOURS);
-
-  if (overtimeHours < 1) return { bonus: 0, tasks: [] };
-
-  const overtimeTasks = tasks.filter(t => isOvertimeTask(t.task));
-
-  if (overtimeTasks.length === 0) return { bonus: 0, tasks: [] };
-
-  const qualityOvertimeTasks = overtimeTasks.filter(
-    t => !isAuxilioTask(t.task) && !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined
-  );
-
-  if (qualityOvertimeTasks.length > 0) {
-    const avgNote =
-      qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 0), 0) /
-      qualityOvertimeTasks.length;
-
-    if (avgNote < MIN_OVERTIME_TEST_NOTE) {
-      return { bonus: 0, tasks: [] };
-    }
-  }
-
-  let bonus = 0;
-  for (const scale of OVERTIME_BONUS_SCALE) {
-    if (overtimeHours >= scale.minHours) {
-      bonus = scale.points;
-      break;
-    }
-  }
-  
-  return { bonus, tasks: overtimeTasks.map(t => t.task) };
-}
-
 // =============================================================================
 // TASK-LEVEL METRICS
 // =============================================================================
@@ -343,9 +297,21 @@ export function calculateSprintPerformance(
   const neutralTasks = devTasks.filter(t => isNeutralTask({ detalhesOcultos: t.detalhesOcultos }));
   const neutralHours = neutralTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
-  const workTasks = devTasks.filter(t => !isNeutralTask({ detalhesOcultos: t.detalhesOcultos }));
+  // Exclude impedimento trabalho tasks from performance calculations
+  // These tasks are imported for hour tracking but excluded from performance/score
+  const impedimentoTasks = devTasks.filter(t => isImpedimentoTrabalhoTask(t));
+  const impedimentoHours = impedimentoTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
-  const taskMetrics = devTasks.map(t => calculateTaskMetrics(t, false));
+  // Work tasks exclude both neutral and impedimento tasks
+  const workTasks = devTasks.filter(t => 
+    !isNeutralTask({ detalhesOcultos: t.detalhesOcultos }) && 
+    !isImpedimentoTrabalhoTask(t)
+  );
+  
+  // Task metrics for all tasks (for display purposes, but impedimento excluded from performance)
+  const taskMetrics = devTasks
+    .filter(t => !isImpedimentoTrabalhoTask(t))
+    .map(t => calculateTaskMetrics(t, false));
   
   const completedTasks = workTasks.filter(t => isCompletedStatus(t.status));
   const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, false));
@@ -419,7 +385,13 @@ export function calculateSprintPerformance(
   const featureTasks = completedTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
   const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
   
-  const qualityTasks = completedTasks.filter(t => !isAuxilioTask(t) && !isNeutralTask(t) && t.notaTeste !== null && t.notaTeste !== undefined);
+  const qualityTasks = completedTasks.filter(t => 
+    !isAuxilioTask(t) && 
+    !isNeutralTask(t) && 
+    !isImpedimentoTrabalhoTask(t) &&
+    t.notaTeste !== null && 
+    t.notaTeste !== undefined
+  );
   const testNotes = qualityTasks.map(t => t.notaTeste as number);
   const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : 0;
   const testScore = testNotes.length > 0 ? Math.max(0, Math.min(100, avgTestNote * 20)) : 0;
@@ -479,13 +451,13 @@ export function calculateSprintPerformance(
   
   const { seniorityBonus, competenceBonus, seniorityBonusTasks, competenceBonusTasks } = calculateEfficiencyBonuses(completedMetrics);
   
+  // Bônus de Auxílio: calcula horas de auxílio de TODAS as tarefas (incluindo não concluídas)
+  // Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas
   const auxilioTasks = devTasks.filter(t => isAuxilioTask({ detalhesOcultos: t.detalhesOcultos }));
   const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
-  const { bonus: overtimeBonus, tasks: overtimeBonusTasks } = calculateOvertimeBonus(completedMetrics, totalHoursWorked);
-  
-  const performanceScore = Math.min(140, baseScoreFinal + seniorityBonus + competenceBonus + auxilioBonus + overtimeBonus);
+  const performanceScore = Math.min(130, baseScoreFinal + seniorityBonus + competenceBonus + auxilioBonus);
   
   return {
     developerId,
@@ -520,10 +492,10 @@ export function calculateSprintPerformance(
     seniorityEfficiencyBonus: seniorityBonus,
     competenceBonus: competenceBonus,
     auxilioBonus,
-    overtimeBonus,
+    overtimeBonus: 0,
     seniorityBonusTasks,
     competenceBonusTasks,
-    overtimeBonusTasks,
+    overtimeBonusTasks: [],
     tasksImpactedByComplexityZone: tasksImpactedByComplexityZone || 0,
     complexityZoneImpactDetails: tasksImpactedByComplexityZone > 0
       ? `${tasksImpactedByComplexityZone} tarefa(s) ${tasksImpactedByComplexityZone === 1 ? 'foi' : 'foram'} avaliada(s) pela zona de eficiência por complexidade (horas excessivas para a complexidade)`

@@ -262,6 +262,26 @@ export function isAuxilioTask(task: { detalhesOcultos?: string[] }): boolean {
 }
 
 /**
+ * Check if a task is an impedimento trabalho task
+ * These tasks are imported for hour tracking but excluded from performance/score calculations
+ * Criteria: detalhesOcultos contains "ImpedimentoTrabalho" AND tipo === "Testes"
+ * Note: "Testes" is normalized to "Outro" in the system, so we check for "Outro" type
+ * and verify the detalhesOcultos contains "ImpedimentoTrabalho"
+ */
+export function isImpedimentoTrabalhoTask(task: { detalhesOcultos?: string[]; tipo?: string }): boolean {
+  // Check detalhesOcultos for "ImpedimentoTrabalho" first (more specific)
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  const hasImpedimento = task.detalhesOcultos.some(d => normalizeForComparison(d) === 'impedimentotrabalho');
+  if (!hasImpedimento) return false;
+  
+  // If has ImpedimentoTrabalho, check if tipo is "Outro" (which "Testes" normalizes to)
+  // OR if tipo is explicitly "Testes" (in case it's not normalized yet)
+  if (!task.tipo) return false;
+  const normalizedTipo = normalizeForComparison(task.tipo);
+  return normalizedTipo === 'outro' || normalizedTipo === 'testes';
+}
+
+/**
  * Detect if a Sprint cell value should be treated as Backlog.
  * Accepts common placeholders besides empty string: "backlog", "sem sprint", "-", "n/a", "na",
  * "não alocado"/"nao alocado", "none", "null", "undefined".

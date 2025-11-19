@@ -7,9 +7,6 @@ import { TaskFilters } from './TaskFilters';
 
 const getDetalheTagColor = (detalhe: string) => {
   const normalized = normalizeForComparison(detalhe).replace(/\s/g, '');
-  if (normalized.includes('horaextra')) {
-    return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300';
-  }
   if (normalized.includes('auxilio')) {
     return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
   }

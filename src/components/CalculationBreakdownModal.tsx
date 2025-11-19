@@ -340,50 +340,10 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                 explanation: `Recompensa ajudar outros desenvolvedores (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
             },
             {
-                label: 'Bonus de Horas Extras',
-                value: `+${metrics.overtimeBonus}`,
-                formula: (() => {
-                    const workTasks = metrics.tasks.filter(t => isCompletedStatus(t.task.status));
-                    
-                    const totalWorkHours = workTasks.reduce((sum, t) => sum + (t.task.tempoGastoNoSprint ?? 0), 0);
-                    const overtimeHours = Math.max(0, totalWorkHours - 40);
-
-                    if (overtimeHours === 0) return 'Total de horas não excedeu 40h = 0 pontos';
-
-                    const overtimeTasks = workTasks.filter(t => t.task.detalhesOcultos.some(d => ['horaextra', 'hora extra', 'horas extras', 'horasextras'].includes(normalizeForComparison(d))));
-
-                    if (overtimeTasks.length === 0) return 'Horas extras trabalhadas, mas nenhuma tarefa marcada como "HoraExtra" = 0 pontos';
-
-                    const qualityOvertimeTasks = overtimeTasks.filter(t => !isAuxilioTask(t.task) && !isNeutralTask(t.task) && t.task.notaTeste !== null && t.task.notaTeste !== undefined);
-
-                    if (qualityOvertimeTasks.length === 0) {
-                        return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras (sem tarefas com nota) → ${metrics.overtimeBonus} pontos`;
-                    }
-
-                    const avgNote = qualityOvertimeTasks.reduce((sum, t) => sum + (t.task.notaTeste ?? 0), 0) / qualityOvertimeTasks.length;
-
-                    if (avgNote < 3) {
-                        return `Média de ${avgNote.toFixed(1)} nas tarefas de HE < 3.0 = 0 pontos`;
-                    }
-
-                    return `(${formatHours(totalWorkHours)} trab. - 40h) = ${formatHours(overtimeHours)} extras com média ${avgNote.toFixed(1)} ≥ 3.0 → ${metrics.overtimeBonus} pontos`;
-                })(),
-                explanation: `Reconhece esforço adicional com qualidade adequada (média de nota ≥ 3.0).`,
-                tasks: metrics.overtimeBonusTasks?.map(task => ({
-                  taskKey: task.chave || task.id,
-                  taskSummary: task.resumo || 'Sem resumo',
-                  complexity: task.complexidade,
-                  hoursEstimated: task.estimativa || 0,
-                  hoursSpent: task.tempoGastoTotal || 0,
-                  status: task.status,
-                  impact: `Nota: ${task.notaTeste !== null ? task.notaTeste : 'N/A'}/5`,
-                })),
-            },
-            {
                 label: 'Score Final',
                 value: `${(metrics.performanceScore ?? 0).toFixed(1)}`,
-                formula: `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.seniorityEfficiencyBonus} + ${metrics.competenceBonus || 0} + ${metrics.auxilioBonus} + ${metrics.overtimeBonus}`,
-                explanation: `Score máximo: 140.`,
+                formula: `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.seniorityEfficiencyBonus} + ${metrics.competenceBonus || 0} + ${metrics.auxilioBonus}`,
+                explanation: `Score máximo: 130.`,
             },
         ],
     });

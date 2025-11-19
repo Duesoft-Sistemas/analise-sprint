@@ -5,7 +5,6 @@ import { formatHours, normalizeForComparison } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
 import { useSprintStore } from '../store/useSprintStore';
 import { AnalyticsChart } from './AnalyticsCharts';
-import { STANDARD_WEEKLY_HOURS } from '../config/performanceConfig';
 
 interface CrossSprintAnalysisProps {
   analytics: CrossSprintAnalytics;
@@ -86,53 +85,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     return weekStart;
   };
 
-  // Helper function to calculate overtime hours from worklogs
-  // Overtime = worklog hours that exceed 40h per week per developer
-  const calculateOvertimeHours = (
-    worklogs: WorklogEntry[],
-    sprintStart: Date,
-    sprintEnd: Date,
-    taskToDeveloper: Map<string, string>
-  ): number => {
-    // Group worklogs by developer and week
-    const devWeekMap = new Map<string, Map<string, number>>(); // developer -> weekKey -> hours
-    
-    worklogs.forEach(w => {
-      const worklogDate = w.data instanceof Date ? w.data : new Date(w.data);
-      const worklogTime = worklogDate.getTime();
-      
-      // Only consider worklogs within sprint period
-      if (worklogTime < sprintStart.getTime() || worklogTime > sprintEnd.getTime()) {
-        return;
-      }
-      
-      const developer = taskToDeveloper.get(w.taskId);
-      if (!developer) return;
-      
-      const weekStart = getWeekStart(worklogDate);
-      const weekKey = weekStart.toISOString().split('T')[0]; // Use ISO date as week key
-      
-      if (!devWeekMap.has(developer)) {
-        devWeekMap.set(developer, new Map());
-      }
-      const weekMap = devWeekMap.get(developer)!;
-      
-      const currentHours = weekMap.get(weekKey) || 0;
-      weekMap.set(weekKey, currentHours + (w.tempoGasto || 0));
-    });
-    
-    // Calculate overtime: for each developer-week, if hours > 40, count the excess
-    let totalOvertime = 0;
-    devWeekMap.forEach((weekMap, developer) => {
-      weekMap.forEach((hours, weekKey) => {
-        if (hours > STANDARD_WEEKLY_HOURS) {
-          totalOvertime += hours - STANDARD_WEEKLY_HOURS;
-        }
-      });
-    });
-    
-    return totalOvertime;
-  };
 
   // Management KPIs (per sprint and totals) for selected sprints
   const managementKPIs = React.useMemo(() => {
@@ -164,7 +116,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       }
     });
 
-    // Create mapping from task ID/key to developer for overtime calculation
+    // Create mapping from task ID/key to developer
     const taskToDeveloper = new Map<string, string>();
     tasks.forEach(t => {
       if (t.responsavel) {
@@ -190,7 +142,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       let trainingHours = 0;
       let auxilioHours = 0;
       let reuniaoHours = 0;
-      let overtimeHours = 0;
       
       const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
       if (period) {
@@ -214,8 +165,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
           }
         });
         
-        // Calculate overtime hours: worklog that exceeds 40h per week per developer
-        overtimeHours = calculateOvertimeHours(worklogs, period.startDate, period.endDate, taskToDeveloper);
       }
       
       const nonBugCount = sprintTasks.filter(t => t.tipo !== 'Bug' && !isFolhaTask(t)).length;
@@ -227,7 +176,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         trainingHours,
         auxilioHours,
         reuniaoHours,
-        overtimeHours,
         nonBugCount,
         realBugsCount,
         duvidasOcultasCount,
@@ -239,12 +187,11 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
         trainingHours: acc.trainingHours + s.trainingHours,
         auxilioHours: acc.auxilioHours + s.auxilioHours,
         reuniaoHours: acc.reuniaoHours + s.reuniaoHours,
-        overtimeHours: acc.overtimeHours + s.overtimeHours,
         nonBugCount: acc.nonBugCount + s.nonBugCount,
         realBugsCount: acc.realBugsCount + s.realBugsCount,
         duvidasOcultasCount: acc.duvidasOcultasCount + s.duvidasOcultasCount,
       }),
-      { trainingHours: 0, auxilioHours: 0, reuniaoHours: 0, overtimeHours: 0, nonBugCount: 0, realBugsCount: 0, duvidasOcultasCount: 0 }
+      { trainingHours: 0, auxilioHours: 0, reuniaoHours: 0, nonBugCount: 0, realBugsCount: 0, duvidasOcultasCount: 0 }
     );
 
     return { perSprint, totals };
@@ -293,7 +240,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     const trainingByDev = new Map<string, number>();
     const auxilioByDev = new Map<string, number>();
     const reuniaoByDev = new Map<string, number>();
-    const overtimeByDev = new Map<string, number>();
     
     // Process worklogs for selected sprints
     selectedSprints.forEach(sprintName => {
@@ -303,7 +249,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       const start = period.startDate.getTime();
       const end = period.endDate.getTime();
       
-      // Group worklogs by developer and week for overtime calculation
+      // Group worklogs by developer and week
       const devWeekMap = new Map<string, Map<string, number>>(); // developer -> weekKey -> hours
       
       worklogs.forEach(w => {
@@ -325,30 +271,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             reuniaoByDev.set(developer, (reuniaoByDev.get(developer) || 0) + tempoGasto);
           }
           
-          // Overtime: group by developer and week
-          const worklogDate = w.data instanceof Date ? w.data : new Date(w.data);
-          const weekStart = getWeekStart(worklogDate);
-          const weekKey = weekStart.toISOString().split('T')[0];
-          
-          if (!devWeekMap.has(developer)) {
-            devWeekMap.set(developer, new Map());
-          }
-          const weekMap = devWeekMap.get(developer)!;
-          const currentHours = weekMap.get(weekKey) || 0;
-          weekMap.set(weekKey, currentHours + tempoGasto);
-        }
-      });
-      
-      // Calculate overtime per developer: for each developer-week, if hours > 40, count the excess
-      devWeekMap.forEach((weekMap, developer) => {
-        let devOvertime = 0;
-        weekMap.forEach((hours, weekKey) => {
-          if (hours > STANDARD_WEEKLY_HOURS) {
-            devOvertime += hours - STANDARD_WEEKLY_HOURS;
-          }
-        });
-        if (devOvertime > 0) {
-          overtimeByDev.set(developer, (overtimeByDev.get(developer) || 0) + devOvertime);
         }
       });
     });
@@ -363,7 +285,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       training: toArray(trainingByDev),
       auxilio: toArray(auxilioByDev),
       reuniao: toArray(reuniaoByDev),
-      overtime: toArray(overtimeByDev),
     };
   }, [tasks, selectedSprints, worklogs, getSprintPeriod]);
 
@@ -833,55 +754,6 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               )}
             </div>
 
-            {/* Horas Extras (horas) */}
-            <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-md bg-yellow-100 dark:bg-yellow-900/30">
-                    <Clock className="w-4 h-4 text-yellow-700 dark:text-yellow-300" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Horas Extras</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">{formatHours(managementKPIs.totals.overtimeHours)}</span>
-                  <button
-                    onClick={() => toggleKPIExpansion('overtime')}
-                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                    title={expandedKPIs.has('overtime') ? 'Recolher' : 'Expandir'}
-                  >
-                    {expandedKPIs.has('overtime') ? (
-                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 border border-yellow-200/60 dark:border-yellow-800/60">
-                    {s.sprintName}: <strong>{formatHours(s.overtimeHours)}</strong>
-                  </span>
-                ))}
-              </div>
-              {expandedKPIs.has('overtime') && (
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Por Desenvolvedor:</div>
-                  <div className="space-y-1.5">
-                    {kpiByDeveloper.overtime.length > 0 ? (
-                      kpiByDeveloper.overtime.map(({ developer, hours }) => (
-                        <div key={developer} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-700 dark:text-gray-300">{developer}</span>
-                          <span className="font-semibold text-yellow-700 dark:text-yellow-300">{formatHours(hours)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">Nenhum registro</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Tarefas (não-bug) - quantidade */}
             <div className="bg-white dark:bg-gray-800/50 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">

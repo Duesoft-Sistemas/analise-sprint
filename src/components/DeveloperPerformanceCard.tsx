@@ -84,8 +84,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
   // Calculate total bonuses
   const totalBonuses = 
     (metrics.seniorityEfficiencyBonus || 0) + 
-    (metrics.auxilioBonus || 0) +
-    (metrics.overtimeBonus || 0);
+    (metrics.auxilioBonus || 0);
 
   return (
     <div
@@ -132,7 +131,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               <span className="text-3xl font-bold text-gray-900 dark:text-white">
                 {metrics.performanceScore.toFixed(0)}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 150</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 130</span>
             </div>
           </div>
           <div className="relative">
@@ -147,7 +146,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                     ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
                     : 'bg-gradient-to-r from-red-500 to-red-600'
                 }`}
-                style={{ width: `${Math.min(100, (metrics.performanceScore / 150) * 100)}%` }}
+                style={{ width: `${Math.min(100, (metrics.performanceScore / 130) * 100)}%` }}
               />
             </div>
             <div className="flex items-center justify-between mt-2">
@@ -225,7 +224,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
             <Calculator className="w-4 h-4" />
             Ver Cálculos
           </button>
-          {(insights.length > 0 || teamAverage || (metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0 || metrics.overtimeBonus > 0)) && (
+          {(insights.length > 0 || teamAverage || (metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0)) && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 rounded-lg transition-colors flex items-center gap-2 border border-gray-200/50 dark:border-gray-700/50"
@@ -302,7 +301,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
           )}
 
           {/* Bonuses Detail */}
-          {(metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0 || metrics.overtimeBonus > 0) && (
+          {(metrics.seniorityEfficiencyBonus > 0 || metrics.auxilioBonus > 0) && (
             <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg p-4 border border-gray-200/50 dark:border-gray-700/50">
               <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
                 Bonuses Detalhados
@@ -318,12 +317,6 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                   <div className="flex items-center justify-between p-2 bg-green-50/50 dark:bg-green-900/20 rounded">
                     <span className="text-xs text-gray-700 dark:text-gray-300">🤝 Auxílio</span>
                     <span className="text-sm font-bold text-green-600 dark:text-green-400">+{metrics.auxilioBonus}</span>
-                  </div>
-                )}
-                {metrics.overtimeBonus > 0 && (
-                  <div className="flex items-center justify-between p-2 bg-orange-50/50 dark:bg-orange-900/20 rounded">
-                    <span className="text-xs text-gray-700 dark:text-gray-300">⏰ Horas Extras</span>
-                    <span className="text-sm font-bold text-orange-600 dark:text-orange-400">+{metrics.overtimeBonus}</span>
                   </div>
                 )}
               </div>
