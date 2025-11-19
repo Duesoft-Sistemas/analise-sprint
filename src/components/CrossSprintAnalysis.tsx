@@ -19,10 +19,10 @@ interface CrossSprintAnalysisProps {
 }
 
 export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analytics, sprints, tasks, sprintDistributionRef, developerAllocationRef, clientAllocationRef, featureAnalysisRef, managementKpisRef }) => {
-  const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
-  const [topSprintLimit, setTopSprintLimit] = useState<number | null>(10);
-  const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(10);
-  const [topClientLimit, setTopClientLimit] = useState<number | null>(10);
+  const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(20);
+  const [topSprintLimit, setTopSprintLimit] = useState<number | null>(20);
+  const [topDeveloperLimit, setTopDeveloperLimit] = useState<number | null>(20);
+  const [topClientLimit, setTopClientLimit] = useState<number | null>(20);
   const [developerViewMode, setDeveloperViewMode] = useState<'chart' | 'list'>('chart');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');

@@ -27,6 +27,9 @@ export interface TaskItem {
   tempoGastoTotal?: number; // in hours - total time spent across all sprints (FROM WORKLOG)
   tempoGastoNoSprint?: number; // in hours - time spent in current sprint only (FROM WORKLOG)
   tempoGastoOutrosSprints?: number; // in hours - time spent in other sprints (FROM WORKLOG)
+  
+  // Delivery management
+  dataLimite?: Date; // Data limite de entrega da tarefa
 }
 
 // Developer metrics
@@ -569,10 +572,36 @@ export type MultiSprintPresentationSection =
   | 'featureAnalysis'
   | 'managementKPIs';
 
+export type BacklogPresentationSection =
+  | 'summary'
+  | 'byComplexity'
+  | 'byFeature'
+  | 'byClient'
+  | 'byStatus'
+  | 'insights'
+  | 'taskList';
+
+export type BacklogFlowPresentationSection =
+  | 'kpis'
+  | 'kpisHours'
+  | 'chart'
+  | 'chartHours'
+  | 'capacity'
+  | 'help';
+
+export type DeliveryPresentationSection =
+  | 'dataLimite'
+  | 'previsao'
+  | 'cronograma'
+  | 'taskList';
+
 export interface PresentationStep {
   view: ViewMode;
   section?: SprintPresentationSection; // Applies to 'sprint' view
   multiSection?: MultiSprintPresentationSection; // Applies to 'multiSprint' view
+  backlogSection?: BacklogPresentationSection; // Applies to 'backlog' view
+  backlogFlowSection?: BacklogFlowPresentationSection; // Applies to 'backlogFlow' view
+  deliverySection?: DeliveryPresentationSection; // Applies to 'delivery' view
   durationMs?: number; // Optional per-step override; falls back to intervalMs
 }
 

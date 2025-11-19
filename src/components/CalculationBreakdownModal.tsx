@@ -515,7 +515,11 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                       <div className="mt-3 space-y-2">
                         <div className="text-xs font-semibold mb-2">Tarefas Contribuindo:</div>
                         <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {item.tasks.map((task, taskIdx) => (
+                          {[...item.tasks].sort((a, b) => {
+                            const codeA = (a.taskKey || '').toUpperCase();
+                            const codeB = (b.taskKey || '').toUpperCase();
+                            return codeA.localeCompare(codeB);
+                          }).map((task, taskIdx) => (
                             <div
                               key={taskIdx}
                               className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs border border-gray-200 dark:border-gray-700"

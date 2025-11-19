@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Users, Target, Calendar, FileSpreadsheet, Clock, TrendingUp, CheckCircle2, Settings, AlertTriangle, Inbox, PlayCircle } from 'lucide-react';
+import { BarChart3, Users, Square } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -14,30 +14,26 @@ import { InconsistenciesDashboard } from './InconsistenciesDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
 import { BacklogFlowDashboard } from './BacklogFlowDashboard';
 import { WorklogDashboard } from './WorklogDashboard';
+import { DeliveryDashboard } from './DeliveryDashboard';
 import { SettingsPanel } from './SettingsPanel';
 import SprintAnalysisDetails from './SprintAnalysisDetails';
 import { PresentationSettingsModal } from './PresentationSettingsModal';
+import { SidebarNavigation } from './SidebarNavigation';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery';
 
 interface DashboardProps {
   onViewLabelChange?: (label: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
+export const Dashboard: React.FC<DashboardProps> = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
+  const clearData = useSprintStore((state) => state.clearData);
   const sprintAnalytics = useSprintStore((state) => state.sprintAnalytics);
   const crossSprintAnalytics = useSprintStore((state) => state.crossSprintAnalytics);
   const riskAlerts = useSprintStore((state) => state.riskAlerts);
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
-  const selectedSprint = useSprintStore((state) => state.selectedSprint);
-  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
-  const sprintsFileName = useSprintStore((state) => state.sprintsFileName);
-  const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
-  const layoutFileName = useSprintStore((state) => state.layoutFileName);
-  const worklogFileName = useSprintStore((state) => state.worklogFileName);
-  const worklogs = useSprintStore((state) => state.worklogs);
   const sprints = useSprintStore((state) => state.sprints);
   const tasks = useSprintStore((state) => state.tasks);
 
@@ -45,9 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
   const presentation = useSprintStore((s) => s.presentation);
   const setPresentationConfig = useSprintStore((s) => s.setPresentationConfig);
   const nextPresentationStep = useSprintStore((s) => s.nextPresentationStep);
-  
-  // Get current sprint period from metadata
-  const currentSprintPeriod = selectedSprint ? getSprintPeriod(selectedSprint) : null;
+  const stopPresentation = useSprintStore((s) => s.stopPresentation);
 
   const [viewMode, setViewMode] = useState<ViewMode>('sprint');
   // Refs para rolagem no modo apresentação
@@ -60,6 +54,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
   const managementRef = useRef<HTMLDivElement | null>(null);
   const backlogRef = useRef<HTMLDivElement | null>(null);
   const backlogFlowRef = useRef<HTMLDivElement | null>(null);
+  // Refs para seções de backlog
+  const backlogSummaryRef = useRef<HTMLDivElement | null>(null);
+  const backlogComplexityRef = useRef<HTMLDivElement | null>(null);
+  const backlogFeatureRef = useRef<HTMLDivElement | null>(null);
+  const backlogClientRef = useRef<HTMLDivElement | null>(null);
+  const backlogStatusRef = useRef<HTMLDivElement | null>(null);
+  const backlogInsightsRef = useRef<HTMLDivElement | null>(null);
+  const backlogTaskListRef = useRef<HTMLDivElement | null>(null);
+  // Refs para seções de backlogFlow
+  const backlogFlowKpisRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowKpisHoursRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowChartRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowChartHoursRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowCapacityRef = useRef<HTMLDivElement | null>(null);
+  const backlogFlowHelpRef = useRef<HTMLDivElement | null>(null);
+  // Refs para seções de delivery
+  const deliveryRef = useRef<HTMLDivElement | null>(null);
+  const deliveryDataLimiteRef = useRef<HTMLDivElement | null>(null);
+  const deliveryPrevisaoRef = useRef<HTMLDivElement | null>(null);
+  const deliveryCronogramaRef = useRef<HTMLDivElement | null>(null);
+  const deliveryTaskListRef = useRef<HTMLDivElement | null>(null);
 
   // Sync view with current presentation step
   const currentStep = useMemo(() => {
@@ -67,55 +82,90 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
     return presentation.steps[Math.min(presentation.currentStepIndex, presentation.steps.length - 1)];
   }, [presentation.steps, presentation.currentStepIndex]);
 
+  // Sync view with current presentation step
   useEffect(() => {
-    if (!currentStep || !presentation.isActive) return;
-    if (currentStep.view !== viewMode) {
-      setViewMode(currentStep.view as any);
+    if (!presentation.isActive || !presentation.steps.length) return;
+    const step = presentation.steps[presentation.currentStepIndex];
+    if (step) {
+      const newView = step.view as ViewMode;
+      setViewMode(newView);
     }
-  }, [currentStep, presentation.isActive]);
+  }, [presentation.currentStepIndex, presentation.isActive, presentation.steps]);
 
   // Rolagem automática para a seção da etapa atual
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     if (!presentation.isActive || !currentStep) return;
-    const scrollTo = (el: HTMLElement | null) => {
-      if (!el) return;
-      // Compensar cabeçalho/linha de toggles
-      // Nas seções de Feature e Cliente do Sprint Ativo usamos um offset maior
-      const headerOffset =
-        currentStep.view === 'sprint' &&
-        (currentStep.section === 'byFeature' || currentStep.section === 'byClient')
-          ? 140
-          : 96;
-      const rect = el.getBoundingClientRect();
-      const top = rect.top + window.scrollY - headerOffset;
-      window.scrollTo({ top, behavior: 'smooth' });
-    };
-    if (currentStep.view === 'sprint') {
-      if (currentStep.section === 'summary') scrollTo(summaryRef.current);
-      else if (currentStep.section === 'byFeature') scrollTo(featureRef.current || analysisRef.current);
-      else if (currentStep.section === 'byClient') scrollTo(clientRef.current || analysisRef.current);
-      else if (currentStep.section === 'developers') scrollTo(devsRef.current);
-      else if (currentStep.section === 'tasks') scrollTo(tasksRef.current);
-    } else if (currentStep.view === 'multiSprint') {
-      if (currentStep.multiSection === 'sprintDistribution') scrollTo(summaryRef.current);
-      else if (currentStep.multiSection === 'developerAllocation') scrollTo(devsRef.current);
-      else if (currentStep.multiSection === 'clientAllocation') scrollTo(analysisRef.current);
-      else if (currentStep.multiSection === 'featureAnalysis') scrollTo(tasksRef.current);
-      else if (currentStep.multiSection === 'managementKPIs') scrollTo(managementRef.current);
-    } else if (currentStep.view === 'backlog') {
-      scrollTo(backlogRef.current);
-    } else if (currentStep.view === 'backlogFlow') {
-      scrollTo(backlogFlowRef.current);
-    }
-  }, [presentation.isActive, currentStep]);
+    
+    // Wait a bit for the view to render before scrolling
+    const timeoutId = setTimeout(() => {
+      const scrollTo = (el: HTMLElement | null) => {
+        if (!el) return;
+        
+        // Get the scrollable container (main content div)
+        const container = mainContentRef.current;
+        if (!container) return;
+        
+        // Calculate position relative to container
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = el.getBoundingClientRect();
+        
+        // Calculate scroll position
+        const offset = 20; // Offset mínimo para espaçamento
+        const scrollTop = container.scrollTop + (elementRect.top - containerRect.top) - offset;
+        
+        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+      };
+      
+      if (currentStep.view === 'sprint') {
+        if (currentStep.section === 'summary') scrollTo(summaryRef.current);
+        else if (currentStep.section === 'byFeature') scrollTo(featureRef.current || analysisRef.current);
+        else if (currentStep.section === 'byClient') scrollTo(clientRef.current || analysisRef.current);
+        else if (currentStep.section === 'developers') scrollTo(devsRef.current);
+        else if (currentStep.section === 'tasks') scrollTo(tasksRef.current);
+      } else if (currentStep.view === 'multiSprint') {
+        if (currentStep.multiSection === 'sprintDistribution') scrollTo(summaryRef.current);
+        else if (currentStep.multiSection === 'developerAllocation') scrollTo(devsRef.current);
+        else if (currentStep.multiSection === 'clientAllocation') scrollTo(analysisRef.current);
+        else if (currentStep.multiSection === 'featureAnalysis') scrollTo(tasksRef.current);
+        else if (currentStep.multiSection === 'managementKPIs') scrollTo(managementRef.current);
+      } else if (currentStep.view === 'backlog') {
+        if (currentStep.backlogSection === 'summary') scrollTo(backlogSummaryRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'byComplexity') scrollTo(backlogComplexityRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'byFeature') scrollTo(backlogFeatureRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'byClient') scrollTo(backlogClientRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'byStatus') scrollTo(backlogStatusRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'insights') scrollTo(backlogInsightsRef.current || backlogRef.current);
+        else if (currentStep.backlogSection === 'taskList') scrollTo(backlogTaskListRef.current || backlogRef.current);
+        else scrollTo(backlogRef.current);
+      } else if (currentStep.view === 'backlogFlow') {
+        if (currentStep.backlogFlowSection === 'kpis') scrollTo(backlogFlowKpisRef.current || backlogFlowRef.current);
+        else if (currentStep.backlogFlowSection === 'kpisHours') scrollTo(backlogFlowKpisHoursRef.current || backlogFlowRef.current);
+        else if (currentStep.backlogFlowSection === 'chart') scrollTo(backlogFlowChartRef.current || backlogFlowRef.current);
+        else if (currentStep.backlogFlowSection === 'chartHours') scrollTo(backlogFlowChartHoursRef.current || backlogFlowRef.current);
+        else if (currentStep.backlogFlowSection === 'capacity') scrollTo(backlogFlowCapacityRef.current || backlogFlowRef.current);
+        else if (currentStep.backlogFlowSection === 'help') scrollTo(backlogFlowHelpRef.current || backlogFlowRef.current);
+        else scrollTo(backlogFlowRef.current);
+      }
+    }, 300); // Wait 300ms for view to render
+    
+    return () => clearTimeout(timeoutId);
+  }, [presentation.isActive, currentStep, viewMode]);
 
   // Autoplay timer
   useEffect(() => {
     if (!presentation.isActive || !presentation.isPlaying || presentation.steps.length === 0) return;
-    const stepMs = currentStep?.durationMs ?? presentation.intervalMs;
-    const t = setTimeout(() => nextPresentationStep(), stepMs);
+    
+    const step = presentation.steps[presentation.currentStepIndex];
+    const stepMs = step?.durationMs ?? presentation.intervalMs;
+    
+    const t = setTimeout(() => {
+      nextPresentationStep();
+    }, stepMs);
+    
     return () => clearTimeout(t);
-  }, [presentation.isActive, presentation.isPlaying, presentation.intervalMs, presentation.currentStepIndex, presentation.steps, currentStep, nextPresentationStep]);
+  }, [presentation.isActive, presentation.isPlaying, presentation.intervalMs, presentation.currentStepIndex, presentation.steps.length, nextPresentationStep]);
 
   // Query param bootstrap (?presentation=1&interval=60000)
   useEffect(() => {
@@ -134,256 +184,138 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
     return null;
   }
 
-  const currentViewLabel = useMemo(() => {
-    switch (viewMode) {
-      case 'sprint':
-        return selectedSprint ? `Sprint Ativo • ${selectedSprint}` : 'Sprint Ativo';
-      case 'multiSprint':
-        return 'Multi-Sprint';
-      case 'performance':
-        return 'Performance';
-      case 'evolution':
-        return 'Evolução Temporal';
-      case 'quality':
-        return 'Qualidade dos Chamados';
-      case 'inconsistencies':
-        return 'Inconsistências';
-      case 'backlog':
-        return 'Backlog';
-      case 'backlogFlow':
-        return 'Fluxo & Capacidade';
-      case 'worklog':
-        return 'Análise de Worklogs';
-      default:
-        return '';
-    }
-  }, [viewMode, selectedSprint]);
+  // Get current step label for presentation indicator
+  const getStepLabel = (step: typeof currentStep) => {
+    if (!step) return '';
+    
+    const viewLabels: Record<string, string> = {
+      sprint: 'Sprint Ativo',
+      multiSprint: 'Multi-Sprint',
+      performance: 'Performance',
+      evolution: 'Evolução Temporal',
+      quality: 'Qualidade dos Chamados',
+      inconsistencies: 'Inconsistências',
+      backlog: 'Backlog',
+      backlogFlow: 'Fluxo & Capacidade',
+      worklog: 'Worklogs',
+      delivery: 'Gestão de Entregas',
+    };
 
-  // Publish current view label to header
-  useEffect(() => {
-    if (onViewLabelChange) {
-      onViewLabelChange(currentViewLabel);
+    const sectionLabels: Record<string, string> = {
+      summary: 'Resumo',
+      byFeature: 'Por Feature',
+      byClient: 'Por Cliente',
+      developers: 'Desenvolvedores',
+      tasks: 'Tarefas',
+      sprintDistribution: 'Distribuição por Sprint',
+      developerAllocation: 'Alocação por Dev',
+      clientAllocation: 'Alocação por Cliente',
+      featureAnalysis: 'Análise de Features',
+      managementKPIs: 'KPIs de Gestão',
+      byComplexity: 'Por Complexidade',
+      byStatus: 'Por Status',
+      insights: 'Insights',
+      taskList: 'Lista de Tarefas',
+      kpis: 'KPIs (Tickets)',
+      kpisHours: 'KPIs (Horas)',
+      chart: 'Gráfico (Tickets)',
+      chartHours: 'Gráfico (Horas)',
+      capacity: 'Recomendação de Capacidade',
+      help: 'Ajuda',
+      dataLimite: 'Tarefas com Data Limite',
+      previsao: 'Tarefas com Previsão',
+      cronograma: 'Cronograma por Cliente',
+    };
+
+    let label = viewLabels[step.view] || step.view;
+    
+    if (step.section) {
+      label += ` • ${sectionLabels[step.section] || step.section}`;
+    } else if (step.multiSection) {
+      label += ` • ${sectionLabels[step.multiSection] || step.multiSection}`;
+    } else if (step.backlogSection) {
+      label += ` • ${sectionLabels[step.backlogSection] || step.backlogSection}`;
+    } else if (step.backlogFlowSection) {
+      label += ` • ${sectionLabels[step.backlogFlowSection] || step.backlogFlowSection}`;
+    } else if (step.deliverySection) {
+      label += ` • ${sectionLabels[step.deliverySection] || step.deliverySection}`;
     }
-  }, [currentViewLabel, onViewLabelChange]);
+    
+    return label;
+  };
+
+  const currentStepLabel = currentStep ? getStepLabel(currentStep) : '';
+  const currentStepNumber = presentation.currentStepIndex + 1;
+  const totalSteps = presentation.steps.length;
+
+
 
   return (
-    <div className="space-y-6 animate-fade-in mt-2">
-      {/* Sprint Info Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Sprints Configuration */}
-        {sprintsFileName ? (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 rounded-2xl p-5 shadow-xl border-2 border-blue-400 dark:border-blue-500">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-6 h-6 text-white" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xs font-medium text-blue-100 uppercase tracking-wide">Configuração de Sprints</h3>
-                <p className="text-sm font-bold text-white mt-0.5 truncate" title={sprintsFileName}>
-                  {sprintsFileName}
-                </p>
-                <p className="text-xs text-blue-100 mt-0.5">
-                  {sprintMetadata.length} sprint{sprintMetadata.length !== 1 ? 's' : ''} configurado{sprintMetadata.length !== 1 ? 's' : ''}
-                </p>
-                {currentSprintPeriod && (
-                  <p className="text-xs text-blue-100 mt-1">
-                    🗓️ Atual: {currentSprintPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} a{' '}
-                    {currentSprintPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : null}
+    <div className="flex h-screen animate-fade-in">
+      {/* Sidebar Navigation - Hidden during presentation */}
+      {!presentation.isActive && (
+        <SidebarNavigation
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onSettingsClick={() => setShowSettings(true)}
+          onPresentationClick={() => setShowPresentation(true)}
+          presentationIsPlaying={presentation.isPlaying}
+        />
+      )}
 
-        {/* Layout File */}
-        {layoutFileName && (
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-700 dark:to-emerald-700 rounded-2xl p-5 shadow-xl border-2 border-green-400 dark:border-green-500">
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="w-6 h-6 text-white" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xs font-medium text-green-100 uppercase tracking-wide">Layout do Sprint</h3>
-                <p className="text-sm font-bold text-white mt-0.5 truncate" title={layoutFileName}>
-                  {layoutFileName}
-                </p>
-                <p className="text-xs text-green-100 mt-0.5">
-                  {sprintAnalytics.totalTasks} tarefas carregadas
-                </p>
-              </div>
+      {/* Presentation Indicator - Only visible during presentation */}
+      {presentation.isActive && currentStep && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3">
+          {/* Current Step Info */}
+          <div className="px-4 py-2.5 rounded-xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl shadow-xl border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                {currentStepLabel}
+              </span>
             </div>
+            <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              {currentStepNumber} / {totalSteps}
+            </span>
           </div>
-        )}
-
-        {/* Worklog File */}
-        {worklogFileName ? (
-          <div className="bg-gradient-to-r from-purple-600 to-violet-600 dark:from-purple-700 dark:to-violet-700 rounded-2xl p-5 shadow-xl border-2 border-purple-400 dark:border-purple-500">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6 text-white" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xs font-medium text-purple-100 uppercase tracking-wide">Worklog Detalhado</h3>
-                <p className="text-sm font-bold text-white mt-0.5 truncate" title={worklogFileName}>
-                  {worklogFileName}
-                </p>
-                <p className="text-xs text-purple-100 mt-0.5">
-                  {worklogs.length} registros de tempo
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-5 shadow-md border-2 border-gray-300 dark:border-gray-600 border-dashed">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Worklog</h3>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mt-0.5">
-                  Não carregado
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-                  Usando tempo do layout
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Header with Sprint Selector and View Toggles */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && viewMode !== 'worklog' && <SprintSelector />}
-        
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setViewMode('sprint')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'sprint'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            Sprint Ativo
-          </button>
           
+          {/* Stop Button */}
           <button
-            onClick={() => setViewMode('multiSprint')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'multiSprint'
-                ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
+            onClick={() => {
+              stopPresentation();
+              setPresentationConfig({ isActive: false, isPlaying: false });
+            }}
+            className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-xl border border-red-500 transition-all duration-300 flex items-center gap-2 hover:scale-105 active:scale-95"
+            title="Parar apresentação"
           >
-            <Users className="w-4 h-4" />
-            Multi-Sprint
-          </button>
-          
-          <button
-            onClick={() => setViewMode('performance')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'performance'
-                ? 'bg-gradient-to-r from-green-600 to-green-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Target className="w-4 h-4" />
-            Performance
-          </button>
-          
-          <button
-            onClick={() => setViewMode('evolution')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'evolution'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Evolução Temporal
-          </button>
-          
-          <button
-            onClick={() => setViewMode('quality')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'quality'
-                ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            Qualidade dos Chamados
-          </button>
-          
-          <button
-            onClick={() => setViewMode('backlog')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'backlog'
-                ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Inbox className="w-4 h-4" />
-            Backlog
-          </button>
-          
-          <button
-            onClick={() => setViewMode('backlogFlow')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'backlogFlow'
-                ? 'bg-gradient-to-r from-slate-600 to-slate-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Fluxo & Capacidade
-          </button>
-          
-          <button
-            onClick={() => setViewMode('worklog')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'worklog'
-                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            Worklogs
-          </button>
-          
-          <button
-            onClick={() => setViewMode('inconsistencies')}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${
-              viewMode === 'inconsistencies'
-                ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            Inconsistências
-          </button>
-          
-          <button
-            onClick={() => setShowSettings(true)}
-            className="px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-            title="Configurações de Métricas"
-          >
-            <Settings className="w-4 h-4" />
-            Configurações
-          </button>
-
-          <button
-            onClick={() => setShowPresentation(true)}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-sm hover:shadow-md flex items-center gap-2 ${presentation.isPlaying ? 'bg-gradient-to-r from-red-600 to-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-            title="Modo Apresentação"
-          >
-            <PlayCircle className="w-4 h-4" />
-            Apresentação
+            <Square className="w-4 h-4" />
+            <span className="font-medium">Parar</span>
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Settings Panel */}
-      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      {/* Main Content */}
+      <div ref={mainContentRef} className="flex-1 overflow-y-auto space-y-6 px-4 sm:px-6 py-4 lg:pl-6">
+        {/* Sprint Selector - Only show when relevant */}
+        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && viewMode !== 'backlogFlow' && viewMode !== 'worklog' && viewMode !== 'delivery' && (
+          <div className="mb-4">
+            <SprintSelector />
+          </div>
+        )}
 
-      {/* Presentation settings */}
-      <PresentationSettingsModal isOpen={showPresentation} onClose={() => setShowPresentation(false)} />
+        {/* Settings Panel */}
+        <SettingsPanel 
+          isOpen={showSettings} 
+          onClose={() => setShowSettings(false)}
+          onClearData={() => {
+            clearData();
+            setShowSettings(false);
+          }}
+        />
+
+        {/* Presentation settings */}
+        <PresentationSettingsModal isOpen={showPresentation} onClose={() => setShowPresentation(false)} />
 
       {/* Content based on view mode */}
       {viewMode === 'evolution' ? (
@@ -396,14 +328,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
         <InconsistenciesDashboard />
       ) : viewMode === 'backlog' ? (
         <div ref={backlogRef}>
-          <BacklogDashboard />
+          <BacklogDashboard
+            summaryRef={backlogSummaryRef}
+            byComplexityRef={backlogComplexityRef}
+            byFeatureRef={backlogFeatureRef}
+            byClientRef={backlogClientRef}
+            byStatusRef={backlogStatusRef}
+            insightsRef={backlogInsightsRef}
+            taskListRef={backlogTaskListRef}
+          />
         </div>
       ) : viewMode === 'backlogFlow' ? (
         <div ref={backlogFlowRef}>
-          <BacklogFlowDashboard />
+          <BacklogFlowDashboard
+            kpisRef={backlogFlowKpisRef}
+            kpisHoursRef={backlogFlowKpisHoursRef}
+            chartRef={backlogFlowChartRef}
+            chartHoursRef={backlogFlowChartHoursRef}
+            capacityRef={backlogFlowCapacityRef}
+            helpRef={backlogFlowHelpRef}
+          />
         </div>
       ) : viewMode === 'worklog' ? (
         <WorklogDashboard />
+      ) : viewMode === 'delivery' ? (
+        <div ref={deliveryRef}>
+          <DeliveryDashboard
+            dataLimiteRef={deliveryDataLimiteRef}
+            previsaoRef={deliveryPrevisaoRef}
+            cronogramaRef={deliveryCronogramaRef}
+            taskListRef={deliveryTaskListRef}
+          />
+        </div>
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis
           analytics={crossSprintAnalytics}
@@ -469,6 +425,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewLabelChange }) => {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };

@@ -19,8 +19,8 @@ interface SprintAnalysisDetailsProps {
 const TOP_OPTIONS = [10, 20, 40, null]; // null = todos
 
 const SprintAnalysisDetails: React.FC<SprintAnalysisDetailsProps> = ({ analytics, focusSection, isPresentation, chartHeight, featureAnchorRef, clientAnchorRef }) => {
-  const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(10);
-  const [topClientLimit, setTopClientLimit] = useState<number | null>(10);
+  const [topFeatureLimit, setTopFeatureLimit] = useState<number | null>(20);
+  const [topClientLimit, setTopClientLimit] = useState<number | null>(20);
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
   const setAnalyticsFilter = useSprintStore((state) => state.setAnalyticsFilter);

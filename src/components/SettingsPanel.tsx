@@ -10,7 +10,11 @@ import {
   Target,
   Zap,
   Award,
+  Moon,
+  Sun,
+  Trash2,
 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   COMPLEXITY_EFFICIENCY_ZONES,
   EFFICIENCY_THRESHOLDS,
@@ -29,10 +33,12 @@ import {
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onClearData?: () => void;
 }
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onClearData }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const { theme, toggleTheme } = useTheme();
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -411,7 +417,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex justify-end">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all duration-300 flex items-center gap-2 text-gray-700 dark:text-gray-200"
+                aria-label="Toggle theme"
+                title={theme === 'light' ? 'Alternar para tema escuro' : 'Alternar para tema claro'}
+              >
+                {theme === 'light' ? (
+                  <>
+                    <Moon className="w-4 h-4" />
+                    <span className="text-sm font-medium">Tema Escuro</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-4 h-4" />
+                    <span className="text-sm font-medium">Tema Claro</span>
+                  </>
+                )}
+              </button>
+
+              {/* Clear Data Button */}
+              {onClearData && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')) {
+                      onClearData();
+                    }
+                  }}
+                  className="px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 transition-colors flex items-center gap-2"
+                  title="Limpar todos os dados carregados"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="font-medium">Limpar Dados</span>
+                </button>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"

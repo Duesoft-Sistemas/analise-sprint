@@ -659,15 +659,21 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
   if (type === 'invalid-dates') {
     // items is { tasks, worklogs, sprints }
     const { tasks, worklogs, sprints } = items as any;
+    // Sort tasks by code (chave) - ascending order
+    const sortedTasks = tasks ? [...tasks].sort((a: { task: TaskItem }, b: { task: TaskItem }) => {
+      const codeA = (a.task.chave || a.task.id || '').toUpperCase();
+      const codeB = (b.task.chave || b.task.id || '').toUpperCase();
+      return codeA.localeCompare(codeB);
+    }) : [];
     return (
       <div className="space-y-4">
-        {tasks && tasks.length > 0 && (
+        {sortedTasks && sortedTasks.length > 0 && (
           <div>
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Tarefas ({tasks.length}):
+              Tarefas ({sortedTasks.length}):
             </div>
             <div className="space-y-2">
-              {tasks.slice(0, 10).map((entry: { task: TaskItem; reason: string }) => (
+              {sortedTasks.slice(0, 10).map((entry: { task: TaskItem; reason: string }) => (
                 <div key={entry.task.chave || entry.task.id} className="text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-mono">{entry.task.chave || entry.task.id}</span>: {entry.task.resumo || 'Sem resumo'} - Criado: {entry.task.criado.toLocaleDateString('pt-BR')}
                   <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100">
@@ -675,9 +681,9 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
                   </span>
                 </div>
               ))}
-              {tasks.length > 10 && (
+              {sortedTasks.length > 10 && (
                 <div className="text-xs text-gray-500 dark:text-gray-500">
-                  ... e mais {tasks.length - 10} tarefa(s)
+                  ... e mais {sortedTasks.length - 10} tarefa(s)
                 </div>
               )}
             </div>
@@ -723,22 +729,28 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
   if (type === 'missing-required-fields') {
     // items is { tasks, worklogs }
     const { tasks, worklogs } = items as any;
+    // Sort tasks by code (chave) - ascending order
+    const sortedTasks = tasks ? [...tasks].sort((a: TaskItem, b: TaskItem) => {
+      const codeA = (a.chave || a.id || '').toUpperCase();
+      const codeB = (b.chave || b.id || '').toUpperCase();
+      return codeA.localeCompare(codeB);
+    }) : [];
     return (
       <div className="space-y-4">
-        {tasks && tasks.length > 0 && (
+        {sortedTasks && sortedTasks.length > 0 && (
           <div>
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Tarefas sem chave/ID ({tasks.length}):
+              Tarefas sem chave/ID ({sortedTasks.length}):
             </div>
             <div className="space-y-2">
-              {tasks.slice(0, 10).map((task: TaskItem) => (
+              {sortedTasks.slice(0, 10).map((task: TaskItem) => (
                 <div key={`${task.sprint}-${task.resumo}`} className="text-sm text-gray-600 dark:text-gray-400">
                   {task.resumo || 'Sem resumo'} - Sprint: {task.sprint || 'N/A'}
                 </div>
               ))}
-              {tasks.length > 10 && (
+              {sortedTasks.length > 10 && (
                 <div className="text-xs text-gray-500 dark:text-gray-500">
-                  ... e mais {tasks.length - 10} tarefa(s)
+                  ... e mais {sortedTasks.length - 10} tarefa(s)
                 </div>
               )}
             </div>
@@ -777,9 +789,15 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
 
   if (isTaskItems) {
     const taskItems = items as TaskItem[];
+    // Sort tasks by code (chave) - ascending order
+    const sortedTaskItems = [...taskItems].sort((a, b) => {
+      const codeA = (a.chave || a.id || '').toUpperCase();
+      const codeB = (b.chave || b.id || '').toUpperCase();
+      return codeA.localeCompare(codeB);
+    });
     return (
       <div className="space-y-3">
-        {taskItems.slice(0, 20).map((task) => (
+        {sortedTaskItems.slice(0, 20).map((task) => (
           <div
             key={task.chave || task.id || `${task.sprint}-${task.resumo}`}
             className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700"

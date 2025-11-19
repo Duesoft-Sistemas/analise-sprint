@@ -166,6 +166,9 @@ export const TaskList: React.FC = () => {
       }
     }
 
+    // Sort by task code (chave)
+    result = result.sort((a, b) => a.chave.localeCompare(b.chave));
+
     return result;
   }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate, filterDelayed, filterAhead, analyticsFilter, filterType, filterTestNote]);
 

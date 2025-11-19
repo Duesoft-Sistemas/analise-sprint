@@ -19,7 +19,24 @@ type FilterType =
   | { type: 'allocation'; subType: 'total' | 'current' | 'future' }
   | null;
 
-export const BacklogFlowDashboard: React.FC = () => {
+interface BacklogFlowDashboardProps {
+  // Optional anchors for presentation mode scrolling
+  kpisRef?: React.RefObject<HTMLDivElement>;
+  kpisHoursRef?: React.RefObject<HTMLDivElement>;
+  chartRef?: React.RefObject<HTMLDivElement>;
+  chartHoursRef?: React.RefObject<HTMLDivElement>;
+  capacityRef?: React.RefObject<HTMLDivElement>;
+  helpRef?: React.RefObject<HTMLDivElement>;
+}
+
+export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
+  kpisRef,
+  kpisHoursRef,
+  chartRef,
+  chartHoursRef,
+  capacityRef,
+  helpRef,
+}) => {
   const tasks = useSprintStore((s) => s.tasks);
   const sprintMetadata = useSprintStore((s) => s.sprintMetadata);
   const worklogs = useSprintStore((s) => s.worklogs);
@@ -65,7 +82,7 @@ export const BacklogFlowDashboard: React.FC = () => {
       </div>
 
       {/* Help Section - Como usar essas métricas */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+      <div ref={helpRef} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
         <button
           onClick={() => setShowHelp(!showHelp)}
           className="w-full flex items-center justify-between text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg p-2 transition-colors"
@@ -211,7 +228,7 @@ export const BacklogFlowDashboard: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div ref={kpisRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <SummaryCard
           icon={<Inbox className="w-5 h-5" />}
           label="Entrada no Backlog (méd.)"
@@ -275,7 +292,7 @@ export const BacklogFlowDashboard: React.FC = () => {
       </div>
 
       {/* KPIs - Hours */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div ref={kpisHoursRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <SummaryCard
           icon={<Clock className="w-5 h-5" />}
           label="Entrada no Backlog (méd.)"
@@ -320,7 +337,7 @@ export const BacklogFlowDashboard: React.FC = () => {
 
       {/* Chart */}
       {backlogFlow.series.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-2 mb-2">
             <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Entradas vs Saídas por Período (análise completa)</h4>
@@ -450,7 +467,7 @@ export const BacklogFlowDashboard: React.FC = () => {
 
       {/* Chart - Hours */}
       {backlogFlow.series.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div ref={chartHoursRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Entradas vs Saídas por Período (horas estimadas)</h4>
@@ -583,7 +600,7 @@ export const BacklogFlowDashboard: React.FC = () => {
 
       {/* Capacity Recommendation */}
       {capacityReco && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div ref={capacityRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Recomendação de Capacidade</h4>
             <button
@@ -596,84 +613,187 @@ export const BacklogFlowDashboard: React.FC = () => {
           </div>
           
           {showCapacityHelp && (
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3 text-sm">
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-4 text-sm">
               <div className="flex items-start gap-2">
                 <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Como Funciona:</h5>
-                    <p className="text-blue-800 dark:text-blue-200 text-xs mb-2">
-                      A recomendação calcula quantos desenvolvedores adicionais você precisa para equilibrar entrada e saída (saída ≈ entrada).
+                <div className="flex-1 space-y-4">
+                  {/* Explicação Simples */}
+                  <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border-2 border-blue-300 dark:border-blue-600">
+                    <h5 className="font-bold text-blue-900 dark:text-blue-100 mb-3 text-base">🎯 O Que Isso Significa?</h5>
+                    <p className="text-gray-800 dark:text-gray-200 mb-3 leading-relaxed">
+                      <strong>Imagine uma fila de atendimento:</strong> Se chegam 70 pessoas por hora e você consegue atender 8 pessoas por hora, 
+                      quantos atendentes você precisa para não acumular fila?
                     </p>
-                    <p className="text-blue-800 dark:text-blue-200 text-xs">
-                      Fórmula: <strong>Devs Necessários = ceil(Inflow Médio / Throughput por Dev)</strong>
+                    <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
+                      É exatamente isso! A recomendação mostra <strong>quantos desenvolvedores você precisa contratar</strong> para conseguir 
+                      processar todas as tarefas que chegam no backlog, sem deixar acumular.
                     </p>
                   </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <h6 className="font-semibold text-sm">Throughput (θ)</h6>
+
+                  {/* O Que Cada Número Significa */}
+                  <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                    <h6 className="font-semibold text-sm mb-3 text-blue-900 dark:text-blue-100">📊 O Que Cada Número Significa:</h6>
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-purple-400 pl-3">
+                        <p className="font-semibold text-sm mb-1">Inflow Médio (70.0 tickets/sprint)</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">
+                          É a <strong>média de tarefas novas</strong> que chegam no backlog a cada sprint. 
+                          Se esse número é 70, significa que em média você recebe 70 tarefas novas por sprint.
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
-                        Média de tarefas concluídas por desenvolvedor por sprint.
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        <strong>Como calcula:</strong> (Tarefas concluídas no sprint) / (Devs com tarefas concluídas)
-                      </p>
+                      
+                      <div className="border-l-4 border-green-400 pl-3">
+                        <p className="font-semibold text-sm mb-1">Throughput (ex: 8.75 tickets/dev/sprint)</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">
+                          É <strong>quantas tarefas cada desenvolvedor consegue finalizar</strong> por sprint, em média. 
+                          Se é 8.75, cada dev finaliza cerca de 8-9 tarefas por sprint.
+                        </p>
+                      </div>
+                      
+                      <div className="border-l-4 border-yellow-400 pl-3 bg-yellow-50 dark:bg-yellow-900/10">
+                        <p className="font-semibold text-sm mb-1 text-yellow-800 dark:text-yellow-300">⚠️ Os Números +15 e +8 (IMPORTANTE!)</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+                          Esses são os números que aparecem nos cards verdes e azuis acima. Eles significam:
+                        </p>
+                        <ul className="text-xs text-gray-700 dark:text-gray-300 list-disc list-inside ml-2 space-y-1">
+                          <li><strong>+15 (P50)</strong> = Você precisa contratar <strong>15 desenvolvedores a mais</strong> além da equipe atual (cenário otimista)</li>
+                          <li><strong>+8 (P80)</strong> = Você precisa contratar <strong>8 desenvolvedores a mais</strong> além da equipe atual (cenário conservador)</li>
+                        </ul>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">
+                          <strong>Resumindo:</strong> Se você vê "+8", significa que precisa contratar 8 desenvolvedores novos. 
+                          Se vê "+0", sua equipe atual já é suficiente!
+                        </p>
+                      </div>
                     </div>
-                    
-                    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-center gap-2 mb-2">
-                        <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        <h6 className="font-semibold text-sm">Percentis (P50/P80)</h6>
+                  </div>
+
+                  {/* P50 vs P80 - Explicação Simples */}
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4 border border-green-300 dark:border-green-700">
+                    <h6 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">🤔 Por que P50 precisa de MAIS devs que P80?</h6>
+                    <div className="mb-3 p-3 bg-white dark:bg-gray-800 rounded border-2 border-blue-400 dark:border-blue-600">
+                      <p className="text-xs text-gray-800 dark:text-gray-200 font-semibold mb-2">📊 Entendendo os Percentis:</p>
+                      <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
+                        <p>
+                          <strong>P50 = 4.86 tickets/dev</strong> → Em 50% dos sprints, cada dev finalizou 4.86 tarefas ou MENOS. 
+                          <span className="text-red-600 dark:text-red-400 font-semibold"> Performance PIOR.</span>
+                        </p>
+                        <p>
+                          <strong>P80 = 8.75 tickets/dev</strong> → Em 80% dos sprints, cada dev finalizou 8.75 tarefas ou MENOS. 
+                          <span className="text-green-600 dark:text-green-400 font-semibold"> Performance MELHOR.</span>
+                        </p>
+                        <p className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                          <strong>Conclusão:</strong> Se cada dev produz MENOS (P50), você precisa de MAIS devs. 
+                          Se cada dev produz MAIS (P80), você precisa de MENOS devs.
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
-                        P50 = mediana (50% dos sprints acima), P80 = conservador (80% dos sprints acima).
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white dark:bg-gray-800 rounded p-3 border border-green-200 dark:border-green-800">
+                        <p className="font-semibold text-sm mb-1 text-green-700 dark:text-green-400">✅ P50 (Cenário Otimista) - Precisa de MAIS devs</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+                          Assume performance <strong>pior</strong> (4.86 tickets/dev). Como cada dev produz menos, 
+                          você precisa de <strong>MAIS desenvolvedores</strong> para processar as 70 tarefas que chegam.
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 italic">
+                          <strong>Use quando:</strong> Quer uma estimativa assumindo que a equipe vai performar na mediana histórica (performance média).
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white dark:bg-gray-800 rounded p-3 border border-blue-200 dark:border-blue-800">
+                        <p className="font-semibold text-sm mb-1 text-blue-700 dark:text-blue-400">🛡️ P80 (Cenário Conservador) - Precisa de MENOS devs</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+                          Assume performance <strong>melhor</strong> (8.75 tickets/dev). Como cada dev produz mais, 
+                          você precisa de <strong>MENOS desenvolvedores</strong> para processar as 70 tarefas que chegam.
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 italic">
+                          <strong>Use quando:</strong> Precisa fazer compromissos com clientes ou apresentar para gestão (assumindo que a equipe vai performar bem).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Exemplo Prático Simplificado */}
+                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-yellow-300 dark:border-yellow-700">
+                    <h6 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">💡 Exemplo Prático:</h6>
+                    <div className="space-y-2 text-xs text-gray-800 dark:text-gray-200">
+                      <p><strong>Situação:</strong> Chegam 70 tarefas novas por sprint (Inflow Médio = 70)</p>
+                      <p><strong>Performance:</strong> Cada desenvolvedor finaliza 8 tarefas por sprint (Throughput P80 = 8)</p>
+                      <p className="bg-white dark:bg-gray-800 rounded p-2 border border-yellow-400">
+                        <strong>Conta:</strong> 70 tarefas ÷ 8 tarefas por dev = 8.75 devs necessários
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        <strong>Uso:</strong> P50 para cenário otimista, P80 para cenário conservador.
+                      <p><strong>Resultado:</strong> Você precisa de <strong>+9 desenvolvedores</strong> (arredondado para cima)</p>
+                      <p className="text-gray-600 dark:text-gray-400 italic mt-2">
+                        Isso significa que com 9 devs a mais, você conseguiria processar todas as 70 tarefas que chegam, 
+                        sem deixar o backlog crescer.
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-lg p-3 border border-green-300 dark:border-green-700">
-                    <h6 className="font-semibold text-sm mb-2">Exemplo Prático:</h6>
-                    <div className="space-y-1 text-xs text-gray-700 dark:text-gray-300">
-                      <p><strong>Cenário:</strong> Inflow médio = 79 tickets/sprint, Throughput P80 = 8.38 tickets/dev/sprint</p>
-                      <p><strong>Cálculo:</strong> 79 / 8.38 = 9.4 devs → Recomendação: +10 devs (arredondado para cima)</p>
-                      <p><strong>Interpretação:</strong> Com 10 devs adicionais (no cenário conservador), você conseguiria processar aproximadamente o influxo médio.</p>
+
+                  {/* Como Interpretar os Resultados */}
+                  <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                    <h6 className="font-semibold text-sm mb-3 text-blue-900 dark:text-blue-100">✅ Como Interpretar os Resultados:</h6>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-800 dark:text-gray-200">Se mostra +0 devs:</p>
+                          <p className="text-gray-600 dark:text-gray-400">Sua equipe atual já consegue processar tudo que chega! 🎉</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-800 dark:text-gray-200">Se mostra +5 ou mais devs:</p>
+                          <p className="text-gray-600 dark:text-gray-400">Você precisa contratar mais desenvolvedores, ou o backlog vai continuar crescendo.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-800 dark:text-gray-200">Diferença entre P50 e P80:</p>
+                          <p className="text-gray-600 dark:text-gray-400">
+                            Se P50 = +5 e P80 = +10, significa que no melhor cenário você precisa de 5 devs, 
+                            mas no pior cenário precisa de 10. Use P80 para ter segurança.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                    <h6 className="font-semibold text-sm mb-2">Como Usar para Decisão:</h6>
-                    <ul className="space-y-1 text-xs text-gray-700 dark:text-gray-300 list-disc list-inside">
-                      <li><strong>P50:</strong> Use para estimativa otimista - assume que seus devs vão performar na mediana histórica</li>
-                      <li><strong>P80:</strong> Use para planejamento conservador - assume pior cenário (mais seguro para compromissos)</li>
-                      <li><strong>Se +0 devs:</strong> Capacidade atual é suficiente (no melhor cenário) ou está equilibrada</li>
-                      <li><strong>Se +10 devs:</strong> Precisa aumentar capacidade para equilibrar entrada/saída</li>
-                      <li><strong>Compare P50 vs P80:</strong> Diferença mostra margem de segurança entre cenário otimista e conservador</li>
-                    </ul>
                   </div>
                 </div>
               </div>
             </div>
           )}
+          
+          {/* Explicação dos Números */}
+          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded-r-lg">
+            <p className="text-sm text-gray-800 dark:text-gray-200">
+              <strong>💡 O que significam os números abaixo:</strong>
+            </p>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              Os números <strong className="text-yellow-700 dark:text-yellow-400">+15</strong> e <strong className="text-yellow-700 dark:text-yellow-400">+8</strong> representam 
+              <strong> quantos desenvolvedores adicionais você precisa contratar</strong> além da sua equipe atual.
+            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <strong>Como calcula:</strong> O sistema já reconhece quantos desenvolvedores você tem atualmente (baseado nos sprints recentes) e calcula quantos a mais são necessários.
+            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <strong>Exemplo:</strong> Se você tem 5 devs e precisa de 13 no total, mostra <strong>+8</strong> (8 devs adicionais).
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SummaryCard
               icon={<TrendingUp className="w-5 h-5" />}
               label="Capacidade (P50)"
               value={`+${capacityReco.suggestedDevsP50}`}
-              subtitle={`θ P50 ≈ ${capacityReco.throughputPerDevP50.toFixed(2)} tickets/dev/sprint`}
+              subtitle={`${capacityReco.suggestedDevsP50} devs adicionais necessários | ${capacityReco.throughputPerDevP50.toFixed(2)} tickets/dev/sprint`}
               color="green"
             />
             <SummaryCard
               icon={<TrendingUp className="w-5 h-5" />}
               label="Capacidade (P80)"
               value={`+${capacityReco.suggestedDevsP80}`}
-              subtitle={`θ P80 ≈ ${capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint`}
+              subtitle={`${capacityReco.suggestedDevsP80} devs adicionais necessários | ${capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint`}
               color="blue"
             />
             <SummaryCard

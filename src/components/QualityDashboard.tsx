@@ -360,7 +360,11 @@ export const QualityDashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {analysis.tasks.map((task) => (
+                  {[...analysis.tasks].sort((a, b) => {
+                    const codeA = (a.chave || a.id || '').toUpperCase();
+                    const codeB = (b.chave || b.id || '').toUpperCase();
+                    return codeA.localeCompare(codeB);
+                  }).map((task) => (
                     <div
                       key={task.id}
                       className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"

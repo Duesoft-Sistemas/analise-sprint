@@ -37,7 +37,14 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
     );
   };
 
-  const tasksBreakdown: TaskBreakdown[] = developer.tasks.map(task => ({
+  // Sort tasks by code (chave) before creating breakdown
+  const sortedTasks = [...developer.tasks].sort((a, b) => {
+    const codeA = (a.chave || a.id || '').toUpperCase();
+    const codeB = (b.chave || b.id || '').toUpperCase();
+    return codeA.localeCompare(codeB);
+  });
+
+  const tasksBreakdown: TaskBreakdown[] = sortedTasks.map(task => ({
     task,
     consumedHours: calculateConsumedHours(task),
   }));

@@ -19,6 +19,7 @@ import {
 import { FileSpreadsheet } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
+import { Package, User, Calendar as CalendarIcon, AlertTriangle, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import { formatHours, normalizeForComparison, isCompletedStatus, isBacklogSprintValue, isAuxilioTask, isNeutralTask, taskHasCategory } from '../utils/calculations';
 import { TaskItem } from '../types';
 import { AnalyticsChart } from './AnalyticsCharts';
@@ -32,19 +33,86 @@ function isDuvidaOcultaTask(task: TaskItem): boolean {
   });
 }
 
-export const BacklogDashboard: React.FC = () => {
+interface BacklogDashboardProps {
+  // Optional anchors for presentation mode scrolling
+  summaryRef?: React.RefObject<HTMLDivElement>;
+  byComplexityRef?: React.RefObject<HTMLDivElement>;
+  byFeatureRef?: React.RefObject<HTMLDivElement>;
+  byClientRef?: React.RefObject<HTMLDivElement>;
+  byStatusRef?: React.RefObject<HTMLDivElement>;
+  insightsRef?: React.RefObject<HTMLDivElement>;
+  taskListRef?: React.RefObject<HTMLDivElement>;
+}
+
+export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
+  summaryRef,
+  byComplexityRef,
+  byFeatureRef,
+  byClientRef,
+  byStatusRef,
+  insightsRef,
+  taskListRef,
+}) => {
   const tasks = useSprintStore((state) => state.tasks);
-  const [filterType, setFilterType] = useState<string | null>(null);
-  const [filterFeature, setFilterFeature] = useState<string | null>(null);
-  const [filterClient, setFilterClient] = useState<string | null>(null);
-  const [topLimit, setTopLimit] = useState<number | null>(10);
-  const [viewScope, setViewScope] = useState<'backlog' | 'pendingAll'>('backlog'); // default: backlog only
+  // Use a single state object to ensure atomic updates and prevent filter accumulation
+  const [activeFilter, setActiveFilter] = useState<{
+    type: 'type' | 'feature' | 'client' | 'complexity' | null;
+    value: string | number | null;
+  } | null>(null);
+  const [topLimit, setTopLimit] = useState<number | null>(20);
+  const [viewScope, setViewScope] = useState<'backlog' | 'pendingAll'>('pendingAll'); // default: all pending tasks
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
+
+  // Extract filter values from activeFilter for backward compatibility
+  const filterType = activeFilter?.type === 'type' ? (activeFilter.value as string) : null;
+  const filterFeature = activeFilter?.type === 'feature' ? (activeFilter.value as string) : null;
+  const filterClient = activeFilter?.type === 'client' ? (activeFilter.value as string) : null;
+  const filterComplexity = activeFilter?.type === 'complexity' ? (activeFilter.value as number) : null;
+
+  // Function to clear all filters
+  const clearFilters = () => {
+    setActiveFilter(null);
+  };
+
+  // Helper functions that always clear filters before applying new one
+  // Using a single state ensures atomic updates - no accumulation possible
+  const applyTypeFilter = (type: string | null) => {
+    if (type) {
+      setActiveFilter({ type: 'type', value: type });
+    } else {
+      setActiveFilter(null);
+    }
+  };
+
+  const applyFeatureFilter = (feature: string | null) => {
+    if (feature) {
+      setActiveFilter({ type: 'feature', value: feature });
+    } else {
+      setActiveFilter(null);
+    }
+  };
+
+  const applyClientFilter = (client: string | null) => {
+    if (client) {
+      setActiveFilter({ type: 'client', value: client });
+    } else {
+      setActiveFilter(null);
+    }
+  };
+
+  const applyComplexityFilter = (complexity: number | null) => {
+    if (complexity !== null) {
+      setActiveFilter({ type: 'complexity', value: complexity });
+    } else {
+      setActiveFilter(null);
+    }
+  };
 
   // Calculate analytics based on scope
   const analytics: BacklogAnalyticsType = useMemo(() => {
     // Helper to build analytics from a given subset of tasks (no worklog, only estimativa)
+    // Used for "pendingAll" scope which doesn't have all advanced analyses
     const buildAnalyticsFromTasks = (taskSubset: TaskItem[]) => {
       // Exclude neutral (reunião/treinamento) and auxilio tasks from the analysis
       const pendingTasks = taskSubset.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t));
@@ -97,6 +165,7 @@ export const BacklogDashboard: React.FC = () => {
       });
       const byStatus = Array.from(statusMap.entries()).map(([status, list]) => createTotalizer(status, list)).sort((a, b) => b.count - a.count);
 
+      // For pendingAll, return simplified structure (no advanced analyses)
       return {
         summary: {
           totalTasks: pendingTasks.length,
@@ -115,17 +184,32 @@ export const BacklogDashboard: React.FC = () => {
         byComplexity,
         byFeature,
         byClient,
+        byModule: [], // Not available for pendingAll
         byStatus,
+        byResponsible: [], // Not available for pendingAll
+        ageAnalysis: {
+          averageAgeDays: 0,
+          ageDistribution: [],
+          oldestTasks: [],
+        },
+        estimateAnalysis: {
+          tasksWithoutEstimate: { count: 0, tasks: [] },
+          estimateDistribution: [],
+          averageEstimate: 0,
+          averageEstimateByType: { bugs: 0, dubidasOcultas: 0, folha: 0, tarefas: 0 },
+        },
+        riskAnalysis: {
+          highRiskTasks: [],
+          riskDistribution: [],
+        },
         tasks: pendingTasks,
       };
     };
 
     if (viewScope === 'backlog') {
-      // Only backlog PENDING tasks to ensure subset of "all pending"
-      const backlogPending = tasks.filter(
-        (t) => (!t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint)) && !isCompletedStatus(t.status)
-      );
-      return buildAnalyticsFromTasks(backlogPending);
+      // Use the full calculateBacklogAnalytics function for backlog scope
+      // This includes all new analyses (age, estimates, risk, module, responsible)
+      return calculateBacklogAnalytics(tasks);
     }
 
     // pendingAll: consider all tasks not completed (including backlog), simple analysis (counts/estimates)
@@ -133,30 +217,59 @@ export const BacklogDashboard: React.FC = () => {
     return buildAnalyticsFromTasks(pendingTasks);
   }, [tasks, viewScope]);
 
+  // Helper to check if task is Folha
+  const isFolhaTask = (t: TaskItem) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
+
   // Filter analytics if needed
+  // CRITICAL: Always start from the complete analytics.tasks array and apply only ONE active filter at a time
+  // Using activeFilter state ensures only one filter can be active at a time - no accumulation possible
   const filteredTasks = useMemo(() => {
-    let filtered = analytics.tasks;
+    // CRITICAL: Always start from a fresh copy of the complete list
+    // This ensures we never accumulate results from previous filters
+    let filtered = [...analytics.tasks];
 
-    if (filterType && filterType !== 'all') {
-      if (filterType === 'bugs') {
-        filtered = filtered.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
-      } else if (filterType === 'dubidasOcultas') {
-        filtered = filtered.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
+    // Apply only ONE filter based on activeFilter state
+    // Since activeFilter is a single state object, only one filter can be active at a time
+    if (!activeFilter) {
+      // No filter active - return all tasks sorted
+    } else if (activeFilter.type === 'type' && activeFilter.value && activeFilter.value !== 'all') {
+      const type = activeFilter.value as string;
+      if (type === 'bugs') {
+        filtered = filtered.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolhaTask(t));
+      } else if (type === 'dubidasOcultas') {
+        filtered = filtered.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTask(t) && !isFolhaTask(t));
+      } else if (type === 'Folha') {
+        filtered = filtered.filter((t) => isFolhaTask(t));
+      } else if (type === 'Tarefa') {
+        // Tarefas são todas que não são bugs reais, dúvidas ocultas ou folha
+        filtered = filtered.filter((t) => 
+          !(t.tipo === 'Bug' && !isDuvidaOcultaTask(t) && !isFolhaTask(t)) &&
+          !(t.tipo === 'Bug' && isDuvidaOcultaTask(t)) &&
+          !isFolhaTask(t)
+        );
       } else {
-        filtered = filtered.filter((t) => t.tipo === filterType);
+        filtered = filtered.filter((t) => t.tipo === type);
       }
+    } else if (activeFilter.type === 'feature' && activeFilter.value && activeFilter.value !== 'all') {
+      const feature = activeFilter.value as string;
+      filtered = filtered.filter((t) => t.feature.includes(feature));
+    } else if (activeFilter.type === 'client' && activeFilter.value && activeFilter.value !== 'all') {
+      const client = activeFilter.value as string;
+      filtered = filtered.filter((t) => taskHasCategory(t.categorias, client));
+    } else if (activeFilter.type === 'complexity' && activeFilter.value !== null) {
+      const complexity = activeFilter.value as number;
+      filtered = filtered.filter((t) => (t.complexidade || 1) === complexity);
     }
 
-    if (filterFeature && filterFeature !== 'all') {
-      filtered = filtered.filter((t) => t.feature.includes(filterFeature));
-    }
-
-    if (filterClient && filterClient !== 'all') {
-      filtered = filtered.filter((t) => taskHasCategory(t.categorias, filterClient));
-    }
+    // Sort by task code (chave) - ascending order
+    filtered = filtered.sort((a, b) => {
+      const codeA = (a.chave || a.id || '').toUpperCase();
+      const codeB = (b.chave || b.id || '').toUpperCase();
+      return codeA.localeCompare(codeB);
+    });
 
     return filtered;
-  }, [analytics.tasks, filterType, filterFeature, filterClient]);
+  }, [analytics.tasks, activeFilter]);
 
   const TOP_OPTIONS = [5, 10, 15, 20, null];
 
@@ -218,12 +331,22 @@ export const BacklogDashboard: React.FC = () => {
             >
               Pendentes (todos)
             </button>
+            {activeFilter && (
+              <button
+                onClick={clearFilters}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-red-500/80 hover:bg-red-500 text-white border border-red-400/50 flex items-center gap-1.5"
+                title="Limpar todos os filtros"
+              >
+                <Filter className="w-3 h-3" />
+                Limpar Filtros
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div ref={summaryRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <SummaryCard
           icon={<Inbox className="w-5 h-5" />}
           label="Total de Tarefas"
@@ -244,6 +367,8 @@ export const BacklogDashboard: React.FC = () => {
           value={analytics.summary.bugs.toString()}
           subtitle={`${formatHours(analytics.byType.bugs.estimatedHours)} estimadas`}
           color="red"
+          onClick={() => applyTypeFilter('bugs')}
+          isActive={filterType === 'bugs'}
         />
         <SummaryCard
           icon={<HelpCircle className="w-5 h-5" />}
@@ -251,6 +376,8 @@ export const BacklogDashboard: React.FC = () => {
           value={analytics.summary.dubidasOcultas.toString()}
           subtitle={`${formatHours(analytics.byType.dubidasOcultas.estimatedHours)} estimadas`}
           color="yellow"
+          onClick={() => applyTypeFilter('dubidasOcultas')}
+          isActive={filterType === 'dubidasOcultas'}
         />
         <SummaryCard
           icon={<FileSpreadsheet className="w-5 h-5" />}
@@ -258,6 +385,8 @@ export const BacklogDashboard: React.FC = () => {
           value={analytics.summary.folha.toString()}
           subtitle={`${formatHours(analytics.byType.folha.estimatedHours)} estimadas`}
           color="green"
+          onClick={() => applyTypeFilter('Folha')}
+          isActive={filterType === 'Folha'}
         />
         <SummaryCard
           icon={<CheckSquare className="w-5 h-5" />}
@@ -265,13 +394,15 @@ export const BacklogDashboard: React.FC = () => {
           value={analytics.summary.tarefas.toString()}
           subtitle={`${formatHours(analytics.byType.tarefas.estimatedHours)} estimadas`}
           color="green"
+          onClick={() => applyTypeFilter('Tarefa')}
+          isActive={filterType === 'Tarefa'}
         />
       </div>
 
       {/* (Removido) Distribuição por Tipo - redundante com os cards do topo */}
 
       {/* Distribution by Complexity */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+      <div ref={byComplexityRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Layers className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Distribuição por Complexidade</h3>
@@ -283,13 +414,15 @@ export const BacklogDashboard: React.FC = () => {
               level={index + 1}
               count={complexity.count}
               hours={complexity.estimatedHours}
+              onClick={() => applyComplexityFilter(index + 1)}
+              isActive={filterComplexity === index + 1}
             />
           ))}
         </div>
       </div>
 
       {/* Analysis by Feature */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+      <div ref={byFeatureRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Code className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -323,7 +456,10 @@ export const BacklogDashboard: React.FC = () => {
           <AnalyticsChart
             data={analytics.byFeature.slice(0, topLimit ?? undefined)}
             title=""
-            onBarClick={(value) => setFilterFeature(value)}
+            onBarClick={(value) => {
+              // Limpar todos os filtros antes de aplicar novo
+              applyFeatureFilter(value);
+            }}
           />
         ) : (
           <div className="space-y-2">
@@ -381,7 +517,7 @@ export const BacklogDashboard: React.FC = () => {
       </div>
 
       {/* Analysis by Client */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+      <div ref={byClientRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -415,7 +551,10 @@ export const BacklogDashboard: React.FC = () => {
           <AnalyticsChart
             data={analytics.byClient.slice(0, topLimit ?? undefined)}
             title=""
-            onBarClick={(value) => setFilterClient(value)}
+            onBarClick={(value) => {
+              // Limpar todos os filtros antes de aplicar novo
+              applyClientFilter(value);
+            }}
           />
         ) : (
           <div className="space-y-2">
@@ -472,11 +611,69 @@ export const BacklogDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* (Removido) Análise por Responsável - não aplicável para backlog */}
+      {/* Analysis by Module */}
+      {viewScope === 'backlog' && analytics.byModule.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Package className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Por Módulo</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              ({analytics.byModule.length} módulos)
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {analytics.byModule.slice(0, 9).map((module, index) => (
+              <div
+                key={module.label}
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{module.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{module.count}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {formatHours(module.estimatedHours)} estimadas
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Analysis by Responsible */}
+      {viewScope === 'backlog' && analytics.byResponsible.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Por Responsável</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              ({analytics.byResponsible.length} responsáveis)
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {analytics.byResponsible.slice(0, 9).map((responsible, index) => (
+              <div
+                key={responsible.label}
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{responsible.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{responsible.count}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {formatHours(responsible.estimatedHours)} estimadas
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Analysis by Status */}
       {analytics.byStatus.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div ref={byStatusRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Por Status</h3>
@@ -501,8 +698,214 @@ export const BacklogDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Age Analysis - Temporal */}
+      {viewScope === 'backlog' && analytics.ageAnalysis.ageDistribution.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CalendarIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Análise Temporal (Idade do Backlog)</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Idade média: {analytics.ageAnalysis.averageAgeDays.toFixed(1)} dias
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {analytics.ageAnalysis.ageDistribution.map((ageRange, index) => (
+              <div
+                key={ageRange.label}
+                className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{ageRange.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{ageRange.count}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {formatHours(ageRange.estimatedHours)} estimadas
+                </p>
+              </div>
+            ))}
+          </div>
+          {analytics.ageAnalysis.oldestTasks.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Tarefas Mais Antigas (Top 5)</p>
+              <div className="space-y-2">
+                {[...analytics.ageAnalysis.oldestTasks].sort((a, b) => {
+                  const codeA = (a.chave || a.id || '').toUpperCase();
+                  const codeB = (b.chave || b.id || '').toUpperCase();
+                  return codeA.localeCompare(codeB);
+                }).slice(0, 5).map((task, index) => {
+                  const ageDays = task.criado && !isNaN(task.criado.getTime())
+                    ? Math.floor((new Date().getTime() - task.criado.getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+                  return (
+                    <div key={task.id || task.chave} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {task.chave || task.id}: {task.resumo}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {ageDays !== null ? `${ageDays} dias` : 'Data inválida'}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                        {formatHours(task.estimativa || 0)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Estimate Analysis */}
+      {viewScope === 'backlog' && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Análise de Estimativas</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Média: {formatHours(analytics.estimateAnalysis.averageEstimate)}
+            </span>
+          </div>
+          {analytics.estimateAnalysis.tasksWithoutEstimate.count > 0 && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                ⚠️ {analytics.estimateAnalysis.tasksWithoutEstimate.count} tarefa{analytics.estimateAnalysis.tasksWithoutEstimate.count !== 1 ? 's' : ''} sem estimativa
+              </p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+            {analytics.estimateAnalysis.estimateDistribution.map((range, index) => (
+              <div
+                key={range.label}
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{range.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{range.count}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {formatHours(range.estimatedHours)} estimadas
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Média de Estimativa por Tipo</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Bugs</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {formatHours(analytics.estimateAnalysis.averageEstimateByType.bugs)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Dúvidas Ocultas</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {formatHours(analytics.estimateAnalysis.averageEstimateByType.dubidasOcultas)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Folha</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {formatHours(analytics.estimateAnalysis.averageEstimateByType.folha)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Tarefas</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {formatHours(analytics.estimateAnalysis.averageEstimateByType.tarefas)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Risk Analysis */}
+      {viewScope === 'backlog' && analytics.riskAnalysis.riskDistribution.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Análise de Risco</h3>
+            {analytics.riskAnalysis.highRiskTasks.length > 0 && (
+              <span className="text-sm text-red-600 dark:text-red-400 font-medium">
+                {analytics.riskAnalysis.highRiskTasks.length} tarefa{analytics.riskAnalysis.highRiskTasks.length !== 1 ? 's' : ''} de alto risco
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {analytics.riskAnalysis.riskDistribution.map((risk, index) => {
+              const colorClasses = {
+                'Baixo': 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800',
+                'Médio': 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-800',
+                'Alto': 'from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800',
+                'Crítico': 'from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200 dark:border-red-800',
+              };
+              const colorClass = colorClasses[risk.label as keyof typeof colorClasses] || colorClasses['Baixo'];
+              return (
+                <div
+                  key={risk.label}
+                  className={`bg-gradient-to-br ${colorClass} rounded-lg p-4 border-2`}
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{risk.label}</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white">{risk.count}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">tarefas</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {formatHours(risk.estimatedHours)} estimadas
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {analytics.riskAnalysis.highRiskTasks.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Tarefas de Alto Risco (Top 10)</p>
+              <div className="space-y-2">
+                {[...analytics.riskAnalysis.highRiskTasks].sort((a, b) => {
+                  const codeA = (a.task.chave || a.task.id || '').toUpperCase();
+                  const codeB = (b.task.chave || b.task.id || '').toUpperCase();
+                  return codeA.localeCompare(codeB);
+                }).slice(0, 10).map((riskItem, index) => (
+                  <div key={riskItem.task.id || riskItem.task.chave} className="flex items-start justify-between py-2 px-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-red-600 dark:text-red-400">
+                          Risco: {riskItem.riskScore}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {riskItem.task.chave || riskItem.task.id}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {riskItem.task.resumo}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {riskItem.riskFactors.map((factor, idx) => (
+                          <span key={idx} className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded">
+                            {factor}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                      {formatHours(riskItem.task.estimativa || 0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Priority Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div ref={insightsRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Insights Card */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl shadow-md border border-blue-200 dark:border-blue-800 p-6">
           <div className="flex items-start gap-3">
@@ -541,6 +944,30 @@ export const BacklogDashboard: React.FC = () => {
                     <span className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</span>
                     <p className="text-orange-600 dark:text-orange-400">
                       <strong>{analytics.byComplexity.filter((c, i) => i >= 3 && c.count > 0).reduce((sum, c) => sum + c.count, 0)}</strong> tarefas de alta complexidade (4-5) no backlog
+                    </p>
+                  </div>
+                )}
+                {viewScope === 'backlog' && analytics.ageAnalysis.averageAgeDays > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-500 dark:text-blue-400 mt-0.5">📅</span>
+                    <p>
+                      Idade média do backlog: <strong>{analytics.ageAnalysis.averageAgeDays.toFixed(1)} dias</strong>
+                    </p>
+                  </div>
+                )}
+                {viewScope === 'backlog' && analytics.estimateAnalysis.tasksWithoutEstimate.count > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-yellow-500 dark:text-yellow-400 mt-0.5">⚠️</span>
+                    <p className="text-yellow-600 dark:text-yellow-400">
+                      <strong>{analytics.estimateAnalysis.tasksWithoutEstimate.count}</strong> tarefa{analytics.estimateAnalysis.tasksWithoutEstimate.count !== 1 ? 's' : ''} sem estimativa
+                    </p>
+                  </div>
+                )}
+                {viewScope === 'backlog' && analytics.riskAnalysis.highRiskTasks.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 dark:text-red-400 mt-0.5">🚨</span>
+                    <p className="text-red-600 dark:text-red-400">
+                      <strong>{analytics.riskAnalysis.highRiskTasks.length}</strong> tarefa{analytics.riskAnalysis.highRiskTasks.length !== 1 ? 's' : ''} de alto risco precisam atenção imediata
                     </p>
                   </div>
                 )}
@@ -587,7 +1014,7 @@ export const BacklogDashboard: React.FC = () => {
       </div>
 
       {/* Task List (optional reading view) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+      <div ref={taskListRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -653,9 +1080,11 @@ interface SummaryCardProps {
   value: string;
   subtitle: string;
   color: 'gray' | 'blue' | 'red' | 'yellow' | 'green' | 'purple';
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle, color }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle, color, onClick, isActive }) => {
   const colorClasses = {
     gray: 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600',
     blue: 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
@@ -665,8 +1094,13 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle,
     purple: 'bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800',
   };
 
+  const activeClasses = isActive ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400 shadow-lg scale-105' : '';
+
   return (
-    <div className={`rounded-xl border-2 ${colorClasses[color]} p-4 hover:shadow-lg transition-all duration-300`}>
+    <div 
+      className={`rounded-xl border-2 ${colorClasses[color]} p-4 hover:shadow-lg transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${activeClasses}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-2 mb-2">
         {icon}
         <p className="text-xs font-medium opacity-80">{label}</p>
@@ -740,9 +1174,11 @@ interface ComplexityCardProps {
   level: number;
   count: number;
   hours: number;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
-const ComplexityCard: React.FC<ComplexityCardProps> = ({ level, count, hours }) => {
+const ComplexityCard: React.FC<ComplexityCardProps> = ({ level, count, hours, onClick, isActive }) => {
   const colors = [
     { bg: 'from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30', border: 'border-green-200 dark:border-green-800', text: 'text-green-700 dark:text-green-400' },
     { bg: 'from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-400' },
@@ -752,9 +1188,13 @@ const ComplexityCard: React.FC<ComplexityCardProps> = ({ level, count, hours }) 
   ];
 
   const color = colors[level - 1] || colors[0];
+  const activeClasses = isActive ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400 shadow-lg scale-105' : '';
 
   return (
-    <div className={`rounded-xl border-2 bg-gradient-to-br ${color.bg} ${color.border} p-4 hover:shadow-lg transition-all duration-300`}>
+    <div 
+      className={`rounded-xl border-2 bg-gradient-to-br ${color.bg} ${color.border} p-4 hover:shadow-lg transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${activeClasses}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-2 mb-2">
         <Layers className={`w-4 h-4 ${color.text}`} />
         <p className={`text-sm font-medium ${color.text}`}>Nível {level}</p>

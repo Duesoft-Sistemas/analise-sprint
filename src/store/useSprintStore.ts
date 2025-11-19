@@ -859,14 +859,35 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   },
 
   setTaskFilters: (filters: TaskFilters) => {
+    // Limpar todos os filtros antes de aplicar novos
+    set({ 
+      taskFilters: {},
+      analyticsFilter: null,
+      selectedDeveloper: null,
+    });
+    // Aplicar o novo filtro
     set({ taskFilters: filters });
   },
 
   setSelectedDeveloper: (developer: string | null) => {
+    // Limpar todos os filtros antes de aplicar novo desenvolvedor
+    set({ 
+      taskFilters: {},
+      analyticsFilter: null,
+    });
+    // Aplicar o novo desenvolvedor
     set({ selectedDeveloper: developer });
   },
 
-  setAnalyticsFilter: (filter) => set({ selectedDeveloper: null, analyticsFilter: filter }),
+  setAnalyticsFilter: (filter) => {
+    // Limpar todos os filtros antes de aplicar novo filtro de analytics
+    set({ 
+      taskFilters: {},
+      selectedDeveloper: null,
+    });
+    // Aplicar o novo filtro de analytics
+    set({ analyticsFilter: filter });
+  },
 
   clearData: () => {
     set({

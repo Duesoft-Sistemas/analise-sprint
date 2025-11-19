@@ -644,6 +644,53 @@ export function calculateBacklogAnalysisByClient(backlogTasks: TaskItem[]): Tota
 // BACKLOG ANALYTICS - Complete backlog analysis for sprint allocation
 // =============================================================================
 
+// Age analysis for backlog tasks
+export interface BacklogAgeAnalysis {
+  averageAgeDays: number; // Average age in days
+  ageDistribution: {
+    label: string; // Age range label
+    count: number;
+    estimatedHours: number;
+    tasks: TaskItem[];
+  }[];
+  oldestTasks: TaskItem[]; // Top 10 oldest tasks
+}
+
+// Estimate analysis for backlog tasks
+export interface BacklogEstimateAnalysis {
+  tasksWithoutEstimate: {
+    count: number;
+    tasks: TaskItem[];
+  };
+  estimateDistribution: {
+    label: string; // Estimate range label
+    count: number;
+    estimatedHours: number;
+    tasks: TaskItem[];
+  }[];
+  averageEstimate: number;
+  averageEstimateByType: {
+    bugs: number;
+    dubidasOcultas: number;
+    folha: number;
+    tarefas: number;
+  };
+}
+
+// Risk analysis for backlog tasks
+export interface BacklogRiskAnalysis {
+  highRiskTasks: {
+    task: TaskItem;
+    riskScore: number; // 0-100, higher = more risk
+    riskFactors: string[]; // List of risk factors
+  }[];
+  riskDistribution: {
+    label: string; // Risk level (Baixo, Médio, Alto, Crítico)
+    count: number;
+    estimatedHours: number;
+  }[];
+}
+
 export interface BacklogAnalytics {
   summary: {
     totalTasks: number;
@@ -662,7 +709,12 @@ export interface BacklogAnalytics {
   byComplexity: Totalizer[];
   byFeature: Totalizer[];
   byClient: Totalizer[];
+  byModule: Totalizer[]; // NEW: Analysis by module
   byStatus: Totalizer[];
+  byResponsible: Totalizer[]; // NEW: Analysis by responsible
+  ageAnalysis: BacklogAgeAnalysis; // NEW: Temporal/age analysis
+  estimateAnalysis: BacklogEstimateAnalysis; // NEW: Estimate analysis
+  riskAnalysis: BacklogRiskAnalysis; // NEW: Risk analysis
   tasks: TaskItem[]; // All backlog tasks
 }
 
@@ -675,6 +727,223 @@ function createBacklogTotalizer(label: string, tasks: TaskItem[]): Totalizer {
     count: tasks.length,
     hours: 0, // Backlog não tem horas trabalhadas
     estimatedHours: tasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+  };
+}
+
+/**
+ * Calculate age in days from creation date to today
+ */
+function calculateTaskAgeDays(task: TaskItem): number | null {
+  if (!task.criado || isNaN(task.criado.getTime())) {
+    return null; // Invalid or missing date
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const createdDate = new Date(task.criado);
+  createdDate.setHours(0, 0, 0, 0);
+  const diffTime = today.getTime() - createdDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays); // Ensure non-negative
+}
+
+/**
+ * Calculate backlog age analysis
+ */
+function calculateBacklogAgeAnalysis(tasks: TaskItem[]): BacklogAgeAnalysis {
+  const tasksWithAge = tasks
+    .map(task => ({ task, ageDays: calculateTaskAgeDays(task) }))
+    .filter(item => item.ageDays !== null) as { task: TaskItem; ageDays: number }[];
+
+  // Calculate average age
+  const averageAgeDays = tasksWithAge.length > 0
+    ? tasksWithAge.reduce((sum, item) => sum + item.ageDays, 0) / tasksWithAge.length
+    : 0;
+
+  // Age distribution: 0-7, 8-30, 31-90, 90+
+  const ageRanges = [
+    { label: '0-7 dias', min: 0, max: 7 },
+    { label: '8-30 dias', min: 8, max: 30 },
+    { label: '31-90 dias', min: 31, max: 90 },
+    { label: '90+ dias', min: 91, max: Infinity },
+  ];
+
+  const ageDistribution = ageRanges.map(range => {
+    const tasksInRange = tasksWithAge.filter(
+      item => item.ageDays >= range.min && item.ageDays <= range.max
+    );
+    return {
+      label: range.label,
+      count: tasksInRange.length,
+      estimatedHours: tasksInRange.reduce((sum, item) => sum + (item.task.estimativa || 0), 0),
+      tasks: tasksInRange.map(item => item.task),
+    };
+  });
+
+  // Oldest tasks (top 10)
+  const oldestTasks = tasksWithAge
+    .sort((a, b) => b.ageDays - a.ageDays)
+    .slice(0, 10)
+    .map(item => item.task);
+
+  return {
+    averageAgeDays: Math.round(averageAgeDays * 10) / 10, // Round to 1 decimal
+    ageDistribution,
+    oldestTasks,
+  };
+}
+
+/**
+ * Calculate backlog estimate analysis
+ */
+function calculateBacklogEstimateAnalysis(
+  tasks: TaskItem[],
+  bugs: TaskItem[],
+  dubidasOcultas: TaskItem[],
+  folha: TaskItem[],
+  tarefas: TaskItem[]
+): BacklogEstimateAnalysis {
+  // Tasks without estimate
+  const tasksWithoutEstimate = tasks.filter(t => !t.estimativa || t.estimativa === 0);
+
+  // Estimate distribution: 0-2h, 2-4h, 4-8h, 8-16h, 16h+
+  const estimateRanges = [
+    { label: '0-2h', min: 0, max: 2 },
+    { label: '2-4h', min: 2, max: 4 },
+    { label: '4-8h', min: 4, max: 8 },
+    { label: '8-16h', min: 8, max: 16 },
+    { label: '16h+', min: 16, max: Infinity },
+  ];
+
+  const estimateDistribution = estimateRanges.map(range => {
+    const tasksInRange = tasks.filter(
+      t => t.estimativa && t.estimativa > range.min && t.estimativa <= range.max
+    );
+    return {
+      label: range.label,
+      count: tasksInRange.length,
+      estimatedHours: tasksInRange.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      tasks: tasksInRange,
+    };
+  });
+
+  // Average estimate
+  const tasksWithEstimate = tasks.filter(t => t.estimativa && t.estimativa > 0);
+  const averageEstimate = tasksWithEstimate.length > 0
+    ? tasksWithEstimate.reduce((sum, t) => sum + (t.estimativa || 0), 0) / tasksWithEstimate.length
+    : 0;
+
+  // Average estimate by type
+  const calculateAverage = (taskList: TaskItem[]) => {
+    const withEstimate = taskList.filter(t => t.estimativa && t.estimativa > 0);
+    return withEstimate.length > 0
+      ? withEstimate.reduce((sum, t) => sum + (t.estimativa || 0), 0) / withEstimate.length
+      : 0;
+  };
+
+  return {
+    tasksWithoutEstimate: {
+      count: tasksWithoutEstimate.length,
+      tasks: tasksWithoutEstimate,
+    },
+    estimateDistribution,
+    averageEstimate: Math.round(averageEstimate * 10) / 10,
+    averageEstimateByType: {
+      bugs: Math.round(calculateAverage(bugs) * 10) / 10,
+      dubidasOcultas: Math.round(calculateAverage(dubidasOcultas) * 10) / 10,
+      folha: Math.round(calculateAverage(folha) * 10) / 10,
+      tarefas: Math.round(calculateAverage(tarefas) * 10) / 10,
+    },
+  };
+}
+
+/**
+ * Calculate backlog risk analysis
+ * Risk factors:
+ * - Old age (>30 days): +30 points
+ * - Very old age (>90 days): +50 points
+ * - No estimate: +20 points
+ * - High complexity (4-5): +20 points
+ * - Very high complexity (5): +30 points
+ * - Real bug (vs dúvida oculta): +10 points
+ */
+function calculateBacklogRiskAnalysis(
+  tasks: TaskItem[],
+  bugs: TaskItem[]
+): BacklogRiskAnalysis {
+  const calculateRiskScore = (task: TaskItem): { score: number; factors: string[] } => {
+    let score = 0;
+    const factors: string[] = [];
+
+    // Age risk
+    const ageDays = calculateTaskAgeDays(task);
+    if (ageDays !== null) {
+      if (ageDays > 90) {
+        score += 50;
+        factors.push(`Muito antiga (${ageDays} dias)`);
+      } else if (ageDays > 30) {
+        score += 30;
+        factors.push(`Antiga (${ageDays} dias)`);
+      }
+    }
+
+    // Estimate risk
+    if (!task.estimativa || task.estimativa === 0) {
+      score += 20;
+      factors.push('Sem estimativa');
+    }
+
+    // Complexity risk
+    const complexity = task.complexidade || 1;
+    if (complexity === 5) {
+      score += 30;
+      factors.push('Complexidade muito alta (5)');
+    } else if (complexity >= 4) {
+      score += 20;
+      factors.push(`Complexidade alta (${complexity})`);
+    }
+
+    // Bug risk (real bugs are more urgent than dúvidas ocultas)
+    if (task.tipo === 'Bug' && !isDuvidaOcultaTask(task)) {
+      score += 10;
+      factors.push('Bug real');
+    }
+
+    return { score: Math.min(100, score), factors };
+  };
+
+  // Calculate risk for all tasks
+  const tasksWithRisk = tasks.map(task => {
+    const { score, factors } = calculateRiskScore(task);
+    return { task, riskScore: score, riskFactors: factors };
+  });
+
+  // High risk tasks (score >= 40)
+  const highRiskTasks = tasksWithRisk
+    .filter(item => item.riskScore >= 40)
+    .sort((a, b) => b.riskScore - a.riskScore);
+
+  // Risk distribution
+  const riskLevels = [
+    { label: 'Baixo', min: 0, max: 19 },
+    { label: 'Médio', min: 20, max: 39 },
+    { label: 'Alto', min: 40, max: 69 },
+    { label: 'Crítico', min: 70, max: 100 },
+  ];
+
+  const riskDistribution = riskLevels.map(level => {
+    const tasksInLevel = tasksWithRisk.filter(
+      item => item.riskScore >= level.min && item.riskScore <= level.max
+    );
+    return {
+      label: level.label,
+      count: tasksInLevel.length,
+      estimatedHours: tasksInLevel.reduce((sum, item) => sum + (item.task.estimativa || 0), 0),
+    };
+  });
+
+  return {
+    highRiskTasks,
+    riskDistribution,
   };
 }
 
@@ -739,6 +1008,38 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   // By Client
   const byClient = calculateBacklogAnalysisByClient(backlogFiltered);
 
+  // By Module
+  const moduleMap = new Map<string, TaskItem[]>();
+  backlogFiltered.forEach((task) => {
+    const module = task.modulo || '(Sem Módulo)';
+    if (!moduleMap.has(module)) {
+      moduleMap.set(module, []);
+    }
+    moduleMap.get(module)!.push(task);
+  });
+
+  const byModule: Totalizer[] = [];
+  moduleMap.forEach((tasks, module) => {
+    byModule.push(createBacklogTotalizer(module, tasks));
+  });
+  byModule.sort((a, b) => b.estimatedHours - a.estimatedHours);
+
+  // By Responsible
+  const responsibleMap = new Map<string, TaskItem[]>();
+  backlogFiltered.forEach((task) => {
+    const responsible = task.responsavel || '(Sem Responsável)';
+    if (!responsibleMap.has(responsible)) {
+      responsibleMap.set(responsible, []);
+    }
+    responsibleMap.get(responsible)!.push(task);
+  });
+
+  const byResponsible: Totalizer[] = [];
+  responsibleMap.forEach((tasks, responsible) => {
+    byResponsible.push(createBacklogTotalizer(responsible, tasks));
+  });
+  byResponsible.sort((a, b) => b.estimatedHours - a.estimatedHours);
+
   // By Status
   const statusMap = new Map<string, TaskItem[]>();
   backlogFiltered.forEach((task) => {
@@ -755,13 +1056,33 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   });
   byStatus.sort((a, b) => b.count - a.count);
 
+  // NEW: Age Analysis
+  const ageAnalysis = calculateBacklogAgeAnalysis(backlogFiltered);
+
+  // NEW: Estimate Analysis
+  const estimateAnalysis = calculateBacklogEstimateAnalysis(
+    backlogFiltered,
+    bugs,
+    dubidasOcultas,
+    folhaTasks,
+    tarefas
+  );
+
+  // NEW: Risk Analysis
+  const riskAnalysis = calculateBacklogRiskAnalysis(backlogFiltered, bugs);
+
   return {
     summary,
     byType,
     byComplexity,
     byFeature,
     byClient,
+    byModule,
     byStatus,
+    byResponsible,
+    ageAnalysis,
+    estimateAnalysis,
+    riskAnalysis,
     tasks: backlogFiltered,
   };
 }
@@ -1174,11 +1495,14 @@ export function calculateBacklogFlowBySprint(
 }
 
 export interface CapacityRecommendation {
-  suggestedDevsP50: number;
-  suggestedDevsP80: number;
+  suggestedDevsP50: number; // Additional devs needed (P50)
+  suggestedDevsP80: number; // Additional devs needed (P80)
   throughputPerDevP50: number;
   throughputPerDevP80: number;
   avgInflow: number;
+  avgCurrentDevs: number; // Average current devs in recent sprints
+  totalDevsNeededP50: number; // Total devs needed (P50)
+  totalDevsNeededP80: number; // Total devs needed (P80)
 }
 
 /**
@@ -1231,8 +1555,26 @@ export function calculateCapacityRecommendation(
   const thetaP50 = percentile(0.5);
   const thetaP80 = percentile(0.8);
 
-  const suggestedDevsP50 = thetaP50 > 0 ? Math.ceil(avgInflow / thetaP50) : 0;
-  const suggestedDevsP80 = thetaP80 > 0 ? Math.ceil(avgInflow / thetaP80) : 0;
+  // Calculate total devs needed
+  const totalDevsNeededP50 = thetaP50 > 0 ? Math.ceil(avgInflow / thetaP50) : 0;
+  const totalDevsNeededP80 = thetaP80 > 0 ? Math.ceil(avgInflow / thetaP80) : 0;
+
+  // Calculate average current devs (from recent sprints - last 3 sprints or all if less than 3)
+  const recentSprints = ordered.slice(-3);
+  const currentDevCounts: number[] = [];
+  for (const meta of recentSprints) {
+    const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
+    const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
+    const devs = new Set<string>(completed.map(t => t.responsavel).filter(Boolean));
+    currentDevCounts.push(devs.size || 0);
+  }
+  const avgCurrentDevs = currentDevCounts.length > 0
+    ? Math.round(currentDevCounts.reduce((sum, count) => sum + count, 0) / currentDevCounts.length)
+    : 0;
+
+  // Calculate additional devs needed (total needed - current)
+  const suggestedDevsP50 = Math.max(0, totalDevsNeededP50 - avgCurrentDevs);
+  const suggestedDevsP80 = Math.max(0, totalDevsNeededP80 - avgCurrentDevs);
 
   return {
     suggestedDevsP50,
@@ -1240,6 +1582,9 @@ export function calculateCapacityRecommendation(
     throughputPerDevP50: thetaP50,
     throughputPerDevP80: thetaP80,
     avgInflow,
+    avgCurrentDevs, // Add this for display
+    totalDevsNeededP50, // Add this for display
+    totalDevsNeededP80, // Add this for display
   };
 }
 

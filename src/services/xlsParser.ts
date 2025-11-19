@@ -38,6 +38,7 @@ const COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'Campo personalizado (Complexidade)': ['Campo personalizado (Complexidade)'],
   'Campo personalizado (Nota Teste)': ['Campo personalizado (Nota Teste)', 'Campo personalizado (Nota de Teste)'],
   'Campo personalizado (Qualidade do Chamado)': ['Campo personalizado (Qualidade do Chamado)'],
+  'Campo personalizado (Data Limite)': ['Campo personalizado (Data Limite)', 'Data Limite', 'Data limite'],
 };
 
 /**
@@ -373,6 +374,8 @@ function parseXlsDataWithMultipleColumns(
       const complexidade = parseComplexidade(getColumnValue(jsonRow, 'Campo personalizado (Complexidade)'));
       const notaTeste = parseNotaTeste(getColumnValue(jsonRow, 'Campo personalizado (Nota Teste)'));
       const qualidadeChamado = getColumnValue(jsonRow, 'Campo personalizado (Qualidade do Chamado)');
+      const dataLimiteRaw = getColumnValue(jsonRow, 'Campo personalizado (Data Limite)');
+      const dataLimite = dataLimiteRaw && dataLimiteRaw.trim() !== '' ? parseDate(dataLimiteRaw) : undefined;
       
       // Ler o tipo diretamente da coluna, se existir
       const tipoRaw = getColumnValue(jsonRow, 'Tipo de item');
@@ -405,6 +408,7 @@ function parseXlsDataWithMultipleColumns(
         complexidade: complexidade,
         notaTeste: notaTeste ?? undefined,
         qualidadeChamado: qualidadeChamado || undefined,
+        dataLimite: dataLimite,
       };
 
       tasks.push(task);

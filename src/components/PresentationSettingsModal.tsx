@@ -9,11 +9,41 @@ interface Props {
 }
 
 const DEFAULT_STEPS: PresentationStep[] = [
+  // Sprint sections
   { view: 'sprint', section: 'summary' },
   { view: 'sprint', section: 'byFeature' },
   { view: 'sprint', section: 'byClient' },
   { view: 'sprint', section: 'developers' },
-  { view: 'multiSprint' },
+  // Multi-Sprint sections
+  { view: 'multiSprint', multiSection: 'sprintDistribution' },
+  { view: 'multiSprint', multiSection: 'developerAllocation' },
+  { view: 'multiSprint', multiSection: 'clientAllocation' },
+  { view: 'multiSprint', multiSection: 'featureAnalysis' },
+  { view: 'multiSprint', multiSection: 'managementKPIs' },
+  // Other views
+  { view: 'evolution' },
+  { view: 'quality' },
+  { view: 'inconsistencies' },
+  // Backlog sections
+  { view: 'backlog', backlogSection: 'summary' },
+  { view: 'backlog', backlogSection: 'byComplexity' },
+  { view: 'backlog', backlogSection: 'byFeature' },
+  { view: 'backlog', backlogSection: 'byClient' },
+  { view: 'backlog', backlogSection: 'byStatus' },
+  { view: 'backlog', backlogSection: 'insights' },
+  { view: 'backlog', backlogSection: 'taskList' },
+  // BacklogFlow sections
+  { view: 'backlogFlow', backlogFlowSection: 'kpis' },
+  { view: 'backlogFlow', backlogFlowSection: 'kpisHours' },
+  { view: 'backlogFlow', backlogFlowSection: 'chart' },
+  { view: 'backlogFlow', backlogFlowSection: 'chartHours' },
+  { view: 'backlogFlow', backlogFlowSection: 'capacity' },
+  { view: 'backlogFlow', backlogFlowSection: 'help' },
+  // Delivery sections
+  { view: 'delivery', deliverySection: 'dataLimite' },
+  { view: 'delivery', deliverySection: 'previsao' },
+  { view: 'delivery', deliverySection: 'cronograma' },
+  { view: 'delivery', deliverySection: 'taskList' },
 ];
 
 export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -25,7 +55,16 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
   const nextStep = useSprintStore((s) => s.nextPresentationStep);
 
   const [seconds, setSeconds] = useState<number>(Math.round(presentation.intervalMs / 1000));
-  const [localSteps, setLocalSteps] = useState<PresentationStep[]>(presentation.steps.length ? presentation.steps : DEFAULT_STEPS);
+  const [localSteps, setLocalSteps] = useState<PresentationStep[]>(
+    presentation.steps.length ? presentation.steps : DEFAULT_STEPS
+  );
+
+  // Initialize with all steps selected when modal opens if no steps are configured
+  useEffect(() => {
+    if (isOpen && presentation.steps.length === 0) {
+      setLocalSteps(DEFAULT_STEPS);
+    }
+  }, [isOpen, presentation.steps.length]);
 
   useEffect(() => {
     setSeconds(Math.round(presentation.intervalMs / 1000));
@@ -37,7 +76,7 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
     } else {
       setLocalSteps(presentation.steps);
     }
-  }, [presentation.steps]);
+  }, [presentation.steps, isOpen]);
 
   const onSave = () => {
     setPresentationConfig({ intervalMs: seconds * 1000, isActive: true });
@@ -57,7 +96,11 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
     localSteps.some(predicate);
 
   const sameStep = (a: PresentationStep, b: PresentationStep) =>
-    a.view === b.view && a.section === b.section && a.multiSection === b.multiSection;
+    a.view === b.view && 
+    a.section === b.section && 
+    a.multiSection === b.multiSection &&
+    a.backlogSection === b.backlogSection &&
+    a.backlogFlowSection === b.backlogFlowSection;
 
   const toggleStep = (step: PresentationStep) => {
     const exists = localSteps.find((s) => sameStep(s, step));
@@ -165,14 +208,6 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"
-                  checked={stepChecked((s) => s.view === 'performance')}
-                  onChange={() => toggleStep({ view: 'performance' })}
-                />
-                Performance
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                <input
-                  type="checkbox"
                   checked={stepChecked((s) => s.view === 'evolution')}
                   onChange={() => toggleStep({ view: 'evolution' })}
                 />
@@ -194,21 +229,144 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
                 />
                 Inconsistências
               </label>
+              <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Backlog</div>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"
-                  checked={stepChecked((s) => s.view === 'backlog')}
-                  onChange={() => toggleStep({ view: 'backlog' })}
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'summary')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'summary' })}
                 />
-                Backlog
+                Resumo
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"
-                  checked={stepChecked((s) => s.view === 'backlogFlow')}
-                  onChange={() => toggleStep({ view: 'backlogFlow' })}
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'byComplexity')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'byComplexity' })}
                 />
-                Fluxo & Capacidade
+                Por Complexidade
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'byFeature')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'byFeature' })}
+                />
+                Por Feature
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'byClient')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'byClient' })}
+                />
+                Por Cliente
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'byStatus')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'byStatus' })}
+                />
+                Por Status
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'insights')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'insights' })}
+                />
+                Insights
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlog' && s.backlogSection === 'taskList')}
+                  onChange={() => toggleStep({ view: 'backlog', backlogSection: 'taskList' })}
+                />
+                Lista de Tarefas
+              </label>
+              <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Fluxo & Capacidade</div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'kpis')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'kpis' })}
+                />
+                KPIs (Tickets)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'kpisHours')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'kpisHours' })}
+                />
+                KPIs (Horas)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'chart')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'chart' })}
+                />
+                Gráfico (Tickets)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'chartHours')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'chartHours' })}
+                />
+                Gráfico (Horas)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'capacity')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'capacity' })}
+                />
+                Recomendação de Capacidade
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'backlogFlow' && s.backlogFlowSection === 'help')}
+                  onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'help' })}
+                />
+                Ajuda
+              </label>
+              <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Gestão de Entregas</div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'delivery' && s.deliverySection === 'dataLimite')}
+                  onChange={() => toggleStep({ view: 'delivery', deliverySection: 'dataLimite' })}
+                />
+                Tarefas com Data Limite
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'delivery' && s.deliverySection === 'previsao')}
+                  onChange={() => toggleStep({ view: 'delivery', deliverySection: 'previsao' })}
+                />
+                Tarefas com Previsão
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'delivery' && s.deliverySection === 'cronograma')}
+                  onChange={() => toggleStep({ view: 'delivery', deliverySection: 'cronograma' })}
+                />
+                Cronograma por Cliente
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'delivery' && s.deliverySection === 'taskList')}
+                  onChange={() => toggleStep({ view: 'delivery', deliverySection: 'taskList' })}
+                />
+                Lista de Tarefas
               </label>
             </div>
           </div>
