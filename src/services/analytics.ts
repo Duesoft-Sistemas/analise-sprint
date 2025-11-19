@@ -1494,6 +1494,15 @@ export function calculateBacklogFlowBySprint(
   return { legacyInflow, series, completedWithoutSprint, averages, currentBacklog, allocation };
 }
 
+export interface SprintThroughputData {
+  sprintName: string;
+  throughputPerDev: number;
+  completedTasks: number;
+  devCount: number;
+  dateInicio: Date;
+  dateFim: Date;
+}
+
 export interface CapacityRecommendation {
   suggestedDevsP50: number; // Additional devs needed (P50)
   suggestedDevsP80: number; // Additional devs needed (P80)
@@ -1503,6 +1512,7 @@ export interface CapacityRecommendation {
   avgCurrentDevs: number; // Average current devs in recent sprints
   totalDevsNeededP50: number; // Total devs needed (P50)
   totalDevsNeededP80: number; // Total devs needed (P80)
+  sprintData: SprintThroughputData[]; // Throughput data per sprint
 }
 
 /**
@@ -1527,6 +1537,7 @@ export function calculateCapacityRecommendation(
       avgCurrentDevs: selectedDevs && selectedDevs.size > 0 ? selectedDevs.size : 0,
       totalDevsNeededP50: 0,
       totalDevsNeededP80: 0,
+      sprintData: [],
     };
   }
 
@@ -1540,8 +1551,21 @@ export function calculateCapacityRecommendation(
   const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
   const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
   const perSprintThroughputPerDev: number[] = [];
+  const sprintData: SprintThroughputData[] = [];
+
+  // Get current date to filter only completed sprints
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
 
   for (const meta of ordered) {
+    // Only process completed sprints (end date in the past)
+    const sprintEndDate = new Date(meta.dataFim);
+    sprintEndDate.setHours(23, 59, 59, 999);
+    if (sprintEndDate.getTime() >= now.getTime()) {
+      // Skip sprints that haven't ended yet
+      continue;
+    }
+
     const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
     const completed = sprintTasks.filter(t => isCompletedStatus(t.status));
     
@@ -1552,8 +1576,20 @@ export function calculateCapacityRecommendation(
     
     const devs = new Set<string>(filteredCompleted.map(t => t.responsavel).filter(Boolean));
     const devCount = devs.size || 1; // avoid division by zero
-    const throughput = filteredCompleted.length;
-    perSprintThroughputPerDev.push(throughput / devCount);
+    const completedCount = filteredCompleted.length;
+    const throughput = completedCount / devCount;
+    
+    perSprintThroughputPerDev.push(throughput);
+    
+    // Store detailed sprint data
+    sprintData.push({
+      sprintName: meta.sprint,
+      throughputPerDev: throughput,
+      completedTasks: completedCount,
+      devCount: devCount,
+      dateInicio: meta.dataInicio,
+      dateFim: meta.dataFim,
+    });
   }
 
   const sorted = perSprintThroughputPerDev.slice().sort((a, b) => a - b);
@@ -1577,8 +1613,13 @@ export function calculateCapacityRecommendation(
     // User selected specific devs - use that as the current capacity
     avgCurrentDevs = selectedDevs.size;
   } else {
-    // No devs selected - calculate average from recent sprints (last 3 sprints or all if less than 3)
-    const recentSprints = ordered.slice(-3);
+    // No devs selected - calculate average from recent completed sprints (last 3 sprints or all if less than 3)
+    const completedSprints = ordered.filter(meta => {
+      const sprintEndDate = new Date(meta.dataFim);
+      sprintEndDate.setHours(23, 59, 59, 999);
+      return sprintEndDate.getTime() < now.getTime();
+    });
+    const recentSprints = completedSprints.slice(-3);
     const currentDevCounts: number[] = [];
     for (const meta of recentSprints) {
       const sprintTasks = tasksWithSprint.filter(t => t.sprint === meta.sprint);
@@ -1605,6 +1646,7 @@ export function calculateCapacityRecommendation(
     avgCurrentDevs, // Add this for display
     totalDevsNeededP50, // Add this for display
     totalDevsNeededP80, // Add this for display
+    sprintData, // Detailed data per sprint
   };
 }
 

@@ -27,14 +27,6 @@ function App() {
         {!showDashboard ? (
           <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="max-w-2xl mx-auto animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 mb-6 transition-colors duration-300">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  Bem-vindo!
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Para começar, faça upload dos arquivos Excel com os dados do seu sprint.
-                </p>
-              </div>
               <XlsUploader />
               
               {/* Analysis gating and alert */}

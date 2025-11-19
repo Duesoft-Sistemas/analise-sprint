@@ -45,6 +45,7 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
   const [showCapacityHelp, setShowCapacityHelp] = useState(false);
   const [selectedDevs, setSelectedDevs] = useState<Set<string>>(new Set());
   const [showDevSelector, setShowDevSelector] = useState(false);
+  const [selectedCapacityPercentile, setSelectedCapacityPercentile] = useState<'P50' | 'P80' | null>(null);
 
   // Get all unique developers who completed tasks in sprints
   const allDevs = useMemo(() => {
@@ -781,6 +782,9 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
               value={`+${capacityReco.suggestedDevsP50}`}
               subtitle={`${capacityReco.totalDevsNeededP50} devs no total | ${capacityReco.throughputPerDevP50.toFixed(2)} tickets/dev/sprint`}
               color="green"
+              onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P50' ? null : 'P50')}
+              isClickable={true}
+              isActive={selectedCapacityPercentile === 'P50'}
             />
             <SummaryCard
               icon={<TrendingUp className="w-5 h-5" />}
@@ -788,6 +792,9 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
               value={`+${capacityReco.suggestedDevsP80}`}
               subtitle={`${capacityReco.totalDevsNeededP80} devs no total | ${capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint`}
               color="blue"
+              onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P80' ? null : 'P80')}
+              isClickable={true}
+              isActive={selectedCapacityPercentile === 'P80'}
             />
             <SummaryCard
               icon={<BarChart3 className="w-5 h-5" />}
@@ -797,6 +804,99 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
               color="purple"
             />
           </div>
+          
+          {/* Detalhes por Sprint */}
+          {selectedCapacityPercentile && capacityReco.sprintData.length > 0 && (
+            <div className="mt-4 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  Detalhes por Sprint - {selectedCapacityPercentile}
+                </h4>
+                <button
+                  onClick={() => setSelectedCapacityPercentile(null)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <strong>Média ({selectedCapacityPercentile}):</strong>{' '}
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {selectedCapacityPercentile === 'P50' 
+                      ? capacityReco.throughputPerDevP50.toFixed(2) 
+                      : capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint
+                  </span>
+                </p>
+                {(() => {
+                  const percentileValue = selectedCapacityPercentile === 'P50' 
+                    ? capacityReco.throughputPerDevP50 
+                    : capacityReco.throughputPerDevP80;
+                  const contributingSprints = capacityReco.sprintData.filter(
+                    sprint => sprint.throughputPerDev <= percentileValue
+                  );
+                  return (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Calculado com base em {contributingSprints.length} sprint(s) que contribuíram para o {selectedCapacityPercentile}
+                    </p>
+                  );
+                })()}
+              </div>
+              
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                {capacityReco.sprintData
+                  .filter((sprint) => {
+                    const percentileValue = selectedCapacityPercentile === 'P50' 
+                      ? capacityReco.throughputPerDevP50 
+                      : capacityReco.throughputPerDevP80;
+                    return sprint.throughputPerDev <= percentileValue;
+                  })
+                  .sort((a, b) => {
+                    // Sort by period (date inicio)
+                    return a.dateInicio.getTime() - b.dateInicio.getTime();
+                  })
+                  .map((sprint) => (
+                      <div
+                        key={sprint.sprintName}
+                        className="bg-green-50 dark:bg-green-900/10 rounded-lg border-2 border-green-300 dark:border-green-700 p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                              {sprint.sprintName}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {sprint.dateInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {' '}
+                              {sprint.dateFim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {sprint.throughputPerDev.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              tickets/dev/sprint
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800 grid grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">Tarefas concluídas:</span>{' '}
+                            <span className="font-semibold text-gray-900 dark:text-white">{sprint.completedTasks}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">Desenvolvedores:</span>{' '}
+                            <span className="font-semibold text-gray-900 dark:text-white">{sprint.devCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

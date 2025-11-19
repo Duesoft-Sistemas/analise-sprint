@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, SprintPeriod } from '../types';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isBacklogSprintValue } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -457,12 +457,20 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     };
 
     tasks.forEach(task => {
+      // Tarefas sem previsão são tarefas em aberto que não estão alocadas em sprints e nem têm data limite
+      // 1. Deve ser tarefa em aberto (não concluída)
+      if (isCompletedStatus(task.status)) {
+        return;
+      }
+      
+      // 2. Não deve ter data limite
       if (task.dataLimite) {
         return;
       }
 
+      // 3. Não deve estar alocada em sprint (ou se estiver, o sprint já passou)
       const sprintName = task.sprint?.trim();
-      if (sprintName) {
+      if (sprintName && !isBacklogSprintValue(sprintName)) {
         const sprintPeriod = getSprintPeriod(sprintName);
         if (sprintPeriod) {
           const sprintEndDate = new Date(sprintPeriod.endDate);
@@ -475,6 +483,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
           }
         }
       }
+      // Se não tem sprint ou é um valor de backlog, a tarefa é considerada sem previsão
 
       const categorias = (task.categorias || []).filter(cat => cat && cat.trim() !== '');
       const clientes = categorias.length > 0 ? categorias : ['Sem Cliente'];
@@ -735,47 +744,70 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
       task.status, // Será formatado como tag
     ]);
     
-    // Criar tabela
-    autoTable(pdf, {
-      startY: headerHeight + 10,
-      head: [['Código', 'Descrição', 'Data', 'Tipo', 'Status']],
-      body: tableData,
-      margin: { left: margin, right: margin },
-      styles: { 
-        fontSize: 9, 
-        cellPadding: 4,
-        lineColor: [229, 231, 235], // Borda cinza suave
-        lineWidth: 0.1,
-      },
-      headStyles: { 
-        fillColor: [59, 130, 246], // Azul mais vibrante
-        textColor: [255, 255, 255], // Branco
-        fontStyle: 'bold',
-        fontSize: 10,
-      },
-      alternateRowStyles: { fillColor: [249, 250, 251] }, // Cinza muito claro
-      columnStyles: {
-        0: { cellWidth: 40 }, // Código
-        1: { cellWidth: pageWidth - 2 * margin - 40 - 35 - 35 - 35 }, // Descrição (resto do espaço)
-        2: { cellWidth: 35 }, // Data
-        3: { cellWidth: 35 }, // Tipo
-        4: { cellWidth: 35 }, // Status
-      },
-      didParseCell: (data: any) => {
-        const colIndex = data.column.index;
-        
-        // Centralizar texto nas colunas Tipo e Status
-        if (colIndex === 3 || colIndex === 4) {
-          data.cell.styles.halign = 'center';
-        }
-      },
-    });
+    // Criar tabela (só se houver dados)
+    if (tableData.length > 0) {
+      autoTable(pdf, {
+        startY: headerHeight + 10,
+        head: [['Código', 'Descrição', 'Data', 'Tipo', 'Status']],
+        body: tableData,
+        margin: { left: margin, right: margin },
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          lineColor: [229, 231, 235], // Borda cinza suave
+          lineWidth: 0.1,
+        },
+        headStyles: { 
+          fillColor: [59, 130, 246], // Azul mais vibrante
+          textColor: [255, 255, 255], // Branco
+          fontStyle: 'bold',
+          fontSize: 10,
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] }, // Cinza muito claro
+        columnStyles: {
+          0: { cellWidth: 40 }, // Código
+          1: { cellWidth: pageWidth - 2 * margin - 40 - 35 - 35 - 35 }, // Descrição (resto do espaço)
+          2: { cellWidth: 35 }, // Data
+          3: { cellWidth: 35 }, // Tipo
+          4: { cellWidth: 35 }, // Status
+        },
+        didParseCell: (data: any) => {
+          const colIndex = data.column.index;
+          
+          // Centralizar texto nas colunas Tipo e Status
+          if (colIndex === 3 || colIndex === 4) {
+            data.cell.styles.halign = 'center';
+          }
+        },
+      });
+    }
     
     if (includeUnplanned) {
-      const lastTableY = ((pdf as any).lastAutoTable?.finalY || headerHeight + 10) + 12;
+      // Calcular a posição Y inicial baseada na última tabela ou no cabeçalho
+      let lastTableY: number;
+      if ((pdf as any).lastAutoTable?.finalY) {
+        lastTableY = (pdf as any).lastAutoTable.finalY + 12;
+      } else {
+        // Se não houve primeira tabela, começar após o cabeçalho
+        lastTableY = headerHeight + 10;
+      }
+      
+      // Verificar se há espaço suficiente na página atual (precisamos de pelo menos 20mm para título + cabeçalho da tabela)
+      const spaceNeeded = 20;
+      const currentPageHeight = pdf.internal.pageSize.getHeight();
+      const spaceAvailable = currentPageHeight - lastTableY - margin;
+      
+      let startY = lastTableY;
+      
+      // Se não houver espaço suficiente, adicionar nova página
+      if (spaceAvailable < spaceNeeded) {
+        pdf.addPage();
+        startY = margin + 10;
+      }
+      
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Tarefas sem previsão definida', margin, lastTableY);
+      pdf.text('Tarefas sem previsão definida', margin, startY);
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
 
@@ -788,43 +820,42 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         .map(task => [
           task.chave || task.id || '-',
           task.resumo || '',
-          (task.sprint && task.sprint.trim() !== '' ? task.sprint : 'Backlog'),
-          task.status || 'Sem Status',
-          task.estimativa ? formatHours(task.estimativa) : '-',
+          '', // Data de previsão em branco
         ]);
 
-      autoTable(pdf, {
-        startY: lastTableY + 4,
-        head: [['Código', 'Descrição', 'Origem', 'Status', 'Horas']],
-        body: backlogTableData,
-        margin: { left: margin, right: margin },
-        styles: {
-          fontSize: 9,
-          cellPadding: 4,
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
-        },
-        headStyles: {
-          fillColor: [99, 102, 241],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 10,
-        },
-        alternateRowStyles: { fillColor: [249, 250, 251] },
-        columnStyles: {
-          0: { cellWidth: 30 },
-          1: { cellWidth: pageWidth - 2 * margin - 30 - 35 - 40 - 25 },
-          2: { cellWidth: 35 },
-          3: { cellWidth: 40 },
-          4: { cellWidth: 25 },
-        },
-        didParseCell: (data: any) => {
-          const colIndex = data.column.index;
-          if (colIndex >= 2) {
-            data.cell.styles.halign = 'center';
-          }
-        },
-      });
+      // Só adicionar a tabela se houver dados
+      if (backlogTableData.length > 0) {
+        autoTable(pdf, {
+          startY: startY + 4,
+          head: [['Código', 'Descrição', 'Data de Previsão']],
+          body: backlogTableData,
+          margin: { left: margin, right: margin },
+          styles: {
+            fontSize: 9,
+            cellPadding: 4,
+            lineColor: [229, 231, 235],
+            lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: [99, 102, 241],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 10,
+          },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          columnStyles: {
+            0: { cellWidth: 40 },
+            1: { cellWidth: pageWidth - 2 * margin - 40 - 50 },
+            2: { cellWidth: 50 },
+          },
+          didParseCell: (data: any) => {
+            const colIndex = data.column.index;
+            if (colIndex === 2) {
+              data.cell.styles.halign = 'center';
+            }
+          },
+        });
+      }
     }
     
     // Rodapé
@@ -1282,8 +1313,21 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate mb-1">
                        {schedule.cliente}
                      </h4>
-                     <div className="text-xs text-gray-600 dark:text-gray-400">
-                       <strong>{schedule.totalTarefas}</strong> tarefas
+                     <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                       <div>
+                         <strong>{schedule.totalTarefas}</strong> com previsão
+                       </div>
+                       {(() => {
+                         const unplanned = clientUnplannedTasks.get(schedule.cliente) || [];
+                         if (unplanned.length > 0) {
+                           return (
+                             <div>
+                               <strong>{unplanned.length}</strong> sem previsão
+                             </div>
+                           );
+                         }
+                         return null;
+                       })()}
                      </div>
                    </button>
                    <div className="flex items-center gap-2">
