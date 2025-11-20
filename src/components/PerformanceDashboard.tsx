@@ -7,6 +7,9 @@ import {
   Award,
   Target,
   Zap,
+  Info,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
@@ -46,6 +49,7 @@ export const PerformanceDashboard: React.FC = () => {
   const [showDeveloperSelector, setShowDeveloperSelector] = useState(false);
   const developerSelectorRef = useRef<HTMLDivElement>(null);
   const [selectedDevelopers, setSelectedDevelopers] = useState<string[]>([]);
+  const [showBonuses, setShowBonuses] = useState<boolean>(true); // Default: show bonuses
 
   // Close sprint selector when clicking outside
   useEffect(() => {
@@ -89,6 +93,7 @@ export const PerformanceDashboard: React.FC = () => {
     }
   }, [finishedSprints.length]);
 
+
   // Calculate all performance analytics
   const analytics = useMemo(() => {
     if (tasks.length === 0) return null;
@@ -105,7 +110,18 @@ export const PerformanceDashboard: React.FC = () => {
         const sprintName = selectedSprintView[0];
         const sprintMetrics = analytics.developerMetrics.bySprint.get(sprintName);
         if (!sprintMetrics) return [];
-        return Array.from(sprintMetrics.values());
+        const metrics = Array.from(sprintMetrics.values());
+        
+        // If showBonuses is false, adjust performanceScore to use only baseScore
+        if (!showBonuses) {
+          return metrics.map(metric => ({
+            ...metric,
+            performanceScore: metric.baseScore,
+            // Keep bonus values in the metric but don't include them in performanceScore
+          }));
+        }
+        
+        return metrics; // With bonuses (original performanceScore)
       } 
       // Multiple sprints selected - calculate aggregated metrics
       else {
@@ -242,8 +258,11 @@ export const PerformanceDashboard: React.FC = () => {
             competenceBonus = Math.round(mediumEfficiencyScore * 5); // MAX_COMPLEXITY_3_BONUS
           }
           
-          // Auxilio Bonus: sum of auxilio hours across all sprints (this one should be summed)
-          const auxilioBonus = customMetrics.sprints.reduce((sum, s) => sum + (s.auxilioBonus || 0), 0);
+          // IMPORTANT: Bônus não devem ser consolidados quando há múltiplos sprints
+          // Os bônus (Senioridade, Competência, Auxílio) são calculados e atribuídos por sprint individual
+          // Quando há múltiplos sprints selecionados, mostramos apenas métricas base (eficácia, qualidade)
+          // A evolução dos bônus deve ser visualizada através de gráficos de tendência, não através de soma
+          const auxilioBonus = 0;
           
           // Aggregate reunion hours
           const reunioesHours = customMetrics.sprints.reduce((sum, s) => sum + (s.reunioesHours || 0), 0);
@@ -298,11 +317,13 @@ export const PerformanceDashboard: React.FC = () => {
             performanceByComplexity: customMetrics.performanceByComplexity.map(
               c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
             ),
-            performanceScore: baseScore + seniorityEfficiencyBonus + competenceBonus + auxilioBonus,
+            // Performance Score: quando há múltiplos sprints, usa apenas baseScore (bônus são por sprint individual)
+            performanceScore: baseScore,
             baseScore: baseScore,
-            seniorityEfficiencyBonus: seniorityEfficiencyBonus,
-            competenceBonus: competenceBonus,
-            auxilioBonus: auxilioBonus,
+            // Bônus zerados quando múltiplos sprints - são calculados por sprint individual
+            seniorityEfficiencyBonus: 0,
+            competenceBonus: 0,
+            auxilioBonus: 0,
             overtimeBonus: 0,
             seniorityBonusTasks: seniorityBonusTasks.length > 0 ? seniorityBonusTasks : undefined,
             competenceBonusTasks: competenceBonusTasks.length > 0 ? competenceBonusTasks : undefined,
@@ -318,7 +339,7 @@ export const PerformanceDashboard: React.FC = () => {
     }
 
     return [];
-  }, [analytics, selectedSprintView, tasks]);
+  }, [analytics, selectedSprintView, tasks, showBonuses]);
 
   // Available developer options for current view
   const developerOptions = useMemo(() => {
@@ -521,6 +542,8 @@ export const PerformanceDashboard: React.FC = () => {
     );
   }
 
+  const isMultiSprintView = selectedSprintView.length > 1;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -535,6 +558,27 @@ export const PerformanceDashboard: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Info Alert: Multiple Sprints Selected */}
+      {isMultiSprintView && (
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                Visualização de Múltiplos Sprints
+              </h3>
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Importante:</strong> Quando há múltiplos sprints selecionados, os <strong>bônus (Senioridade, Competência e Auxílio) não são contabilizados</strong> no score final.
+                O score máximo é <strong>100 pontos</strong> (baseado apenas em Eficiência e Qualidade), não 130.
+                Os bônus são calculados e atribuídos <strong>por sprint individual</strong> e podem ser visualizados através de gráficos de tendência.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
@@ -659,7 +703,7 @@ export const PerformanceDashboard: React.FC = () => {
         )}
 
         {/* Sort By */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           <select
             value={sortBy}
@@ -672,6 +716,34 @@ export const PerformanceDashboard: React.FC = () => {
             <option value="productivity">Ordenar por: Produtividade</option>
           </select>
         </div>
+
+        {/* Bonus Toggle - Only show when single sprint is selected */}
+        {selectedSprintView.length === 1 && (
+          <div className="flex items-center gap-2 ml-auto">
+            <Award className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Bônus:
+            </span>
+            <button
+              onClick={() => setShowBonuses(!showBonuses)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                showBonuses
+                  ? 'bg-blue-600 dark:bg-blue-500'
+                  : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+              title={showBonuses ? 'Mostrando com bônus (score até 130)' : 'Mostrando sem bônus (score até 100)'}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  showBonuses ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {showBonuses ? 'Com Bônus' : 'Sem Bônus'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Summary Stats */}
@@ -698,7 +770,7 @@ export const PerformanceDashboard: React.FC = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
               {summaryStats.avgPerformanceScore.toFixed(0)}
-              <span className="text-lg text-gray-500 dark:text-gray-400">/130</span>
+              <span className="text-lg text-gray-500 dark:text-gray-400">/{isMultiSprintView ? 100 : (showBonuses ? 130 : 100)}</span>
             </p>
           </div>
 

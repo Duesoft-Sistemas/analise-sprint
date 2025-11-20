@@ -10,6 +10,8 @@ import {
   BarChart3,
   Info,
   LineChart,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import {
   LineChart as RechartsLineChart,
@@ -38,6 +40,7 @@ export const TemporalEvolutionDashboard: React.FC = () => {
   
   const [aggregationType, setAggregationType] = useState<TemporalAggregation>('sprint');
   const [selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
+  const [showBonuses, setShowBonuses] = useState<boolean>(true); // Default: show bonuses
 
   // Calculate temporal evolution
   const temporalAnalytics = useMemo(() => {
@@ -132,11 +135,19 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     
     return dev.periods.map(period => {
       const teamAvg = teamAvgMap.get(period.periodId);
+      // Use avgPerformanceScoreWithBonus if available and showBonuses is true, otherwise use avgPerformanceScore
+      const performanceScore = showBonuses && period.avgPerformanceScoreWithBonus !== undefined
+        ? period.avgPerformanceScoreWithBonus
+        : period.avgPerformanceScore;
+      // Team average: for now, we'll use the same logic (without bonus) since team averages don't have bonus info
+      // TODO: In the future, we might want to calculate team averages with bonuses too
+      const teamPerformanceScore = teamAvg ? teamAvg.avgPerformanceScore : null;
+      
       return {
         period: period.periodLabel,
         periodId: period.periodId,
-        performance: Math.round(period.avgPerformanceScore),
-        teamPerformance: teamAvg ? Math.round(teamAvg.avgPerformanceScore) : null,
+        performance: Math.round(performanceScore),
+        teamPerformance: teamPerformanceScore !== null ? Math.round(teamPerformanceScore) : null,
         quality: Math.round(period.avgQualityScore),
         teamQuality: teamAvg ? Math.round(teamAvg.avgQualityScore) : null,
         accuracy: Math.round(period.avgAccuracyRate),
@@ -167,8 +178,43 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     return null;
   };
 
+  // Calculate statistics based on showBonuses toggle
+  const calculateDisplayStatistics = (dev: DeveloperTemporalEvolution) => {
+    const scores = dev.periods.map(p => 
+      showBonuses && p.avgPerformanceScoreWithBonus !== undefined
+        ? p.avgPerformanceScoreWithBonus
+        : p.avgPerformanceScore
+    );
+    const sortedScores = [...scores].sort((a, b) => a - b);
+    
+    const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    const median = sortedScores.length % 2 === 0
+      ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+      : sortedScores[Math.floor(sortedScores.length / 2)];
+    
+    // Standard deviation
+    const variance = scores.reduce((sum, s) => sum + Math.pow(s - avg, 2), 0) / scores.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Consistency score (inverse of coefficient of variation)
+    const coefficientOfVariation = avg === 0 ? 0 : stdDev / avg;
+    const consistencyScore = Math.max(0, 100 - (coefficientOfVariation * 100));
+    
+    return {
+      avgPerformanceScore: avg,
+      medianPerformanceScore: median,
+      minPerformanceScore: min,
+      maxPerformanceScore: max,
+      performanceStdDev: stdDev,
+      consistencyScore,
+    };
+  };
+
   const renderDeveloperEvolution = (dev: DeveloperTemporalEvolution) => {
     const chartData = prepareChartData(dev);
+    const displayStats = calculateDisplayStatistics(dev);
 
     return (
       <div className="space-y-6">
@@ -200,11 +246,11 @@ export const TemporalEvolutionDashboard: React.FC = () => {
               </span>
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {dev.statistics.avgPerformanceScore.toFixed(0)}
-              <span className="text-lg text-gray-500 dark:text-gray-400">/100</span>
+              {displayStats.avgPerformanceScore.toFixed(0)}
+              <span className="text-lg text-gray-500 dark:text-gray-400">/{showBonuses ? 130 : 100}</span>
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Variação: {dev.statistics.minPerformanceScore.toFixed(0)} - {dev.statistics.maxPerformanceScore.toFixed(0)}
+              Variação: {displayStats.minPerformanceScore.toFixed(0)} - {displayStats.maxPerformanceScore.toFixed(0)}
             </p>
           </div>
 
@@ -248,10 +294,22 @@ export const TemporalEvolutionDashboard: React.FC = () => {
 
         {/* Main Performance Chart with Team Comparison */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <LineChart className="w-5 h-5" />
-            Evolução do Performance Score
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <LineChart className="w-5 h-5" />
+              Evolução do Performance Score
+              {showBonuses && (
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                  (Com Bônus - máx 130)
+                </span>
+              )}
+              {!showBonuses && (
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                  (Sem Bônus - máx 100)
+                </span>
+              )}
+            </h3>
+          </div>
           
           <ResponsiveContainer width="100%" height={300}>
             <RechartsLineChart data={chartData}>
@@ -263,7 +321,7 @@ export const TemporalEvolutionDashboard: React.FC = () => {
                 style={{ fill: 'currentColor' }}
               />
               <YAxis 
-                domain={[0, 100]}
+                domain={showBonuses ? [0, 130] : [0, 100]}
                 className="text-xs"
                 tick={{ fill: 'currentColor' }}
                 style={{ fill: 'currentColor' }}
@@ -594,54 +652,80 @@ export const TemporalEvolutionDashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Aggregation Type Selector */}
+      {/* Controls */}
       <div className="flex flex-wrap items-center gap-4">
+        {/* Aggregation Type Selector */}
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Agregação:
           </span>
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            {(['sprint', 'monthly', 'quarterly', 'semiannual', 'annual'] as TemporalAggregation[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setAggregationType(type)}
+                className={`px-4 py-2 rounded-md transition-colors text-sm font-medium ${
+                  aggregationType === type
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {type === 'monthly' ? 'Mensal' :
+                 type === 'quarterly' ? 'Trimestral' :
+                 type === 'semiannual' ? 'Semestral' :
+                 type === 'annual' ? 'Anual' : 'Por Sprint'}
+              </button>
+            ))}
+          </div>
         </div>
-        
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['sprint', 'monthly', 'quarterly', 'semiannual', 'annual'] as TemporalAggregation[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => setAggregationType(type)}
-              className={`px-4 py-2 rounded-md transition-colors text-sm font-medium ${
-                aggregationType === type
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+
+        {/* Developer Selector */}
+        {temporalAnalytics.developers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Desenvolvedor:
+            </span>
+            <select
+              value={selectedDeveloper || ''}
+              onChange={(e) => setSelectedDeveloper(e.target.value)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm font-medium"
             >
-              {type === 'monthly' ? 'Mensal' :
-               type === 'quarterly' ? 'Trimestral' :
-               type === 'semiannual' ? 'Semestral' :
-               type === 'annual' ? 'Anual' : 'Por Sprint'}
-            </button>
-          ))}
+              {temporalAnalytics.developers.map((dev) => (
+                <option key={dev.developerId} value={dev.developerId}>
+                  {dev.developerName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Bonus Toggle */}
+        <div className="flex items-center gap-2 ml-auto">
+          <Award className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Bônus:
+          </span>
+          <button
+            onClick={() => setShowBonuses(!showBonuses)}
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+              showBonuses
+                ? 'bg-blue-600 dark:bg-blue-500'
+                : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+            title={showBonuses ? 'Mostrando com bônus (score até 130)' : 'Mostrando sem bônus (score até 100)'}
+          >
+            <span
+              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                showBonuses ? 'translate-x-7' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {showBonuses ? 'Com Bônus' : 'Sem Bônus'}
+          </span>
         </div>
       </div>
-
-      {/* Developer Selector */}
-      {temporalAnalytics.developers.length > 0 && (
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Desenvolvedor:
-          </span>
-          <select
-            value={selectedDeveloper || ''}
-            onChange={(e) => setSelectedDeveloper(e.target.value)}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm font-medium"
-          >
-            {temporalAnalytics.developers.map((dev) => (
-              <option key={dev.developerId} value={dev.developerId}>
-                {dev.developerName}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Developer Evolution Content */}
       {currentDeveloper ? (

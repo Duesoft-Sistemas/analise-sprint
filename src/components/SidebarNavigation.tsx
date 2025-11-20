@@ -13,6 +13,8 @@ import {
   PlayCircle,
   Menu,
   X,
+  Activity,
+  Layers,
 } from 'lucide-react';
 
 type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery';
@@ -45,7 +47,7 @@ const navItems: NavItem[] = [
   {
     id: 'multiSprint',
     label: 'Multi-Sprint',
-    icon: Users,
+    icon: Layers,
     gradient: 'from-purple-600 to-purple-500',
     hoverGradient: 'hover:from-purple-700 hover:to-purple-600',
   },
@@ -80,7 +82,7 @@ const navItems: NavItem[] = [
   {
     id: 'backlogFlow',
     label: 'Fluxo & Capacidade',
-    icon: TrendingUp,
+    icon: Activity,
     gradient: 'from-slate-600 to-slate-500',
     hoverGradient: 'hover:from-slate-700 hover:to-slate-600',
   },
@@ -116,7 +118,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   onSidebarToggle,
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isDesktopOpen, setIsDesktopOpen] = useState(false);
+  const [isDesktopOpen, setIsDesktopOpen] = useState(true);
 
   const handleDesktopToggle = () => {
     const newState = !isDesktopOpen;

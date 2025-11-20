@@ -226,66 +226,17 @@ function calculatePeriodMetrics(
     : 0;
 
   // Recalculate bonuses based on aggregated tasks (same logic as PerformanceDashboard)
-  // Seniority Bonus: tasks with complexity 4-5 that are efficient and have quality >= 4
-  const seniorTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
+  // IMPORTANT: Bônus não devem ser consolidados quando há múltiplos sprints
+  // Os bônus são calculados por sprint individual, não aqui
   let seniorityEfficiencyBonus = 0;
 
-  if (seniorTasks.length > 0) {
-    let highlyEfficientSenior = 0;
-    for (const task of seniorTasks) {
-      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
-      if (!hasGoodQuality) continue;
-
-      let isEfficient = false;
-      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
-        if (task.efficiencyImpact.zone === 'efficient') {
-          highlyEfficientSenior++;
-          isEfficient = true;
-        }
-      } else {
-        const deviation = task.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(task.complexityScore);
-        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
-          highlyEfficientSenior++;
-          isEfficient = true;
-        }
-      }
-    }
-    const seniorEfficiencyScore = highlyEfficientSenior / seniorTasks.length;
-    seniorityEfficiencyBonus = Math.round(seniorEfficiencyScore * 15); // MAX_SENIORITY_EFFICIENCY_BONUS
-  }
-
-  // Competence Bonus: tasks with complexity 3 that are efficient and have quality >= 4
-  const mediumTasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+  // IMPORTANT: Bônus não devem ser consolidados quando há múltiplos sprints
+  // Os bônus (Senioridade, Competência, Auxílio) são calculados e atribuídos por sprint individual
+  // Quando há múltiplos sprints selecionados, mostramos apenas métricas base (eficácia, qualidade)
+  // A evolução dos bônus deve ser visualizada através de gráficos de tendência, não através de soma
+  // Por isso, não recalculamos os bônus aqui - eles devem ser calculados apenas por sprint individual
   let competenceBonus = 0;
-
-  if (mediumTasks.length > 0) {
-    let highlyEfficientMedium = 0;
-    for (const task of mediumTasks) {
-      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
-      if (!hasGoodQuality) continue;
-
-      let isEfficient = false;
-      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
-        if (task.efficiencyImpact.zone === 'efficient') {
-          highlyEfficientMedium++;
-          isEfficient = true;
-        }
-      } else {
-        const deviation = task.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(task.complexityScore);
-        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
-          highlyEfficientMedium++;
-          isEfficient = true;
-        }
-      }
-    }
-    const mediumEfficiencyScore = highlyEfficientMedium / mediumTasks.length;
-    competenceBonus = Math.round(mediumEfficiencyScore * 5); // MAX_COMPLEXITY_3_BONUS
-  }
-
-  // Auxilio Bonus: sum of auxilio hours across all sprints
-  const auxilioBonus = customMetrics.sprints.reduce((sum, s) => sum + (s.auxilioBonus || 0), 0);
+  const auxilioBonus = 0;
 
   // Aggregate test notes for quality calculation
   const qualityTasks = completedTasks.filter(t => 
@@ -304,8 +255,15 @@ function calculatePeriodMetrics(
     ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
     : executionEfficiency;
 
-  // Calculate performance score (same formula as PerformanceDashboard)
-  const performanceScore = baseScore + seniorityEfficiencyBonus + competenceBonus + auxilioBonus;
+  // Performance Score: quando há múltiplos sprints, usa apenas baseScore (bônus são por sprint individual)
+  const performanceScore = baseScore;
+
+  // Calculate performance score WITH bonuses: average of individual sprint performance scores
+  // This gives the correct score with bonuses when viewing individual sprints
+  // IMPORTANT: Each sprint individual has its own bonuses, so we average their performance scores
+  const avgPerformanceScoreWithBonus = customMetrics.sprints.length > 0
+    ? customMetrics.sprints.reduce((sum, sprint) => sum + sprint.performanceScore, 0) / customMetrics.sprints.length
+    : baseScore;
 
   // Calculate bugs vs features (only completed tasks)
   const completedTaskItems = completedTasks.map(t => t.task);
@@ -323,7 +281,8 @@ function calculatePeriodMetrics(
     totalHoursEstimated: customMetrics.totalHoursEstimated,
     totalTasksCompleted: customMetrics.totalTasksCompleted,
     totalTasksStarted: customMetrics.totalTasksStarted,
-    avgPerformanceScore: performanceScore, // Recalculated based on aggregated tasks, not average of sprint scores
+    avgPerformanceScore: performanceScore, // Base score without bonuses (for multiple sprints view)
+    avgPerformanceScoreWithBonus: avgPerformanceScoreWithBonus, // Average of individual sprint scores with bonuses
     avgAccuracyRate: accuracyRate,
     avgQualityScore: qualityScore,
     avgCompletionRate: customMetrics.completionRate,

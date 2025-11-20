@@ -56,6 +56,14 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
 }) => {
   if (!isOpen) return null;
 
+  // Helper function to detect if this is a multi-sprint view
+  const isMultiSprintView = (): boolean => {
+    const sprintName = metrics.sprintName || '';
+    // Check if sprintName indicates multiple sprints
+    return /sprints?\s+(selecionados?|\d+)/i.test(sprintName) || 
+           /sprints?\s*\d+/i.test(sprintName);
+  };
+
   const generateBreakdown = (): BreakdownSection[] => {
     const sections: BreakdownSection[] = [];
 
@@ -254,6 +262,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
     // 5. CALCULAR PERFORMANCE SCORE
     // =============================================================================
     const executionEfficiency = metrics.accuracyRate ?? 0;
+    const multiSprint = isMultiSprintView();
 
     const scoreHasQuality = qualityTasks.length > 0;
 
@@ -285,71 +294,86 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                     },
                 ] : [],
             },
-            {
-                label: 'Bonus de Senioridade',
-                value: `+${metrics.seniorityEfficiencyBonus}`,
-                formula: (() => {
-                    const complexTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
-                    if (complexTasks.length === 0) return 'Nenhuma tarefa complexa executada';
-                    
-                    const efficientWithQuality = metrics.seniorityBonusTasks?.length || 0;
-                    
-                    if (complexTasks.length === 0) return '0 (sem tarefas complexas)';
-                    const efficiencyScore = efficientWithQuality / complexTasks.length;
-                    return `${efficientWithQuality} eficientes com qualidade / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
-                })(),
-                explanation: `Recompensa executar tarefas complexas (nível 4-5) com alta eficiência E alta qualidade (nota ≥ 4).`,
-                tasks: metrics.seniorityBonusTasks?.map(task => ({
-                  taskKey: task.chave || task.id,
-                  taskSummary: task.resumo || 'Sem resumo',
-                  sprint: task.sprint || 'Sem sprint',
-                  complexity: task.complexidade,
-                  hoursEstimated: task.estimativa || 0,
-                  hoursSpent: task.tempoGastoTotal || 0,
-                  status: task.status,
-                  impact: `Nota: ${task.notaTeste}/5 ✅`,
-                })),
-            },
-            {
-                label: 'Bônus de Competência',
-                value: `+${metrics.competenceBonus || 0}`,
-                formula: (() => {
-                    const mediumTasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
-                    if (mediumTasks.length === 0) return 'Nenhuma tarefa de complexidade média executada';
-                    
-                    const efficientWithQuality = metrics.competenceBonusTasks?.length || 0;
-                    
-                    const efficiencyScore = efficientWithQuality / mediumTasks.length;
-                    return `${efficientWithQuality} eficientes com qualidade / ${mediumTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 5`;
-                })(),
-                explanation: `Recompensa executar tarefas de média complexidade (nível 3) com alta eficiência E alta qualidade (nota ≥ 4).`,
-                tasks: metrics.competenceBonusTasks?.map(task => ({
-                  taskKey: task.chave || task.id,
-                  taskSummary: task.resumo || 'Sem resumo',
-                  sprint: task.sprint || 'Sem sprint',
-                  complexity: task.complexidade,
-                  hoursEstimated: task.estimativa || 0,
-                  hoursSpent: task.tempoGastoTotal || 0,
-                  status: task.status,
-                  impact: `Nota: ${task.notaTeste}/5 ✅`,
-                })),
-            },
-            {
-                label: 'Bonus de Auxílio',
-                value: `+${metrics.auxilioBonus}`,
-                formula: (() => {
-                    const auxilioTasks = metrics.tasks.filter(t => isAuxilioTask(t.task));
-                    if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
-                    const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
-                    return `${formatHours(totalHours)} de ajuda = ${metrics.auxilioBonus} pontos`;
-                })(),
-                explanation: `Recompensa ajudar outros desenvolvedores (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
-            },
+            // Bônus só são mostrados quando há um único sprint selecionado
+            // Quando há múltiplos sprints, os bônus são calculados por sprint individual
+            ...(multiSprint ? [
+                {
+                    label: 'Bônus (Múltiplos Sprints)',
+                    value: 'N/A',
+                    formula: 'Bônus são calculados por sprint individual',
+                    explanation: 'Quando há múltiplos sprints selecionados, os bônus (Senioridade, Competência e Auxílio) não são consolidados. Cada bônus é calculado e atribuído por sprint individual. A evolução dos bônus pode ser visualizada através de gráficos de tendência.',
+                }
+            ] : [
+                {
+                    label: 'Bonus de Senioridade',
+                    value: `+${metrics.seniorityEfficiencyBonus}`,
+                    formula: (() => {
+                        const complexTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
+                        if (complexTasks.length === 0) return 'Nenhuma tarefa complexa executada';
+                        
+                        const efficientWithQuality = metrics.seniorityBonusTasks?.length || 0;
+                        
+                        if (complexTasks.length === 0) return '0 (sem tarefas complexas)';
+                        const efficiencyScore = efficientWithQuality / complexTasks.length;
+                        return `${efficientWithQuality} eficientes com qualidade / ${complexTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 15`;
+                    })(),
+                    explanation: `Recompensa executar tarefas complexas (nível 4-5) com alta eficiência E alta qualidade (nota ≥ 4).`,
+                    tasks: metrics.seniorityBonusTasks?.map(task => ({
+                      taskKey: task.chave || task.id,
+                      taskSummary: task.resumo || 'Sem resumo',
+                      sprint: task.sprint || 'Sem sprint',
+                      complexity: task.complexidade,
+                      hoursEstimated: task.estimativa || 0,
+                      hoursSpent: task.tempoGastoTotal || 0,
+                      status: task.status,
+                      impact: `Nota: ${task.notaTeste}/5 ✅`,
+                    })),
+                },
+                {
+                    label: 'Bônus de Competência',
+                    value: `+${metrics.competenceBonus || 0}`,
+                    formula: (() => {
+                        const mediumTasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+                        if (mediumTasks.length === 0) return 'Nenhuma tarefa de complexidade média executada';
+                        
+                        const efficientWithQuality = metrics.competenceBonusTasks?.length || 0;
+                        
+                        const efficiencyScore = efficientWithQuality / mediumTasks.length;
+                        return `${efficientWithQuality} eficientes com qualidade / ${mediumTasks.length} total = ${(efficiencyScore * 100).toFixed(1)}% × 5`;
+                    })(),
+                    explanation: `Recompensa executar tarefas de média complexidade (nível 3) com alta eficiência E alta qualidade (nota ≥ 4).`,
+                    tasks: metrics.competenceBonusTasks?.map(task => ({
+                      taskKey: task.chave || task.id,
+                      taskSummary: task.resumo || 'Sem resumo',
+                      sprint: task.sprint || 'Sem sprint',
+                      complexity: task.complexidade,
+                      hoursEstimated: task.estimativa || 0,
+                      hoursSpent: task.tempoGastoTotal || 0,
+                      status: task.status,
+                      impact: `Nota: ${task.notaTeste}/5 ✅`,
+                    })),
+                },
+                {
+                    label: 'Bonus de Auxílio',
+                    value: `+${metrics.auxilioBonus}`,
+                    formula: (() => {
+                        const auxilioTasks = metrics.tasks.filter(t => isAuxilioTask(t.task));
+                        if (auxilioTasks.length === 0) return '0h de auxílio = 0 pontos';
+                        const totalHours = auxilioTasks.reduce((sum, t) => sum + t.hoursSpent, 0);
+                        return `${formatHours(totalHours)} de ajuda = ${metrics.auxilioBonus} pontos`;
+                    })(),
+                    explanation: `Recompensa ajudar outros desenvolvedores (campo "Detalhes Ocultos" = "Auxilio"). Escala progressiva. ${metrics.auxilioBonus === 0 ? 'Nenhuma tarefa de auxílio registrada.' : 'Excelente colaboração!'}`,
+                },
+            ]),
             {
                 label: 'Score Final',
                 value: `${(metrics.performanceScore ?? 0).toFixed(1)}`,
-                formula: `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.seniorityEfficiencyBonus} + ${metrics.competenceBonus || 0} + ${metrics.auxilioBonus}`,
-                explanation: `Score máximo: 130.`,
+                formula: multiSprint 
+                    ? `Score Base = ${baseScore.toFixed(1)} (bônus não consolidados para múltiplos sprints)`
+                    : `Score Base + Bônus = ${baseScore.toFixed(1)} + ${metrics.seniorityEfficiencyBonus} + ${metrics.competenceBonus || 0} + ${metrics.auxilioBonus}`,
+                explanation: multiSprint 
+                    ? `Quando há múltiplos sprints selecionados, o score mostra apenas a base (eficácia + qualidade). Score máximo: 100. Os bônus são calculados por sprint individual e podem ser visualizados através de gráficos de tendência.`
+                    : `Score máximo: 130.`,
             },
         ],
     });

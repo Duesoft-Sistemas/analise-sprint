@@ -49,6 +49,22 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
   const [isExpanded, setIsExpanded] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
+  // Helper function to detect if this is a multi-sprint view
+  const isMultiSprintView = (): boolean => {
+    const sprintName = metrics.sprintName || '';
+    // Check if sprintName indicates multiple sprints
+    return /sprints?\s+(selecionados?|\d+)/i.test(sprintName) || 
+           /sprints?\s*\d+/i.test(sprintName);
+  };
+
+  // Determine max score: 
+  // - If multi-sprint: always 100 (no bonuses)
+  // - If single sprint: check if performanceScore includes bonuses (if it's > 100, it has bonuses)
+  //   But we can't rely on that because baseScore can be 100 too
+  //   Better: if performanceScore === baseScore, then max is 100, else 130
+  const hasBonuses = metrics.performanceScore > (metrics.baseScore || 0) + 0.1; // Small tolerance for floating point
+  const maxScore = isMultiSprintView() ? 100 : (hasBonuses ? 130 : 100);
+
   // Determine card color based on performance score
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-300 dark:border-green-700';
@@ -131,7 +147,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
               <span className="text-3xl font-bold text-gray-900 dark:text-white">
                 {metrics.performanceScore.toFixed(0)}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 130</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ {maxScore}</span>
             </div>
           </div>
           <div className="relative">
@@ -146,7 +162,7 @@ export const DeveloperPerformanceCard: React.FC<DeveloperPerformanceCardProps> =
                     ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
                     : 'bg-gradient-to-r from-red-500 to-red-600'
                 }`}
-                style={{ width: `${Math.min(100, (metrics.performanceScore / 130) * 100)}%` }}
+                style={{ width: `${Math.min(100, (metrics.performanceScore / maxScore) * 100)}%` }}
               />
             </div>
             <div className="flex items-center justify-between mt-2">

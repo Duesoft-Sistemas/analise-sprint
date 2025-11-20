@@ -467,7 +467,8 @@ export interface TemporalPeriodMetrics {
   totalTasksStarted: number;
   
   // Average performance scores
-  avgPerformanceScore: number;
+  avgPerformanceScore: number; // Base score without bonuses (for multiple sprints view)
+  avgPerformanceScoreWithBonus?: number; // Average of individual sprint scores with bonuses
   avgAccuracyRate: number;
   avgQualityScore: number;
   avgCompletionRate: number;

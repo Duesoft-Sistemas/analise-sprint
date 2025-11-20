@@ -109,6 +109,47 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     }
   };
 
+  // Helper function to get filter display label
+  const getFilterLabel = (): { label: string; icon: React.ReactNode; color: string } | null => {
+    if (!activeFilter) return null;
+
+    switch (activeFilter.type) {
+      case 'type':
+        const typeValue = activeFilter.value as string;
+        const typeLabels: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+          'bugs': { label: 'Bugs Reais', icon: <Bug className="w-4 h-4" />, color: 'red' },
+          'dubidasOcultas': { label: 'Dúvidas Ocultas', icon: <HelpCircle className="w-4 h-4" />, color: 'yellow' },
+          'Folha': { label: 'Folha', icon: <FileSpreadsheet className="w-4 h-4" />, color: 'green' },
+          'Tarefa': { label: 'Tarefas', icon: <CheckSquare className="w-4 h-4" />, color: 'green' },
+        };
+        return typeLabels[typeValue] || { label: typeValue, icon: <CheckSquare className="w-4 h-4" />, color: 'gray' };
+      
+      case 'feature':
+        return {
+          label: `Feature: ${activeFilter.value as string}`,
+          icon: <Code className="w-4 h-4" />,
+          color: 'blue'
+        };
+      
+      case 'client':
+        return {
+          label: `Cliente: ${activeFilter.value as string}`,
+          icon: <Building2 className="w-4 h-4" />,
+          color: 'purple'
+        };
+      
+      case 'complexity':
+        return {
+          label: `Complexidade: Nível ${activeFilter.value}`,
+          icon: <Layers className="w-4 h-4" />,
+          color: 'orange'
+        };
+      
+      default:
+        return null;
+    }
+  };
+
   // Calculate analytics based on scope
   const analytics: BacklogAnalyticsType = useMemo(() => {
     // Helper to build analytics from a given subset of tasks (no worklog, only estimativa)
@@ -231,7 +272,8 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     // Apply only ONE filter based on activeFilter state
     // Since activeFilter is a single state object, only one filter can be active at a time
     if (!activeFilter) {
-      // No filter active - return all tasks sorted
+      // No filter active - return empty array (list only shows when filter is selected)
+      return [];
     } else if (activeFilter.type === 'type' && activeFilter.value && activeFilter.value !== 'all') {
       const type = activeFilter.value as string;
       if (type === 'bugs') {
@@ -1030,6 +1072,44 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           </div>
         </div>
 
+        {/* Filter Badge */}
+        {activeFilter && (() => {
+          const filterInfo = getFilterLabel();
+          if (!filterInfo) return null;
+          
+          const colorClasses = {
+            red: 'bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300',
+            yellow: 'bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/30 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300',
+            green: 'bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
+            blue: 'bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
+            purple: 'bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+            orange: 'bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300',
+            gray: 'bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300',
+          };
+          
+          return (
+            <div className={`mb-4 rounded-lg border-2 ${colorClasses[filterInfo.color as keyof typeof colorClasses] || colorClasses.gray} p-3 flex items-center justify-between`}>
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-white/50 dark:bg-black/20">
+                  {filterInfo.icon}
+                </div>
+                <div>
+                  <p className="text-xs font-medium opacity-80">Filtro Aplicado</p>
+                  <p className="text-sm font-semibold">{filterInfo.label}</p>
+                </div>
+              </div>
+              <button
+                onClick={clearFilters}
+                className="ml-2 px-2.5 py-1.5 text-xs font-medium rounded-md bg-white/60 dark:bg-black/30 hover:bg-white/80 dark:hover:bg-black/40 transition-colors flex items-center gap-1.5"
+                title="Remover filtro"
+              >
+                <span className="text-lg leading-none">×</span>
+                Limpar
+              </button>
+            </div>
+          );
+        })()}
+
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {filteredTasks.slice(0, 200).map((t) => (
             <div key={t.id || t.chave} className="py-2.5 flex flex-col lg:flex-row lg:items-center lg:gap-4">
@@ -1064,9 +1144,23 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           ))}
 
           {filteredTasks.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
-              Nenhuma tarefa encontrada com os filtros atuais.
-            </p>
+            <div className="text-center py-8">
+              {!activeFilter ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Filter className="w-12 h-12 text-gray-400 dark:text-gray-500 opacity-50" />
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Selecione um filtro para visualizar as tarefas
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    Clique em um dos cards acima, gráficos ou análises para filtrar
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                  Nenhuma tarefa encontrada com os filtros atuais.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>
