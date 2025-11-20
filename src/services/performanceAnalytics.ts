@@ -8,8 +8,10 @@ import {
   PerformanceAnalytics,
   MetricExplanation,
   CustomPeriodMetrics,
+  WorklogEntry,
+  SprintMetadata,
 } from '../types';
-import { isCompletedStatus, isNeutralTask, isAuxilioTask, isImpedimentoTrabalhoTask, normalizeForComparison, formatHours } from '../utils/calculations';
+import { isCompletedStatus, isNeutralTask, isAuxilioTask, isImpedimentoTrabalhoTask, formatHours } from '../utils/calculations';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
@@ -17,6 +19,7 @@ import {
   MAX_COMPLEXITY_3_BONUS,
   AUXILIO_BONUS_SCALE,
 } from '../config/performanceConfig';
+import { isDateInSprint } from './hybridCalculations';
 
 // =============================================================================
 // METRIC EXPLANATIONS - Como cada métrica é calculada
@@ -281,7 +284,9 @@ export function calculateSprintPerformance(
   tasks: TaskItem[],
   developerId: string,
   developerName: string,
-  sprintName: string
+  sprintName: string,
+  worklogs?: WorklogEntry[],
+  sprintMetadata?: SprintMetadata[]
 ): SprintPerformanceMetrics {
   const devTasks = tasks.filter(
     t => t.idResponsavel === developerId && 
@@ -299,8 +304,6 @@ export function calculateSprintPerformance(
   
   // Exclude impedimento trabalho tasks from performance calculations
   // These tasks are imported for hour tracking but excluded from performance/score
-  const impedimentoTasks = devTasks.filter(t => isImpedimentoTrabalhoTask(t));
-  const impedimentoHours = impedimentoTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
   
   // Work tasks exclude both neutral and impedimento tasks
   const workTasks = devTasks.filter(t => 
@@ -451,10 +454,47 @@ export function calculateSprintPerformance(
   
   const { seniorityBonus, competenceBonus, seniorityBonusTasks, competenceBonusTasks } = calculateEfficiencyBonuses(completedMetrics);
   
-  // Bônus de Auxílio: calcula horas de auxílio de TODAS as tarefas (incluindo não concluídas)
-  // Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas
-  const auxilioTasks = devTasks.filter(t => isAuxilioTask({ detalhesOcultos: t.detalhesOcultos }));
-  const auxilioHours = auxilioTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
+  // Bônus de Auxílio: recalcula baseado no período do sprint analisado, não no sprint alocado
+  // Isso permite que tarefas de auxílio que "viajam" entre sprints sejam contabilizadas corretamente
+  let auxilioHours = 0;
+  if (worklogs && worklogs.length > 0 && sprintMetadata && sprintMetadata.length > 0) {
+    // Encontrar o período do sprint que estamos analisando
+    const sprintMeta = sprintMetadata.find(m => m.sprint === sprintName);
+    if (sprintMeta) {
+      // Buscar todas as tarefas de auxílio do desenvolvedor (independente do sprint alocado)
+      const auxilioTasks = tasks.filter(
+        t =>
+          t.idResponsavel === developerId &&
+          isAuxilioTask({ detalhesOcultos: t.detalhesOcultos })
+      );
+      
+      // Para cada tarefa de auxílio, calcular horas baseado no período do sprint analisado
+      auxilioTasks.forEach(task => {
+        const taskWorklogs = worklogs.filter(
+          w => (w.taskId === task.id || w.taskId === task.chave)
+        );
+        
+        // Filtrar worklogs que estão no período do sprint analisado
+        const sprintWorklogs = taskWorklogs.filter(w =>
+          isDateInSprint(w.data, sprintMeta.dataInicio, sprintMeta.dataFim)
+        );
+        
+        // Somar horas dos worklogs no período
+        auxilioHours += sprintWorklogs.reduce((sum, w) => sum + w.tempoGasto, 0);
+      });
+    }
+  } else {
+    // Fallback: usar tempoGastoNoSprint se não tiver worklogs/metadata
+    // (mas isso só funciona se a tarefa estiver alocada ao sprint correto)
+    auxilioHours = tasks
+      .filter(
+        t =>
+          t.idResponsavel === developerId &&
+          isAuxilioTask({ detalhesOcultos: t.detalhesOcultos }) &&
+          (t.tempoGastoNoSprint ?? 0) > 0
+      )
+      .reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
+  }
   const auxilioBonus = calculateAuxilioBonus(auxilioHours);
   
   const performanceScore = Math.min(130, baseScoreFinal + seniorityBonus + competenceBonus + auxilioBonus);
@@ -559,10 +599,12 @@ export function calculateAllSprintsPerformance(
   tasks: TaskItem[],
   developerId: string,
   developerName: string,
-  sprints: string[]
+  sprints: string[],
+  worklogs?: WorklogEntry[],
+  sprintMetadata?: SprintMetadata[]
 ): AllSprintsPerformanceMetrics {
   const sprintMetrics = sprints.map(sprint =>
-    calculateSprintPerformance(tasks, developerId, developerName, sprint)
+    calculateSprintPerformance(tasks, developerId, developerName, sprint, worklogs, sprintMetadata)
   ).filter(m => m.tasksStarted > 0);
   
   if (sprintMetrics.length === 0) {
@@ -1060,7 +1102,9 @@ export function calculateCustomPeriodPerformance(
   developerId: string,
   developerName: string,
   selectedSprints: string[],
-  periodName?: string
+  periodName?: string,
+  worklogs?: WorklogEntry[],
+  sprintMetadata?: SprintMetadata[]
 ): CustomPeriodMetrics {
   const periodTasks = tasks.filter(t => 
     t.idResponsavel === developerId && 
@@ -1104,7 +1148,7 @@ export function calculateCustomPeriodPerformance(
   
   const sprintMetrics: SprintPerformanceMetrics[] = [];
   selectedSprints.forEach(sprint => {
-    const metrics = calculateSprintPerformance(tasks, developerId, developerName, sprint);
+    const metrics = calculateSprintPerformance(tasks, developerId, developerName, sprint, worklogs, sprintMetadata);
     if (metrics.tasksStarted > 0) {
       sprintMetrics.push(metrics);
     }
@@ -1270,7 +1314,11 @@ export function calculateCustomPeriodPerformance(
 // MAIN ANALYTICS FUNCTION
 // =============================================================================
 
-export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAnalytics {
+export function calculatePerformanceAnalytics(
+  tasks: TaskItem[],
+  worklogs?: WorklogEntry[],
+  sprintMetadata?: SprintMetadata[]
+): PerformanceAnalytics {
   const sprints = Array.from(new Set(tasks.map(t => t.sprint).filter(s => s && s.trim() !== '')));
   const developers = Array.from(new Set(tasks.map(t => t.idResponsavel).filter(id => id && id.trim() !== '')));
   
@@ -1286,7 +1334,7 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
     const sprintMap = new Map<string, SprintPerformanceMetrics>();
     developers.forEach(devId => {
       const devName = developerNames.get(devId) || devId;
-      const metrics = calculateSprintPerformance(tasks, devId, devName, sprint);
+      const metrics = calculateSprintPerformance(tasks, devId, devName, sprint, worklogs, sprintMetadata);
       if (metrics.tasksStarted > 0) {
         sprintMap.set(devId, metrics);
       }
@@ -1297,7 +1345,7 @@ export function calculatePerformanceAnalytics(tasks: TaskItem[]): PerformanceAna
   const allSprintsMetrics = new Map<string, AllSprintsPerformanceMetrics>();
   developers.forEach(devId => {
     const devName = developerNames.get(devId) || devId;
-    const metrics = calculateAllSprintsPerformance(tasks, devId, devName, sprints);
+    const metrics = calculateAllSprintsPerformance(tasks, devId, devName, sprints, worklogs, sprintMetadata);
     if (metrics.totalSprints > 0) {
       allSprintsMetrics.set(devId, metrics);
     }

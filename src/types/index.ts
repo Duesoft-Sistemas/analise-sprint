@@ -450,7 +450,7 @@ export interface CustomPeriodMetrics {
 }
 
 // Temporal Evolution Analytics (for career progression tracking)
-export type TemporalAggregation = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
+export type TemporalAggregation = 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'sprint';
 
 // Performance metrics aggregated by time period
 export interface TemporalPeriodMetrics {

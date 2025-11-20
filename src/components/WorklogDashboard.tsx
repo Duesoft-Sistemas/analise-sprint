@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, TrendingUp, Calendar, Users, BarChart3, PieChart, Activity, Filter, Download } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { formatHours, getLocalDateKey, parseDate } from '../utils/calculations';
 import { WorklogEntry, TaskItem } from '../types';
 import { isDateInSprint } from '../services/hybridCalculations';
+import { getDefaultSelectedDevelopers } from '../services/configService';
 
 interface WorklogStats {
   totalHours: number;
@@ -206,6 +207,23 @@ export const WorklogDashboard: React.FC = () => {
     Array.from(worklogsByDeveloper.keys()).sort(),
     [worklogsByDeveloper]
   );
+
+  // Initialize selected developers based on default config
+  useEffect(() => {
+    if (allDevelopers.length > 0 && selectedDevelopers.length === 0) {
+      const defaultDevs = getDefaultSelectedDevelopers();
+      
+      // If there are default devs configured, filter to only include available developers
+      if (defaultDevs.length > 0) {
+        const matchedDevs = defaultDevs.filter(dev => allDevelopers.includes(dev));
+        // Use matched devs if any found, otherwise use all
+        setSelectedDevelopers(matchedDevs.length > 0 ? matchedDevs : allDevelopers);
+      } else {
+        // No defaults configured, select all by default
+        setSelectedDevelopers([...allDevelopers]);
+      }
+    }
+  }, [allDevelopers.length, selectedDevelopers.length]);
 
   const displayedDevelopers = selectedDevelopers.length > 0 
     ? developerStats.filter(s => selectedDevelopers.includes(s.developerName))

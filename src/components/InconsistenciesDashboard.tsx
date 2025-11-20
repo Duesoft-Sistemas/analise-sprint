@@ -463,6 +463,19 @@ export const InconsistenciesDashboard: React.FC = () => {
 
   const totalInconsistencies = inconsistencies.reduce((sum, inc) => sum + inc.count, 0);
 
+  // Group inconsistencies by category
+  // Hooks devem sempre ser chamados antes de early returns
+  const byCategory = useMemo(() => {
+    const grouped = new Map<string, Inconsistency[]>();
+    inconsistencies.forEach(inc => {
+      if (!grouped.has(inc.category)) {
+        grouped.set(inc.category, []);
+      }
+      grouped.get(inc.category)!.push(inc);
+    });
+    return grouped;
+  }, [inconsistencies]);
+
   if (totalInconsistencies === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-green-200 dark:border-green-800 p-8">
@@ -478,18 +491,6 @@ export const InconsistenciesDashboard: React.FC = () => {
       </div>
     );
   }
-
-  // Group inconsistencies by category
-  const byCategory = useMemo(() => {
-    const grouped = new Map<string, Inconsistency[]>();
-    inconsistencies.forEach(inc => {
-      if (!grouped.has(inc.category)) {
-        grouped.set(inc.category, []);
-      }
-      grouped.get(inc.category)!.push(inc);
-    });
-    return grouped;
-  }, [inconsistencies]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

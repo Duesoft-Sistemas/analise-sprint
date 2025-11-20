@@ -28,6 +28,15 @@ npm run app:dist
 
 - Saída em `release/` (instalador `.exe` + pasta descompactada).
 
+### Atualização do aplicativo
+
+Para atualizar uma instalação existente, consulte o guia completo em [ATUALIZACAO_APLICATIVO.md](./ATUALIZACAO_APLICATIVO.md).
+
+**Resumo rápido:**
+1. Atualize a versão no `package.json`
+2. Execute `npm run app:dist` para gerar novo instalador
+3. Distribua o novo `.exe` - o instalador detecta e atualiza automaticamente
+
 ### Configurações chave
 - `package.json`:
   - `main`: `electron/main.cjs`

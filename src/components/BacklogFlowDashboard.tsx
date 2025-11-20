@@ -5,6 +5,7 @@ import { Inbox, CheckSquare, TrendingUp, BarChart3, Clock, X, List, Calendar, In
 import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask, isImpedimentoTrabalhoTask } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TaskItem } from '../types';
+import { getDefaultSelectedDevelopers } from '../services/configService';
 
 type FilterType = 
   | { type: 'legacyInflow' }
@@ -55,10 +56,20 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
     return Array.from(devs).sort();
   }, [tasks]);
 
-  // Initialize selectedDevs with all devs on first load
+  // Initialize selectedDevs based on default config or all devs
   useEffect(() => {
     if (allDevs.length > 0 && selectedDevs.size === 0) {
-      setSelectedDevs(new Set(allDevs));
+      const defaultDevs = getDefaultSelectedDevelopers();
+      
+      // If there are default devs configured, filter to only include available developers
+      if (defaultDevs.length > 0) {
+        const matchedDevs = defaultDevs.filter(dev => allDevs.includes(dev));
+        // Use matched devs if any found, otherwise use all
+        setSelectedDevs(new Set(matchedDevs.length > 0 ? matchedDevs : allDevs));
+      } else {
+        // No defaults configured, select all by default
+        setSelectedDevs(new Set(allDevs));
+      }
     }
   }, [allDevs, selectedDevs.size]);
 
@@ -1075,10 +1086,10 @@ interface TaskFilterListProps {
 }
 
 const TaskFilterList: React.FC<TaskFilterListProps> = ({ filter, backlogFlow }) => {
-  if (!filter) return null;
-
   // Criar uma key única do filtro para garantir que useMemo detecte mudanças
+  // Hooks devem sempre ser chamados antes de early returns
   const filterKey = useMemo(() => {
+    if (!filter) return null;
     if (filter.type === 'legacyInflow') return 'legacyInflow';
     if (filter.type === 'completedWithoutSprint') return 'completedWithoutSprint';
     return `${filter.type}-${filter.sprintName}`;
@@ -1086,6 +1097,7 @@ const TaskFilterList: React.FC<TaskFilterListProps> = ({ filter, backlogFlow }) 
 
   // Usar useMemo para recalcular quando o filtro mudar
   const filteredTasks = useMemo(() => {
+    if (!filter) return [];
     let tasks: TaskItem[] = [];
 
     if (filter.type === 'legacyInflow' && backlogFlow.legacyInflow) {
@@ -1115,6 +1127,8 @@ const TaskFilterList: React.FC<TaskFilterListProps> = ({ filter, backlogFlow }) 
       return codeA.localeCompare(codeB);
     });
   }, [filteredTasks]);
+
+  if (!filter) return null;
 
   if (sortedTasks.length === 0) {
     return (

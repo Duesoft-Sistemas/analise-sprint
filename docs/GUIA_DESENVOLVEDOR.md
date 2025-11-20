@@ -4,7 +4,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 
 ## 🎯 Resumo Ultra-Rápido (30 segundos)
 
-**Seu score = 50% Qualidade + 50% Eficiência + Bônus (máximo 150 pontos)**
+**Seu score = 50% Qualidade + 50% Eficiência + Bônus (máximo 130 pontos)**
 
 - **Qualidade:** Nota de teste (1-5). Tarefas sem nota são desconsideradas no cálculo.
 - **Eficiência:** Features compara estimativa vs tempo gasto. Bugs verifica horas gastas (não usa estimativa).
@@ -20,7 +20,7 @@ Olá! Este guia foi criado para te ajudar a entender como sua performance é cal
 
 ## 📊 O Que É o Performance Score?
 
-O **Performance Score** é um número de **0 a 150 pontos** que mostra como você está indo no sprint. 
+O **Performance Score** é um número de **0 a 130 pontos** que mostra como você está indo no sprint. 
 
 Quanto maior o número, melhor você está se saindo! Mas não se preocupe se não estiver no máximo - o importante é entender e melhorar continuamente.
 
@@ -101,8 +101,9 @@ Você ganha pontos extras por:
 
 3. **Auxílio à Equipe** (+0 a 10 pontos) 🤝
    - Recompensa ajudar outros desenvolvedores.
-   - **Cálculo:** Baseado nas horas gastas em tarefas de "Auxílio".
-   - **Importante:** O bônus considera **todas as tarefas de auxílio**, mesmo que não estejam concluídas. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
+   - **Cálculo:** Baseado nas horas gastas em tarefas de "Auxílio" registradas no worklog durante o sprint analisado.
+   - **Comportamento Especial:** Cada desenvolvedor possui **uma única tarefa de auxílio** que nunca é concluída. Esta tarefa é alocada em um sprint, trabalhada com worklog, e quando o sprint encerra e outro inicia, a tarefa é movida para o próximo sprint.
+   - **Importante:** O bônus considera o worklog registrado no sprint que está sendo analisado, **independentemente do sprint ao qual a tarefa está atualmente alocada**. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período com base no trabalho realmente realizado naquele sprint.
 
 
 ## 💡 Exemplos Práticos

@@ -7,7 +7,8 @@ function createWindow() {
 		height: 800,
 		webPreferences: {
 			contextIsolation: true
-		}
+		},
+		title: `Análise de Sprint v${app.getVersion()}`
 	});
 
 	const devUrl = process.env.VITE_DEV_SERVER_URL;

@@ -151,7 +151,9 @@ Sistema aceita os seguintes formatos para campos de tempo:
 
 **Impacto:**
 - Adiciona bonus de auxílio ao Performance Score (0-10 pontos)
-- Usa `tempoGastoNoSprint` para cálculo do bonus
+- **Comportamento Especial:** Cada desenvolvedor possui uma única tarefa de auxílio que nunca é concluída e "viaja" entre sprints
+- Para o cálculo do bônus, o sistema considera **todas as tarefas de auxílio do desenvolvedor** e soma apenas o `tempoGastoNoSprint` calculado para o sprint que está sendo analisado
+- Isso permite que o bônus reflita exatamente as horas de auxílio registradas no worklog durante o período do sprint analisado, independentemente do sprint ao qual a tarefa está atualmente alocada
 - Escala progressiva: 0.5h+ = 1pt, 2h+ = 2pts, 4h+ = 4pts, 6h+ = 5pts, 8h+ = 7pts, 12h+ = 9pts, 16h+ = 10pts
 - **Qualidade Neutra:** Tarefas de auxílio não são consideradas no cálculo da média de qualidade.
 

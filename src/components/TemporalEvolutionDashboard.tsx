@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -29,12 +29,14 @@ import {
   TemporalAggregation,
   DeveloperTemporalEvolution,
 } from '../types';
+import { getDefaultSelectedDevelopers } from '../services/configService';
 
 export const TemporalEvolutionDashboard: React.FC = () => {
   const tasks = useSprintStore((state) => state.tasks);
   const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
+  const worklogs = useSprintStore((state) => state.worklogs);
   
-  const [aggregationType, setAggregationType] = useState<TemporalAggregation>('quarterly');
+  const [aggregationType, setAggregationType] = useState<TemporalAggregation>('sprint');
   const [selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
 
   // Calculate temporal evolution
@@ -42,8 +44,8 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     if (tasks.length === 0 || !sprintMetadata || sprintMetadata.length === 0) {
       return null;
     }
-    return calculateTemporalEvolution(tasks, sprintMetadata, aggregationType);
-  }, [tasks, sprintMetadata, aggregationType]);
+    return calculateTemporalEvolution(tasks, sprintMetadata, aggregationType, worklogs);
+  }, [tasks, sprintMetadata, aggregationType, worklogs]);
 
   // Get current developer data
   const currentDeveloper = useMemo(() => {
@@ -51,10 +53,25 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     return temporalAnalytics.developers.find(d => d.developerId === selectedDeveloper) || null;
   }, [temporalAnalytics, selectedDeveloper]);
 
-  // Auto-select first developer if none selected
-  React.useEffect(() => {
+  // Auto-select developer based on default config or first available
+  useEffect(() => {
     if (temporalAnalytics && !selectedDeveloper && temporalAnalytics.developers.length > 0) {
-      setSelectedDeveloper(temporalAnalytics.developers[0].developerId);
+      const defaultDevs = getDefaultSelectedDevelopers();
+      
+      // If there are default devs configured, try to match them with available developers
+      if (defaultDevs.length > 0) {
+        // Try to find a matching developer by name or id
+        const matchedDev = temporalAnalytics.developers.find(dev => 
+          defaultDevs.includes(dev.developerName) || 
+          defaultDevs.includes(dev.developerId)
+        );
+        
+        // Use matched dev if found, otherwise use first available
+        setSelectedDeveloper(matchedDev?.developerId || temporalAnalytics.developers[0].developerId);
+      } else {
+        // No defaults configured, select first developer
+        setSelectedDeveloper(temporalAnalytics.developers[0].developerId);
+      }
     }
   }, [temporalAnalytics, selectedDeveloper]);
 
@@ -587,7 +604,7 @@ export const TemporalEvolutionDashboard: React.FC = () => {
         </div>
         
         <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['monthly', 'quarterly', 'semiannual', 'annual'] as TemporalAggregation[]).map((type) => (
+          {(['sprint', 'monthly', 'quarterly', 'semiannual', 'annual'] as TemporalAggregation[]).map((type) => (
             <button
               key={type}
               onClick={() => setAggregationType(type)}
@@ -599,7 +616,8 @@ export const TemporalEvolutionDashboard: React.FC = () => {
             >
               {type === 'monthly' ? 'Mensal' :
                type === 'quarterly' ? 'Trimestral' :
-               type === 'semiannual' ? 'Semestral' : 'Anual'}
+               type === 'semiannual' ? 'Semestral' :
+               type === 'annual' ? 'Anual' : 'Por Sprint'}
             </button>
           ))}
         </div>

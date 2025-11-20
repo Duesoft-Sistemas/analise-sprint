@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType, WorklogEntry } from '../types';
 import { formatHours, normalizeForComparison } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
@@ -28,6 +28,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [selectedSprints, setSelectedSprints] = useState<string[]>(sprints);
+  const [filteredSprintForKPIs, setFilteredSprintForKPIs] = useState<string | null>(null); // Sprint específico para filtrar os KPIs
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
   const worklogs = useSprintStore((s) => s.worklogs);
   const getSprintPeriod = useSprintStore((s) => s.getSprintPeriod);
@@ -72,6 +73,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       setSelectedSprints([...sprints]);
     }
   }, [sprints.length]); // Only depend on sprints.length to avoid loops
+
+  // Reset filtered sprint if it's no longer in selected sprints
+  useEffect(() => {
+    if (filteredSprintForKPIs && !selectedSprints.includes(filteredSprintForKPIs)) {
+      setFilteredSprintForKPIs(null);
+    }
+  }, [filteredSprintForKPIs, selectedSprints]);
 
   // Helper function to get the start of the week (Monday) for a given date
   const getWeekStart = (date: Date): Date => {
@@ -125,7 +133,12 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       }
     });
 
-    const perSprint = selectedSprints.map((sprintName) => {
+    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados
+    const sprintsToProcess = filteredSprintForKPIs 
+      ? [filteredSprintForKPIs].filter(s => selectedSprints.includes(s))
+      : selectedSprints;
+
+    const perSprint = sprintsToProcess.map((sprintName) => {
       const sprintTasks = tasks.filter(t => t.sprint === sprintName);
 
       const hasDetalhe = (t: TaskItemType, keywords: string[]) => {
@@ -195,7 +208,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     );
 
     return { perSprint, totals };
-  }, [tasks, selectedSprints, worklogs, getSprintPeriod]);
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs]);
 
   // Calculate totals per developer for each KPI category
   const kpiByDeveloper = React.useMemo(() => {
@@ -241,8 +254,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     const auxilioByDev = new Map<string, number>();
     const reuniaoByDev = new Map<string, number>();
     
+    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados
+    const sprintsToProcess = filteredSprintForKPIs 
+      ? [filteredSprintForKPIs].filter(s => selectedSprints.includes(s))
+      : selectedSprints;
+
     // Process worklogs for selected sprints
-    selectedSprints.forEach(sprintName => {
+    sprintsToProcess.forEach(sprintName => {
       const period = getSprintPeriod ? getSprintPeriod(sprintName) : null;
       if (!period) return;
       
@@ -286,7 +304,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       auxilio: toArray(auxilioByDev),
       reuniao: toArray(reuniaoByDev),
     };
-  }, [tasks, selectedSprints, worklogs, getSprintPeriod]);
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs]);
 
   // Filter analytics based on selected sprints
   const filteredAnalytics = React.useMemo(() => {
@@ -596,8 +614,20 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
             <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg">
               <Award className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Multi Sprint • KPIs de Gestão (Sprints Selecionados)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              Multi Sprint • KPIs de Gestão {filteredSprintForKPIs ? `(${filteredSprintForKPIs})` : '(Sprints Selecionados)'}
+            </h3>
           </div>
+          {filteredSprintForKPIs && (
+            <button
+              onClick={() => setFilteredSprintForKPIs(null)}
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex items-center gap-2"
+              title="Mostrar todos os sprints selecionados"
+            >
+              <X className="w-4 h-4" />
+              Mostrar Todos
+            </button>
+          )}
         </div>
 
         {selectedSprints.length === 0 ? (
@@ -630,9 +660,18 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                  <button
+                    key={s.sprintName}
+                    onClick={() => setFilteredSprintForKPIs(s.sprintName)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors ${
+                      filteredSprintForKPIs === s.sprintName
+                        ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 border-emerald-400 dark:border-emerald-600 font-semibold'
+                        : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+                    }`}
+                    title={filteredSprintForKPIs === s.sprintName ? 'Mostrando apenas este sprint' : 'Clique para filtrar apenas este sprint'}
+                  >
                     {s.sprintName}: <strong>{formatHours(s.trainingHours)}</strong>
-                  </span>
+                  </button>
                 ))}
               </div>
               {expandedKPIs.has('training') && (
@@ -680,9 +719,18 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                  <button
+                    key={s.sprintName}
+                    onClick={() => setFilteredSprintForKPIs(s.sprintName)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors ${
+                      filteredSprintForKPIs === s.sprintName
+                        ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 border-blue-400 dark:border-blue-600 font-semibold'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                    }`}
+                    title={filteredSprintForKPIs === s.sprintName ? 'Mostrando apenas este sprint' : 'Clique para filtrar apenas este sprint'}
+                  >
                     {s.sprintName}: <strong>{formatHours(s.auxilioHours)}</strong>
-                  </span>
+                  </button>
                 ))}
               </div>
               {expandedKPIs.has('auxilio') && (
@@ -730,9 +778,18 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                  <button
+                    key={s.sprintName}
+                    onClick={() => setFilteredSprintForKPIs(s.sprintName)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors ${
+                      filteredSprintForKPIs === s.sprintName
+                        ? 'bg-indigo-200 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-100 border-indigo-400 dark:border-indigo-600 font-semibold'
+                        : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                    }`}
+                    title={filteredSprintForKPIs === s.sprintName ? 'Mostrando apenas este sprint' : 'Clique para filtrar apenas este sprint'}
+                  >
                     {s.sprintName}: <strong>{formatHours(s.reuniaoHours)}</strong>
-                  </span>
+                  </button>
                 ))}
               </div>
               {expandedKPIs.has('reuniao') && (
@@ -768,9 +825,18 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-sky-50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                  <button
+                    key={s.sprintName}
+                    onClick={() => setFilteredSprintForKPIs(s.sprintName)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors ${
+                      filteredSprintForKPIs === s.sprintName
+                        ? 'bg-sky-200 dark:bg-sky-800 text-sky-900 dark:text-sky-100 border-sky-400 dark:border-sky-600 font-semibold'
+                        : 'bg-sky-50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-300 border-sky-200/60 dark:border-sky-800/60 hover:bg-sky-100 dark:hover:bg-sky-900/30'
+                    }`}
+                    title={filteredSprintForKPIs === s.sprintName ? 'Mostrando apenas este sprint' : 'Clique para filtrar apenas este sprint'}
+                  >
                     {s.sprintName}: <strong>{s.nonBugCount}</strong>
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -804,7 +870,16 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {managementKPIs.perSprint.map(s => (
-                  <span key={s.sprintName} className="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs bg-rose-50 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60">
+                  <button
+                    key={s.sprintName}
+                    onClick={() => setFilteredSprintForKPIs(s.sprintName)}
+                    className={`inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs border transition-colors ${
+                      filteredSprintForKPIs === s.sprintName
+                        ? 'bg-rose-200 dark:bg-rose-800 text-rose-900 dark:text-rose-100 border-rose-400 dark:border-rose-600 font-semibold'
+                        : 'bg-rose-50 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-900/30'
+                    }`}
+                    title={filteredSprintForKPIs === s.sprintName ? 'Mostrando apenas este sprint' : 'Clique para filtrar apenas este sprint'}
+                  >
                     <span className="truncate max-w-[120px]">{s.sprintName}</span>
                     <span className="inline-flex items-center gap-1">
                       <Bug className="w-3 h-3" /> <strong>{s.realBugsCount}</strong>
@@ -812,7 +887,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                     <span className="inline-flex items-center gap-1">
                       <HelpCircle className="w-3 h-3" /> <strong>{s.duvidasOcultasCount}</strong>
                     </span>
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

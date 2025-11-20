@@ -24,10 +24,10 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
   onClose,
   analytics,
 }) => {
-  if (!isOpen || !analytics) return null;
-
   // Prepare chart data for features
+  // Hooks devem sempre ser chamados antes de early returns
   const featureChartData = useMemo(() => {
+    if (!analytics) return [];
     return analytics.byFeature.slice(0, 10).map(f => ({
       name: f.feature || 'N/A',
       performance: Math.round(f.avgPerformanceScore),
@@ -36,10 +36,11 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
       tasks: f.taskCount,
       hours: Math.round(f.totalHoursWorked),
     }));
-  }, [analytics.byFeature]);
+  }, [analytics]);
 
   // Prepare chart data for complexity
   const complexityChartData = useMemo(() => {
+    if (!analytics) return [];
     return analytics.byComplexity
       .filter(c => c.taskCount > 0)
       .map(c => ({
@@ -51,7 +52,9 @@ export const DeveloperDetailedAnalysisModal: React.FC<DeveloperDetailedAnalysisM
         avgHours: c.avgHoursPerTask.toFixed(1),
         best: c.bestPerformance,
       }));
-  }, [analytics.byComplexity]);
+  }, [analytics]);
+
+  if (!isOpen || !analytics) return null;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

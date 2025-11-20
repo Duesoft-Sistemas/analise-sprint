@@ -1,38 +1,47 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   BarChart3,
-  TrendingUp,
   Users,
   Filter,
   Calendar,
   Award,
   Target,
   Zap,
-  AlertTriangle,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
-import { DeveloperDetailedAnalysisModal } from './DeveloperDetailedAnalysisModal';
-import { SprintPerformanceMetrics, AllSprintsPerformanceMetrics, CustomPeriodMetrics } from '../types';
-import { calculateDetailedDeveloperAnalytics } from '../services/detailedDeveloperAnalytics';
-import { isCompletedStatus, formatHours } from '../utils/calculations';
+import { SprintPerformanceMetrics, CustomPeriodMetrics, TaskItem } from '../types';
+import { isCompletedStatus, isNeutralTask } from '../utils/calculations';
+import { getEfficiencyThreshold } from '../config/performanceConfig';
+import { getDefaultSelectedDevelopers } from '../services/configService';
 
-type ViewMode = 'sprint' | 'allSprints';
 type SortBy = 'overall' | 'accuracy' | 'quality' | 'productivity';
 
 export const PerformanceDashboard: React.FC = () => {
   const tasks = useSprintStore((state) => state.tasks);
   const sprints = useSprintStore((state) => state.sprints);
-  const selectedSprint = useSprintStore((state) => state.selectedSprint);
   const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
+  const worklogs = useSprintStore((state) => state.worklogs);
 
-  const [viewMode, setViewMode] = useState<ViewMode>('sprint');
-  const [selectedSprintView, setSelectedSprintView] = useState<string[]>(selectedSprint ? [selectedSprint] : sprints.length > 0 ? [sprints[0]] : []);
+  // Get finished sprints (dataFim < today)
+  const finishedSprints = useMemo(() => {
+    if (!sprintMetadata || sprintMetadata.length === 0) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return sprintMetadata
+      .filter(meta => {
+        const sprintEnd = new Date(meta.dataFim);
+        sprintEnd.setHours(23, 59, 59, 999);
+        return sprintEnd < today;
+      })
+      .map(meta => meta.sprint)
+      .filter(sprint => sprints.includes(sprint)); // Only include sprints that exist in the sprints list
+  }, [sprintMetadata, sprints]);
+
+  const [selectedSprintView, setSelectedSprintView] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>('overall');
   const [showSprintSelector, setShowSprintSelector] = useState(false);
-  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
-  const [selectedDeveloperForAnalysis, setSelectedDeveloperForAnalysis] = useState<string | null>(null);
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
   const [showDeveloperSelector, setShowDeveloperSelector] = useState(false);
   const developerSelectorRef = useRef<HTMLDivElement>(null);
@@ -72,26 +81,25 @@ export const PerformanceDashboard: React.FC = () => {
     };
   }, [showDeveloperSelector]);
 
-  // Reset selected sprints when view mode changes or when sprints list updates
+  // Auto-select all finished sprints when available (on mount or when finishedSprints first loads)
   useEffect(() => {
-    if (viewMode === 'allSprints') {
-      setShowSprintSelector(false);
-    } else if (viewMode === 'sprint' && selectedSprintView.length === 0 && sprints.length > 0) {
-      setSelectedSprintView([sprints[0]]);
+    if (finishedSprints.length > 0 && selectedSprintView.length === 0) {
+      // Always select all finished sprints by default when nothing is selected
+      setSelectedSprintView([...finishedSprints]);
     }
-  }, [viewMode, sprints.length]); // Only depend on sprints.length to avoid loops
+  }, [finishedSprints.length]);
 
   // Calculate all performance analytics
   const analytics = useMemo(() => {
     if (tasks.length === 0) return null;
-    return calculatePerformanceAnalytics(tasks);
-  }, [tasks]);
+    return calculatePerformanceAnalytics(tasks, worklogs, sprintMetadata);
+  }, [tasks, worklogs, sprintMetadata]);
 
   // Get metrics for current view
   const currentMetrics = useMemo(() => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
+    if (selectedSprintView.length > 0) {
       // Single sprint selected
       if (selectedSprintView.length === 1) {
         const sprintName = selectedSprintView[0];
@@ -117,7 +125,9 @@ export const PerformanceDashboard: React.FC = () => {
             developerId,
             developerName,
             selectedSprintView,
-            `${selectedSprintView.length} Sprints Selecionados`
+            `${selectedSprintView.length} Sprints Selecionados`,
+            worklogs,
+            sprintMetadata
           );
           
           // Calculate bugsVsFeatures for the period - IMPORTANT: Only completed tasks
@@ -130,6 +140,133 @@ export const PerformanceDashboard: React.FC = () => {
           const featureTasks = periodTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
           const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
           
+          // Aggregate tasks from all sprints in the period
+          const allTasksMetrics = customMetrics.sprints.flatMap(sprint => sprint.tasks);
+          
+          // Calculate aggregated metrics based on aggregated tasks
+          const completedTasks = allTasksMetrics.filter(t => isCompletedStatus(t.task.status));
+          const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
+          
+          // Separate bugs and features
+          const bugs = completedWithEstimates.filter(t => t.task.tipo === 'Bug');
+          const features = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
+          
+          // Calculate efficient bugs (using complexity zone)
+          const efficientBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'efficient').length;
+          const acceptableBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'acceptable').length;
+          const bugAccuracyRate = bugs.length > 0 ? ((efficientBugs + (acceptableBugs * 0.5)) / bugs.length) * 100 : 0;
+          
+          // Calculate feature estimation accuracy (average deviation)
+          const featureDeviations = features.map(t => t.estimationAccuracy);
+          const featureEstimationAccuracy = featureDeviations.length > 0
+            ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
+            : 0;
+          
+          // Calculate weighted accuracy rate
+          const weightedEfficientScore = efficientBugs + (acceptableBugs * 0.5) + 
+            features.filter(t => {
+              const deviation = t.estimationAccuracy;
+              const threshold = getEfficiencyThreshold(t.complexityScore);
+              return deviation > 0 ? true : deviation >= threshold.slower;
+            }).length;
+          const accuracyRate = completedWithEstimates.length > 0
+            ? (weightedEfficientScore / completedWithEstimates.length) * 100
+            : 0;
+          
+          // Recalculate bonuses based on aggregated tasks (not sum from individual sprints)
+          // Seniority Bonus: tasks with complexity 4-5 that are efficient and have quality >= 4
+          const seniorTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
+          let seniorityEfficiencyBonus = 0;
+          const seniorityBonusTasks: TaskItem[] = [];
+          
+          if (seniorTasks.length > 0) {
+            let highlyEfficientSenior = 0;
+            for (const task of seniorTasks) {
+              const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+              if (!hasGoodQuality) continue;
+              
+              let isEfficient = false;
+              if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+                if (task.efficiencyImpact.zone === 'efficient') {
+                  highlyEfficientSenior++;
+                  isEfficient = true;
+                }
+              } else {
+                const deviation = task.estimationAccuracy;
+                const threshold = getEfficiencyThreshold(task.complexityScore);
+                if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+                  highlyEfficientSenior++;
+                  isEfficient = true;
+                }
+              }
+              
+              if (isEfficient) {
+                seniorityBonusTasks.push(task.task);
+              }
+            }
+            const seniorEfficiencyScore = highlyEfficientSenior / seniorTasks.length;
+            seniorityEfficiencyBonus = Math.round(seniorEfficiencyScore * 15); // MAX_SENIORITY_EFFICIENCY_BONUS
+          }
+          
+          // Competence Bonus: tasks with complexity 3 that are efficient and have quality >= 4
+          const mediumTasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+          let competenceBonus = 0;
+          const competenceBonusTasks: TaskItem[] = [];
+          
+          if (mediumTasks.length > 0) {
+            let highlyEfficientMedium = 0;
+            for (const task of mediumTasks) {
+              const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+              if (!hasGoodQuality) continue;
+              
+              let isEfficient = false;
+              if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+                if (task.efficiencyImpact.zone === 'efficient') {
+                  highlyEfficientMedium++;
+                  isEfficient = true;
+                }
+              } else {
+                const deviation = task.estimationAccuracy;
+                const threshold = getEfficiencyThreshold(task.complexityScore);
+                if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+                  highlyEfficientMedium++;
+                  isEfficient = true;
+                }
+              }
+              
+              if (isEfficient) {
+                competenceBonusTasks.push(task.task);
+              }
+            }
+            const mediumEfficiencyScore = highlyEfficientMedium / mediumTasks.length;
+            competenceBonus = Math.round(mediumEfficiencyScore * 5); // MAX_COMPLEXITY_3_BONUS
+          }
+          
+          // Auxilio Bonus: sum of auxilio hours across all sprints (this one should be summed)
+          const auxilioBonus = customMetrics.sprints.reduce((sum, s) => sum + (s.auxilioBonus || 0), 0);
+          
+          // Aggregate reunion hours
+          const reunioesHours = customMetrics.sprints.reduce((sum, s) => sum + (s.reunioesHours || 0), 0);
+          
+          // Aggregate test notes for quality calculation
+          const qualityTasks = completedTasks.filter(t => 
+            !isNeutralTask(t.task) && 
+            t.task.notaTeste !== null && 
+            t.task.notaTeste !== undefined
+          );
+          const testNotes = qualityTasks.map(t => t.task.notaTeste as number);
+          const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : undefined;
+          const qualityScore = avgTestNote !== undefined ? Math.max(0, Math.min(100, avgTestNote * 20)) : customMetrics.avgQualityScore;
+          
+          // Calculate base score (considering quality if available)
+          const executionEfficiency = accuracyRate;
+          const scoreHasQuality = qualityTasks.length > 0;
+          const baseScore = scoreHasQuality
+            ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
+            : executionEfficiency;
+          
+          // Note: seniorityBonusTasks and competenceBonusTasks are already calculated above
+          
           // Convert CustomPeriodMetrics to SprintPerformanceMetrics format for compatibility
           const sprintMetrics: SprintPerformanceMetrics = {
             developerId: customMetrics.developerId,
@@ -141,13 +278,17 @@ export const PerformanceDashboard: React.FC = () => {
             tasksStarted: customMetrics.totalTasksStarted,
             averageHoursPerTask: customMetrics.totalHoursWorked / customMetrics.totalTasksCompleted || 0,
             estimationAccuracy: customMetrics.avgEstimationAccuracy,
-            accuracyRate: customMetrics.avgAccuracyRate,
+            accuracyRate: accuracyRate,
+            bugAccuracyRate: bugAccuracyRate,
+            featureEstimationAccuracy: featureEstimationAccuracy,
             tendsToOverestimate: customMetrics.tendsToOverestimate,
             tendsToUnderestimate: customMetrics.tendsToUnderestimate,
             bugRate: customMetrics.avgBugRate,
             bugsVsFeatures,
-            qualityScore: customMetrics.avgQualityScore,
-            reunioesHours: 0,
+            qualityScore: qualityScore,
+            testScore: avgTestNote !== undefined ? avgTestNote * 20 : undefined,
+            avgTestNote: avgTestNote,
+            reunioesHours: reunioesHours,
             utilizationRate: customMetrics.utilizationRate,
             completionRate: customMetrics.completionRate,
             avgTimeToComplete: customMetrics.avgTimeToComplete,
@@ -157,11 +298,16 @@ export const PerformanceDashboard: React.FC = () => {
             performanceByComplexity: customMetrics.performanceByComplexity.map(
               c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
             ),
-            performanceScore: customMetrics.avgPerformanceScore,
-            baseScore: customMetrics.avgPerformanceScore,
-            seniorityEfficiencyBonus: 0,
-            auxilioBonus: 0,
-            tasks: [],
+            performanceScore: baseScore + seniorityEfficiencyBonus + competenceBonus + auxilioBonus,
+            baseScore: baseScore,
+            seniorityEfficiencyBonus: seniorityEfficiencyBonus,
+            competenceBonus: competenceBonus,
+            auxilioBonus: auxilioBonus,
+            overtimeBonus: 0,
+            seniorityBonusTasks: seniorityBonusTasks.length > 0 ? seniorityBonusTasks : undefined,
+            competenceBonusTasks: competenceBonusTasks.length > 0 ? competenceBonusTasks : undefined,
+            overtimeBonusTasks: [],
+            tasks: allTasksMetrics,
           };
           
           aggregatedMetrics.push(sprintMetrics);
@@ -169,16 +315,14 @@ export const PerformanceDashboard: React.FC = () => {
 
         return aggregatedMetrics;
       }
-    } else if (viewMode === 'allSprints') {
-      return Array.from(analytics.developerMetrics.allSprints.values());
     }
 
     return [];
-  }, [analytics, viewMode, selectedSprintView, tasks]);
+  }, [analytics, selectedSprintView, tasks]);
 
   // Available developer options for current view
   const developerOptions = useMemo(() => {
-    const list = (currentMetrics as Array<SprintPerformanceMetrics | AllSprintsPerformanceMetrics>).map(m => ({
+    const list = currentMetrics.map(m => ({
       id: m.developerId,
       name: m.developerName,
     }));
@@ -186,52 +330,105 @@ export const PerformanceDashboard: React.FC = () => {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [currentMetrics]);
 
-  // Initialize selected developers to all when options load
+  // Initialize selected developers based on default config or all developers
   useEffect(() => {
     if (developerOptions.length > 0 && selectedDevelopers.length === 0) {
-      setSelectedDevelopers(developerOptions.map(d => d.id));
+      const defaultDevs = getDefaultSelectedDevelopers();
+      
+      // If there are default devs configured, try to match them with available options
+      if (defaultDevs.length > 0) {
+        // Try to match by name first, then by id
+        const matchedDevs = defaultDevs
+          .map(defaultDev => {
+            // Try to find by name (exact match)
+            const byName = developerOptions.find(d => d.name === defaultDev);
+            if (byName) return byName.id;
+            
+            // Try to find by id (exact match)
+            const byId = developerOptions.find(d => d.id === defaultDev);
+            if (byId) return byId.id;
+            
+            return null;
+          })
+          .filter((id): id is string => id !== null);
+        
+        // Use matched devs if any found, otherwise use all
+        setSelectedDevelopers(matchedDevs.length > 0 ? matchedDevs : developerOptions.map(d => d.id));
+      } else {
+        // No defaults configured, select all by default
+        setSelectedDevelopers(developerOptions.map(d => d.id));
+      }
     }
   }, [developerOptions, selectedDevelopers.length]);
 
-  // Get comparisons for current view
+  // Get comparisons for current view (only for selected developers)
   const currentComparisons = useMemo(() => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
-      // For single sprint, use existing comparisons
+    // Get metrics only for selected developers
+    const filteredMetrics = currentMetrics.filter(m => 
+      selectedDevelopers.length === 0 || selectedDevelopers.includes(m.developerId)
+    ) as SprintPerformanceMetrics[];
+
+    if (filteredMetrics.length === 0) return [];
+
+    if (selectedSprintView.length > 0) {
+      // For single sprint, recalculate rankings from filtered developers
       if (selectedSprintView.length === 1) {
-        return analytics.comparisons.bySprint.get(selectedSprintView[0]) || [];
+        const allComparisons = analytics.comparisons.bySprint.get(selectedSprintView[0]) || [];
+        // Filter comparisons to only selected developers and recalculate ranks
+        const filteredComparisons = allComparisons.filter(c => 
+          selectedDevelopers.length === 0 || selectedDevelopers.includes(c.developerId)
+        );
+        
+        // Recalculate ranks based on filtered developers
+        const metricsMap = new Map(filteredMetrics.map(m => [m.developerId, m]));
+        const sortedByPerformance = [...filteredMetrics].sort((a, b) => b.performanceScore - a.performanceScore);
+        const sortedByAccuracy = [...filteredMetrics].sort((a, b) => b.accuracyRate - a.accuracyRate);
+        const sortedByQuality = [...filteredMetrics].sort((a, b) => b.qualityScore - a.qualityScore);
+        const sortedByProductivity = [...filteredMetrics].sort((a, b) => b.totalHoursWorked - a.totalHoursWorked);
+
+        return filteredComparisons.map(comp => {
+          const metric = metricsMap.get(comp.developerId);
+          if (!metric) return comp;
+
+          return {
+            developerId: comp.developerId,
+            overallRank: sortedByPerformance.findIndex(m => m.developerId === comp.developerId) + 1,
+            accuracyRank: sortedByAccuracy.findIndex(m => m.developerId === comp.developerId) + 1,
+            qualityRank: sortedByQuality.findIndex(m => m.developerId === comp.developerId) + 1,
+            productivityRank: sortedByProductivity.findIndex(m => m.developerId === comp.developerId) + 1,
+            totalDevelopers: filteredMetrics.length,
+          };
+        });
       }
       // For multiple sprints, calculate new comparisons based on aggregated metrics
       else {
-        // Recalculate comparisons from currentMetrics
-        const metrics = currentMetrics as SprintPerformanceMetrics[];
-        if (metrics.length === 0) return [];
+        // Recalculate comparisons from filtered metrics
+        const sorted = [...filteredMetrics].sort((a, b) => b.performanceScore - a.performanceScore);
+        const sortedByAccuracy = [...filteredMetrics].sort((a, b) => b.accuracyRate - a.accuracyRate);
+        const sortedByQuality = [...filteredMetrics].sort((a, b) => b.qualityScore - a.qualityScore);
+        const sortedByProductivity = [...filteredMetrics].sort((a, b) => b.totalHoursWorked - a.totalHoursWorked);
         
-        // Sort by performance score
-        const sorted = [...metrics].sort((a, b) => b.performanceScore - a.performanceScore);
-        
-        return sorted.map((m, index) => ({
+        return filteredMetrics.map((m) => ({
           developerId: m.developerId,
-          overallRank: index + 1,
-          accuracyRank: [...metrics].sort((a, b) => b.accuracyRate - a.accuracyRate).findIndex(m2 => m2.developerId === m.developerId) + 1,
-          qualityRank: [...metrics].sort((a, b) => b.qualityScore - a.qualityScore).findIndex(m2 => m2.developerId === m.developerId) + 1,
-          productivityRank: [...metrics].sort((a, b) => b.totalHoursWorked - a.totalHoursWorked).findIndex(m2 => m2.developerId === m.developerId) + 1,
-          totalDevelopers: metrics.length,
+          overallRank: sorted.findIndex(m2 => m2.developerId === m.developerId) + 1,
+          accuracyRank: sortedByAccuracy.findIndex(m2 => m2.developerId === m.developerId) + 1,
+          qualityRank: sortedByQuality.findIndex(m2 => m2.developerId === m.developerId) + 1,
+          productivityRank: sortedByProductivity.findIndex(m2 => m2.developerId === m.developerId) + 1,
+          totalDevelopers: filteredMetrics.length,
         }));
       }
-    } else if (viewMode === 'allSprints') {
-      return analytics.comparisons.allSprints;
     }
 
     return [];
-  }, [analytics, viewMode, selectedSprintView, currentMetrics]);
+  }, [analytics, selectedSprintView, currentMetrics, selectedDevelopers]);
 
   // Get insights for current view
   const getInsightsForDeveloper = (developerId: string) => {
     if (!analytics) return [];
 
-    if (viewMode === 'sprint' && selectedSprintView.length > 0) {
+    if (selectedSprintView.length > 0) {
       // For single sprint, use existing insights
       if (selectedSprintView.length === 1) {
         const sprintInsights = analytics.insights.bySprint.get(selectedSprintView[0]);
@@ -242,8 +439,6 @@ export const PerformanceDashboard: React.FC = () => {
         // Return empty insights for now - could be enhanced later
         return [];
       }
-    } else if (viewMode === 'allSprints') {
-      return analytics.insights.allSprints.get(developerId) || [];
     }
 
     return [];
@@ -295,29 +490,18 @@ export const PerformanceDashboard: React.FC = () => {
   const summaryStats = useMemo(() => {
     if (sortedMetrics.length === 0) return null;
 
-    if (viewMode === 'allSprints') {
-      const allSprintsMetrics = sortedMetrics as AllSprintsPerformanceMetrics[];
-      return {
-        totalDevelopers: allSprintsMetrics.length,
-        avgPerformanceScore: allSprintsMetrics.reduce((sum, m) => sum + m.avgPerformanceScore, 0) / allSprintsMetrics.length,
-        avgAccuracyRate: allSprintsMetrics.reduce((sum, m) => sum + m.avgAccuracyRate, 0) / allSprintsMetrics.length,
-        avgQualityScore: allSprintsMetrics.reduce((sum, m) => sum + m.avgQualityScore, 0) / allSprintsMetrics.length,
-        avgUtilization: allSprintsMetrics.reduce((sum, m) => sum + (m.averageHoursPerSprint / 40) * 100, 0) / allSprintsMetrics.length,
-      };
-    } else {
-      const sprintMetrics = sortedMetrics as SprintPerformanceMetrics[];
-      return {
-        totalDevelopers: sprintMetrics.length,
-        avgPerformanceScore: sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / sprintMetrics.length,
-        avgAccuracyRate: sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length,
-        avgQualityScore: sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / sprintMetrics.length,
-        avgUtilization: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
-        totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
-        totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
-        avgAuxilioBonus: sprintMetrics.reduce((sum, m) => sum + m.auxilioBonus, 0) / sprintMetrics.length,
-      };
-    }
-  }, [sortedMetrics, viewMode]);
+    const sprintMetrics = sortedMetrics as SprintPerformanceMetrics[];
+    return {
+      totalDevelopers: sprintMetrics.length,
+      avgPerformanceScore: sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / sprintMetrics.length,
+      avgAccuracyRate: sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length,
+      avgQualityScore: sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / sprintMetrics.length,
+      avgUtilization: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
+      totalHoursWorked: sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0) / sprintMetrics.length,
+      totalHoursEstimated: sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0) / sprintMetrics.length,
+      avgAuxilioBonus: sprintMetrics.reduce((sum, m) => sum + m.auxilioBonus, 0) / sprintMetrics.length,
+    };
+  }, [sortedMetrics]);
 
   if (tasks.length === 0) {
     return (
@@ -352,35 +536,10 @@ export const PerformanceDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* View Mode Toggle */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('sprint')}
-            className={`px-4 py-2 rounded-md transition-colors text-sm font-medium ${
-              viewMode === 'sprint'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Calendar className="w-4 h-4 inline mr-2" />
-            Por Sprint
-          </button>
-          <button
-            onClick={() => setViewMode('allSprints')}
-            className={`px-4 py-2 rounded-md transition-colors text-sm font-medium ${
-              viewMode === 'allSprints'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 inline mr-2" />
-            Todos os Sprints
-          </button>
-        </div>
-
-        {/* Sprint Selector (only in sprint mode) */}
-        {viewMode === 'sprint' && sprints.length > 0 && (
+        {/* Sprint Selector */}
+        {finishedSprints.length > 0 && (
           <div className="relative" ref={sprintSelectorRef}>
             <button
               onClick={() => setShowSprintSelector(!showSprintSelector)}
@@ -399,7 +558,7 @@ export const PerformanceDashboard: React.FC = () => {
                 <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setSelectedSprintView([...sprints])}
+                      onClick={() => setSelectedSprintView([...finishedSprints])}
                       className="flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                     >
                       Selecionar Todos
@@ -413,7 +572,7 @@ export const PerformanceDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="p-2">
-                  {sprints.map((sprint) => (
+                  {finishedSprints.map((sprint) => (
                     <label
                       key={sprint}
                       className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
@@ -575,46 +734,6 @@ export const PerformanceDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Developers Working More Than 40h Alert */}
-      {viewMode === 'sprint' && (() => {
-        const overloadedDevs = sortedMetrics.filter(m => {
-          const sprintMetrics = m as SprintPerformanceMetrics;
-          return sprintMetrics.totalHoursWorked > 40;
-        });
-        
-        if (overloadedDevs.length === 0) return null;
-        
-        return (
-          <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-5">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Desenvolvedores com Sobrecarga
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Os seguintes desenvolvedores estão trabalhando mais de 40h neste sprint:
-                </p>
-                <div className="space-y-2">
-                  {overloadedDevs.map(m => {
-                    const sprintMetrics = m as SprintPerformanceMetrics;
-                    return (
-                      <div key={sprintMetrics.developerId} className="flex items-center justify-between bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg p-3 border border-orange-200 dark:border-orange-800">
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {sprintMetrics.developerName}
-                        </span>
-                        <span className="text-orange-600 dark:text-orange-400 font-bold">
-                          {formatHours(sprintMetrics.totalHoursWorked)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Developer Performance Cards */}
       <div className="space-y-6">
@@ -630,124 +749,50 @@ export const PerformanceDashboard: React.FC = () => {
             );
             let insights = getInsightsForDeveloper(metrics.developerId);
 
-            // Cast to SprintPerformanceMetrics for the card (they have compatible interfaces)
-            let sprintMetrics: SprintPerformanceMetrics;
+            // Cast to SprintPerformanceMetrics for the card
+            const sprintMetrics = metrics as SprintPerformanceMetrics;
             
-            if (viewMode === 'sprint') {
-              sprintMetrics = metrics as SprintPerformanceMetrics;
-              
-              // Add comparative insights when team average is available
-              if (summaryStats) {
-                const teamAvg = {
-                  accuracyRate: summaryStats.avgAccuracyRate,
-                  totalHoursWorked: summaryStats.totalHoursWorked || 0,
-                  totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
-                  performanceScore: summaryStats.avgPerformanceScore,
-                };
-                const comparativeInsights = generateComparativeInsights(sprintMetrics, teamAvg);
-                insights = [...insights, ...comparativeInsights];
-              }
-            } else {
-              const allSprintsMetrics = metrics as AllSprintsPerformanceMetrics;
-              sprintMetrics = {
-                developerId: allSprintsMetrics.developerId,
-                developerName: allSprintsMetrics.developerName,
-                sprintName: 'Todos os Sprints',
-                totalHoursWorked: allSprintsMetrics.totalHoursWorked,
-                totalHoursEstimated: allSprintsMetrics.totalHoursEstimated,
-                tasksCompleted: allSprintsMetrics.totalTasksCompleted,
-                tasksStarted: allSprintsMetrics.totalTasksStarted,
-                averageHoursPerTask: allSprintsMetrics.totalHoursWorked / 
-                  allSprintsMetrics.totalTasksCompleted || 0,
-                estimationAccuracy: allSprintsMetrics.avgEstimationAccuracy,
-                accuracyRate: allSprintsMetrics.avgAccuracyRate,
-                tendsToOverestimate: allSprintsMetrics.tendsToOverestimate,
-                tendsToUnderestimate: allSprintsMetrics.tendsToUnderestimate,
-                bugRate: allSprintsMetrics.avgBugRate,
-                bugsVsFeatures: 0,
-                qualityScore: allSprintsMetrics.avgQualityScore,
-                reunioesHours: 0,
-                utilizationRate: allSprintsMetrics.utilizationRate,
-                completionRate: allSprintsMetrics.completionRate,
-                avgTimeToComplete: allSprintsMetrics.avgTimeToComplete,
-                consistencyScore: allSprintsMetrics.consistencyScore,
-                avgComplexity: allSprintsMetrics.avgComplexity,
-                complexityDistribution: allSprintsMetrics.complexityDistribution,
-                performanceByComplexity: allSprintsMetrics.performanceByComplexity.map(
-                  c => ({ level: c.level, avgHours: c.avgHours, accuracy: c.accuracy })
-                ),
-                performanceScore: allSprintsMetrics.avgPerformanceScore,
-                baseScore: allSprintsMetrics.avgPerformanceScore,
-                seniorityEfficiencyBonus: 0,
-                auxilioBonus: 0,
-                tasks: [],
+            // Add comparative insights when team average is available
+            if (summaryStats) {
+              const teamAvg = {
+                accuracyRate: summaryStats.avgAccuracyRate,
+                totalHoursWorked: summaryStats.totalHoursWorked || 0,
+                totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
+                performanceScore: summaryStats.avgPerformanceScore,
               };
+              const comparativeInsights = generateComparativeInsights(sprintMetrics, teamAvg);
+              insights = [...insights, ...comparativeInsights];
             }
 
             return (
-              <div key={metrics.developerId} className="relative">
-                <DeveloperPerformanceCard
-                  metrics={sprintMetrics}
-                  insights={insights}
-                  rank={
-                    comparison
-                      ? {
-                          overall: comparison.overallRank,
-                          total: comparison.totalDevelopers,
-                        }
-                      : undefined
-                  }
-                  teamAverage={
-                    summaryStats && viewMode === 'sprint'
-                      ? {
-                          accuracyRate: summaryStats.avgAccuracyRate,
-                          totalHoursWorked: summaryStats.totalHoursWorked || 0,
-                          totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
-                          performanceScore: summaryStats.avgPerformanceScore,
-                          auxilioBonus: summaryStats.avgAuxilioBonus || 0,
-                        }
-                      : undefined
-                  }
-                />
-                <button
-                  onClick={() => {
-                    setSelectedDeveloperForAnalysis(metrics.developerId);
-                    setShowDetailedAnalysis(true);
-                  }}
-                  className="mt-2 w-full px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors flex items-center justify-center gap-2"
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  Ver Análise Detalhada
-                </button>
-              </div>
+              <DeveloperPerformanceCard
+                key={metrics.developerId}
+                metrics={sprintMetrics}
+                insights={insights}
+                rank={
+                  comparison
+                    ? {
+                        overall: comparison.overallRank,
+                        total: comparison.totalDevelopers,
+                      }
+                    : undefined
+                }
+                teamAverage={
+                  summaryStats
+                    ? {
+                        accuracyRate: summaryStats.avgAccuracyRate,
+                        totalHoursWorked: summaryStats.totalHoursWorked || 0,
+                        totalHoursEstimated: summaryStats.totalHoursEstimated || 0,
+                        performanceScore: summaryStats.avgPerformanceScore,
+                        auxilioBonus: summaryStats.avgAuxilioBonus || 0,
+                      }
+                    : undefined
+                }
+              />
             );
           })}
         </div>
       </div>
-
-      {/* Detailed Analysis Modal */}
-      <DeveloperDetailedAnalysisModal
-        isOpen={showDetailedAnalysis}
-        onClose={() => {
-          setShowDetailedAnalysis(false);
-          setSelectedDeveloperForAnalysis(null);
-        }}
-        analytics={
-          selectedDeveloperForAnalysis && sprintMetadata.length > 0
-            ? (() => {
-                const selectedMetrics = sortedMetrics.find(m => m.developerId === selectedDeveloperForAnalysis);
-                if (!selectedMetrics) return null;
-                
-                return calculateDetailedDeveloperAnalytics(
-                  tasks,
-                  sprintMetadata,
-                  selectedMetrics.developerId,
-                  selectedMetrics.developerName
-                );
-              })()
-            : null
-        }
-      />
     </div>
   );
 };

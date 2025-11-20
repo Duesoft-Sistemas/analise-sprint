@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, Clock, Calendar, X, Folder } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Upload, FileSpreadsheet, AlertCircle, Clock, Calendar, X, Folder, Trash2 } from 'lucide-react';
 import { parseXLSFile, validateXLSStructure } from '../services/xlsParser';
 import { parseWorklogFile, validateWorklogStructure } from '../services/worklogParser';
 import { parseSprintsFile, validateSprintsStructure } from '../services/sprintsParser';
@@ -18,6 +18,7 @@ export const XlsUploader: React.FC = () => {
   const [worklogFileName, setWorklogFileName] = useState<string | null>(null);
   const [sprintsFileName, setSprintsFileName] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   
   const setTasks = useSprintStore((state) => state.setTasks);
   const addTasks = useSprintStore((state) => state.addTasks);
@@ -25,9 +26,9 @@ export const XlsUploader: React.FC = () => {
   const setWorklogs = useSprintStore((state) => state.setWorklogs);
   const addWorklogs = useSprintStore((state) => state.addWorklogs);
   const removeWorklogsByFileName = useSprintStore((state) => state.removeWorklogsByFileName);
-  const setSprintMetadata = useSprintStore((state) => state.setSprintMetadata);
   const addSprintMetadata = useSprintStore((state) => state.addSprintMetadata);
   const removeSprintMetadataByFileName = useSprintStore((state) => state.removeSprintMetadataByFileName);
+  const clearData = useSprintStore((state) => state.clearData);
   // Usar os nomes dos arquivos do store quando disponível - FONTE ÚNICA DE VERDADE
   const storeLayoutFileNames = useSprintStore((state) => state.layoutFileNames);
   const storeWorklogFileNames = useSprintStore((state) => state.worklogFileNames);
@@ -58,8 +59,7 @@ export const XlsUploader: React.FC = () => {
 
       if (result.success && result.data) {
         console.log(`✅ Sprints carregados com sucesso: ${result.data.length} sprints`);
-        // Sempre adicionar, pois addSprintMetadata evita duplicatas por nome de sprint
-        // setSprintMetadata só deve ser usado para limpar e substituir tudo
+        // Sempre adicionar, pois o store evita duplicatas por nome de sprint
         addSprintMetadata(result.data, file.name);
         setSprintsFileName(file.name);
         setError(null);
@@ -325,22 +325,17 @@ export const XlsUploader: React.FC = () => {
       // Processar data.xlsx (sprints)
       if (dataFile) {
         try {
-          // Verificar se o arquivo é válido antes de processar
-          if (!(dataFile instanceof File) && !(dataFile instanceof Blob)) {
-            errors.push(`Erro: data.xlsx não é um arquivo válido.`);
-          } else {
-            const isValidStructure = await validateSprintsStructure(dataFile);
-            if (isValidStructure) {
-              const result = await parseSprintsFile(dataFile);
-              if (result.success && result.data) {
-                addSprintMetadata(result.data, dataFile.name);
-                setSprintsFileName(dataFile.name);
-              } else {
-                errors.push(`Erro ao processar data.xlsx: ${result.error || 'Erro desconhecido'}`);
-              }
+          const isValidStructure = await validateSprintsStructure(dataFile);
+          if (isValidStructure) {
+            const result = await parseSprintsFile(dataFile);
+            if (result.success && result.data) {
+              addSprintMetadata(result.data, dataFile.name);
+              setSprintsFileName(dataFile.name);
             } else {
-              errors.push('Estrutura inválida no arquivo data.xlsx. Verifique as colunas obrigatórias: Sprint, Data Início, Data Fim.');
+              errors.push(`Erro ao processar data.xlsx: ${result.error || 'Erro desconhecido'}`);
             }
+          } else {
+            errors.push('Estrutura inválida no arquivo data.xlsx. Verifique as colunas obrigatórias: Sprint, Data Início, Data Fim.');
           }
         } catch (err) {
           errors.push(`Erro ao processar data.xlsx: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
@@ -352,31 +347,26 @@ export const XlsUploader: React.FC = () => {
       // Processar work.xlsx (worklog) - obrigatório
       if (workFile) {
         try {
-          // Verificar se o arquivo é válido antes de processar
-          if (!(workFile instanceof File) && !(workFile instanceof Blob)) {
-            errors.push(`Erro: work.xlsx não é um arquivo válido.`);
-          } else {
-            const isValidStructure = await validateWorklogStructure(workFile);
-            if (isValidStructure) {
-              const result = await parseWorklogFile(workFile);
-              if (result.success && result.data) {
-                const currentWorklogs = useSprintStore.getState().worklogs;
-                const currentWorklogFileNames = useSprintStore.getState().worklogFileNames;
-                const hasExisting = currentWorklogs.length > 0 || currentWorklogFileNames.length > 0;
-                
-                if (hasExisting) {
-                  addWorklogs(result.data, workFile.name);
-                } else {
-                  setWorklogs(result.data, workFile.name);
-                }
-                // Atualizar o estado do card para mostrar o arquivo carregado
-                setWorklogFileName(workFile.name);
+          const isValidStructure = await validateWorklogStructure(workFile);
+          if (isValidStructure) {
+            const result = await parseWorklogFile(workFile);
+            if (result.success && result.data) {
+              const currentWorklogs = useSprintStore.getState().worklogs;
+              const currentWorklogFileNames = useSprintStore.getState().worklogFileNames;
+              const hasExisting = currentWorklogs.length > 0 || currentWorklogFileNames.length > 0;
+              
+              if (hasExisting) {
+                addWorklogs(result.data, workFile.name);
               } else {
-                errors.push(`Erro ao processar work.xlsx: ${result.error || 'Erro desconhecido'}`);
+                setWorklogs(result.data, workFile.name);
               }
+              // Atualizar o estado do card para mostrar o arquivo carregado
+              setWorklogFileName(workFile.name);
             } else {
-              errors.push('Estrutura inválida no arquivo work.xlsx. Verifique as colunas obrigatórias: ID da tarefa, Tempo gasto, Data.');
+              errors.push(`Erro ao processar work.xlsx: ${result.error || 'Erro desconhecido'}`);
             }
+          } else {
+            errors.push('Estrutura inválida no arquivo work.xlsx. Verifique as colunas obrigatórias: ID da tarefa, Tempo gasto, Data.');
           }
         } catch (err) {
           errors.push(`Erro ao processar work.xlsx: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
@@ -391,11 +381,6 @@ export const XlsUploader: React.FC = () => {
         let successCount = 0;
         for (const file of sprintFiles) {
           try {
-            // Verificar se o arquivo é válido antes de processar
-            if (!(file instanceof File) && !(file instanceof Blob)) {
-              errors.push(`Erro: ${file.name} não é um arquivo válido.`);
-              continue;
-            }
             const isValidStructure = await validateXLSStructure(file);
             if (isValidStructure) {
               const result = await parseXLSFile(file);
@@ -518,141 +503,156 @@ export const XlsUploader: React.FC = () => {
     }
   }, [handleFolderImport]);
 
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+      folderInputRef.current.setAttribute('directory', '');
+    }
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    // Limpar todos os dados do store
+    clearData();
+    // Limpar estados locais do componente
+    setLayoutFileName(null);
+    setWorklogFileName(null);
+    setSprintsFileName(null);
+    setFolderPath(null);
+    setError(null);
+    // Resetar inputs de arquivo
+    const sprintsInput = document.getElementById('sprints-file-input') as HTMLInputElement;
+    const worklogInput = document.getElementById('worklog-file-input') as HTMLInputElement;
+    const layoutInput = document.getElementById('layout-file-input') as HTMLInputElement;
+    const folderInput = document.getElementById('folder-input') as HTMLInputElement;
+    if (sprintsInput) sprintsInput.value = '';
+    if (worklogInput) worklogInput.value = '';
+    if (layoutInput) layoutInput.value = '';
+    if (folderInput) folderInput.value = '';
+  }, [clearData]);
+
   return (
-    <div className="w-full space-y-4">
-      {/* Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Upload de Arquivos</h2>
-      </div>
-
-      {/* Folder Import Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          📁 Importar de Pasta (Estrutura Completa)
-        </label>
-        <div
-          className={`
-            border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300
-            ${isLoadingFolder 
-              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-              : 'border-orange-300 dark:border-orange-600 bg-white dark:bg-gray-800'
-            }
-            ${isLoadingFolder ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 hover:shadow-lg'}
-          `}
-          onClick={handleFolderButtonClick}
-        >
-          <input
-            id="folder-input"
-            type="file"
-            webkitdirectory=""
-            directory=""
-            multiple
-            onChange={handleFolderInput}
-            className="hidden"
-          />
-
-          <div className="flex flex-col items-center gap-2">
-            {isLoadingFolder ? (
-              <>
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Processando pasta...</p>
-              </>
-            ) : folderPath ? (
-              <>
-                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                  <Folder className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="w-full">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">✓ Pasta importada:</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 font-mono bg-gray-50 dark:bg-gray-700/50 p-1.5 rounded">
-                    {folderPath}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Clique para selecionar outra pasta</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="p-2 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg">
-                  <Folder className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div className="w-full">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Clique para selecionar uma pasta
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Importa todos os arquivos da estrutura esperada
-                  </p>
-                  <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 rounded text-left">
-                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">📋 Estrutura necessária:</p>
-                    <div className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400">
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">data.xlsx</span>
-                        <span className="flex-1">→ Sprints (Sprint | Data Início | Data Fim)</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">work.xlsx</span>
-                        <span className="flex-1">→ Worklog obrigatório (ID tarefa | Tempo | Data)</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">sprint/</span>
-                        <span className="flex-1">→ Pasta com tarefas (.xlsx/.xls)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+    <section className="w-full">
+      <div className="max-w-5xl mx-auto space-y-6 px-2 sm:px-4">
+        {/* Header */}
+        <div className="text-center">
+          <p className="text-sm uppercase tracking-widest text-gray-500 dark:text-gray-400">Importador inteligente</p>
+          <h2 className="text-3xl font-semibold text-gray-900 dark:text-gray-100 mt-1">Upload de Arquivos</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Importe toda a pasta ou apenas os arquivos necessários. Mostramos apenas erros — sem ruído visual.
+          </p>
         </div>
-      </div>
 
-      {/* Individual File Uploads - Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Sprints Configuration File Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            1. Sprints (Obrigatório)
-          </label>
-          <div
+        {/* Folder Import Section */}
+        <div className="rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-white/80 dark:bg-gray-900/40 shadow-sm ring-1 ring-orange-500/10">
+          <button
+            type="button"
             className={`
-              border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300 h-full
-              ${isDraggingSprints 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-105' 
-                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-              }
-              ${isLoadingSprints ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg'}
+              w-full flex flex-col md:flex-row items-center md:items-start gap-4 text-left px-4 sm:px-6 py-5 transition-all
+              ${isLoadingFolder ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-50/70 dark:hover:bg-orange-900/10'}
             `}
-          onDrop={handleSprintsDrop}
-          onDragOver={handleSprintsDragOver}
-          onDragLeave={handleSprintsDragLeave}
-          onClick={() => document.getElementById('sprints-file-input')?.click()}
-        >
-          <input
-            id="sprints-file-input"
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleSprintsFileInput}
-            multiple
-            className="hidden"
-          />
+            onClick={isLoadingFolder ? undefined : handleFolderButtonClick}
+          >
+            <input
+              id="folder-input"
+              ref={folderInputRef}
+              type="file"
+              multiple
+              onChange={handleFolderInput}
+              className="hidden"
+            />
 
-          <div className="flex flex-col items-center gap-2">
-            {isLoadingSprints ? (
-              <>
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
-              </>
-            ) : sprintsFileName ? (
-              <>
-                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                  <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
+            <div className="flex items-center justify-center size-14 rounded-2xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/60 dark:to-orange-800/40 text-orange-700 dark:text-orange-200 flex-shrink-0">
+              {isLoadingFolder ? (
+                <div className="animate-spin rounded-full h-7 w-7 border-3 border-orange-500 border-t-transparent"></div>
+              ) : (
+                <Folder className="w-7 h-7" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Importar pasta completa</span>
+                {folderPath && (
+                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                    {folderPath}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Seleciona automaticamente `data.xlsx`, `work.xlsx` e todos os arquivos de `sprint/`.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex flex-col border border-dashed border-orange-200 dark:border-orange-800 rounded-lg p-2 bg-orange-50/50 dark:bg-orange-900/10">
+                  <span className="font-semibold text-orange-700 dark:text-orange-200">data.xlsx</span>
+                  <span>Sprints (Sprint, Data Início, Data Fim)</span>
                 </div>
-                <div className="w-full">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">✓ Carregado:</p>
-                  <div className="space-y-1">
-                    {(sprintsFileName ? [sprintsFileName] : []).map((fileName) => (
-                      <div key={fileName} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded text-xs">
-                        <span className="text-xs text-gray-600 dark:text-gray-300 truncate flex-1">{fileName}</span>
+                <div className="flex flex-col border border-dashed border-orange-200 dark:border-orange-800 rounded-lg p-2 bg-orange-50/50 dark:bg-orange-900/10">
+                  <span className="font-semibold text-orange-700 dark:text-orange-200">work.xlsx</span>
+                  <span>Worklog obrigatório</span>
+                </div>
+                <div className="flex flex-col border border-dashed border-orange-200 dark:border-orange-800 rounded-lg p-2 bg-orange-50/50 dark:bg-orange-900/10">
+                  <span className="font-semibold text-orange-700 dark:text-orange-200">sprint/</span>
+                  <span>Arquivos de tarefas (.xls[x])</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Individual File Uploads - Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {/* Sprints */}
+          <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-gray-900/40 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-300">Passo 1</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sprints</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Sprint · Data Início · Data Fim
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-200">
+                Obrigatório
+              </span>
+            </div>
+            <div
+              className={`
+                m-4 flex-1 border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300
+                ${isDraggingSprints ? 'border-blue-400 bg-blue-50/70 dark:bg-blue-900/10 scale-[1.01]' : 'border-gray-200 dark:border-gray-700'}
+                ${isLoadingSprints ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:border-blue-500'}
+              `}
+              onDrop={handleSprintsDrop}
+              onDragOver={handleSprintsDragOver}
+              onDragLeave={handleSprintsDragLeave}
+              onClick={() => document.getElementById('sprints-file-input')?.click()}
+            >
+              <input
+                id="sprints-file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleSprintsFileInput}
+                multiple
+                className="hidden"
+              />
+
+              {isLoadingSprints ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
+                </div>
+              ) : sprintsFileName ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-300 text-sm font-medium">
+                    <Calendar className="w-4 h-4" />
+                    Arquivo carregado
+                  </div>
+                  <div className="max-h-28 overflow-auto space-y-1 text-left">
+                    {[sprintsFileName].map((fileName) => (
+                      <div
+                        key={fileName}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-100"
+                      >
+                        <span className="flex-1 truncate">{fileName}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -661,269 +661,224 @@ export const XlsUploader: React.FC = () => {
                               setSprintsFileName(null);
                             }
                           }}
-                          className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors ml-1"
+                          className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40"
                           title="Remover arquivo"
                         >
-                          <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                          <X className="w-3 h-3 text-red-500" />
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg">
-                  <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-200">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  Arraste arquivos .xls[x] ou clique para selecionar
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Arraste ou clique
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Sprint | Data Início | Data Fim
-                  </p>
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-        </div>
 
-        {/* Worklog File Upload */}
-        <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          2. Worklog (Obrigatório)
-        </label>
-        <div
-          className={`
-            border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300 h-full
-            ${isDraggingWorklog 
-              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 scale-105' 
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-            }
-            ${isLoadingWorklog ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg'}
-          `}
-          onDrop={handleWorklogDrop}
-          onDragOver={handleWorklogDragOver}
-          onDragLeave={handleWorklogDragLeave}
-          onClick={() => document.getElementById('worklog-file-input')?.click()}
-        >
-          <input
-            id="worklog-file-input"
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleWorklogFileInput}
-            multiple
-            className="hidden"
-          />
+          {/* Worklog */}
+          <div className="rounded-2xl border border-purple-100 dark:border-purple-900/40 bg-white/80 dark:bg-gray-900/40 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-300">Passo 2</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Worklog</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  ID tarefa · Tempo · Data
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-200">
+                Obrigatório
+              </span>
+            </div>
+            <div
+              className={`
+                m-4 flex-1 border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300
+                ${isDraggingWorklog ? 'border-purple-400 bg-purple-50/70 dark:bg-purple-900/10 scale-[1.01]' : 'border-gray-200 dark:border-gray-700'}
+                ${isLoadingWorklog ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 dark:hover:border-purple-500'}
+              `}
+              onDrop={handleWorklogDrop}
+              onDragOver={handleWorklogDragOver}
+              onDragLeave={handleWorklogDragLeave}
+              onClick={() => document.getElementById('worklog-file-input')?.click()}
+            >
+              <input
+                id="worklog-file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleWorklogFileInput}
+                multiple
+                className="hidden"
+              />
 
-          <div className="flex flex-col items-center gap-2">
-            {isLoadingWorklog ? (
-              <>
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
-              </>
-            ) : (worklogFileName || storeWorklogFileNames.length > 0) ? (
-              <>
-                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-green-600 dark:text-green-400" />
+              {isLoadingWorklog ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
                 </div>
-                <div className="w-full">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">✓ Carregado:</p>
-                  <div className="space-y-1">
-                    {[...(worklogFileName ? [worklogFileName] : []), ...storeWorklogFileNames].filter((v, i, a) => a.indexOf(v) === i).map((fileName) => (
-                      <div key={fileName} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded text-xs">
-                        <span className="text-xs text-gray-600 dark:text-gray-300 truncate flex-1">{fileName}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeWorklogsByFileName(fileName);
-                            if (fileName === worklogFileName) {
-                              setWorklogFileName(null);
-                            }
-                          }}
-                          className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors ml-1"
-                          title="Remover arquivo"
+              ) : (worklogFileName || storeWorklogFileNames.length > 0) ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-300 text-sm font-medium">
+                    <Clock className="w-4 h-4" />
+                    {`Arquivo${storeWorklogFileNames.length + (worklogFileName ? 1 : 0) > 1 ? 's' : ''} carregado${storeWorklogFileNames.length + (worklogFileName ? 1 : 0) > 1 ? 's' : ''}`}
+                  </div>
+                  <div className="max-h-28 overflow-auto space-y-1 text-left">
+                    {[...(worklogFileName ? [worklogFileName] : []), ...storeWorklogFileNames]
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .map((fileName) => (
+                        <div
+                          key={fileName}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-100"
                         >
-                          <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                        </button>
-                      </div>
-                    ))}
+                          <span className="flex-1 truncate">{fileName}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeWorklogsByFileName(fileName);
+                              if (fileName === worklogFileName) {
+                                setWorklogFileName(null);
+                              }
+                            }}
+                            className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40"
+                            title="Remover arquivo"
+                          >
+                            <X className="w-3 h-3 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
                   </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="p-2 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="size-12 rounded-full bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-200">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  Arraste arquivos .xls[x] ou clique para selecionar
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Arraste ou clique
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    ID tarefa | Tempo | Data
-                  </p>
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-        </div>
 
-        {/* Layout File Upload */}
-        <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          3. Tarefas (Obrigatório)
-        </label>
-        <div
-          className={`
-            border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300 h-full
-            ${isDraggingLayout 
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-105' 
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-            }
-            ${isLoadingLayout ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg'}
-          `}
-          onDrop={handleLayoutDrop}
-          onDragOver={handleLayoutDragOver}
-          onDragLeave={handleLayoutDragLeave}
-          onClick={() => document.getElementById('layout-file-input')?.click()}
-        >
-          <input
-            id="layout-file-input"
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleLayoutFileInput}
-            multiple
-            className="hidden"
-          />
+          {/* Tarefas */}
+          <div className="rounded-2xl border border-teal-100 dark:border-teal-900/40 bg-white/80 dark:bg-gray-900/40 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-teal-500 dark:text-teal-300">Passo 3</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tarefas</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Chave · Resumo · Tempo · Sprint
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-200">
+                Obrigatório
+              </span>
+            </div>
+            <div
+              className={`
+                m-4 flex-1 border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300
+                ${isDraggingLayout ? 'border-teal-400 bg-teal-50/70 dark:bg-teal-900/10 scale-[1.01]' : 'border-gray-200 dark:border-gray-700'}
+                ${isLoadingLayout ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 dark:hover:border-teal-500'}
+              `}
+              onDrop={handleLayoutDrop}
+              onDragOver={handleLayoutDragOver}
+              onDragLeave={handleLayoutDragLeave}
+              onClick={() => document.getElementById('layout-file-input')?.click()}
+            >
+              <input
+                id="layout-file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleLayoutFileInput}
+                multiple
+                className="hidden"
+              />
 
-          <div className="flex flex-col items-center gap-2">
-            {isLoadingLayout ? (
-              <>
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
-              </>
-            ) : (layoutFileName || storeLayoutFileNames.length > 0) ? (
-              <>
-                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                  <FileSpreadsheet className="w-6 h-6 text-green-600 dark:text-green-400" />
+              {isLoadingLayout ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500 border-t-transparent"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Processando...</p>
                 </div>
-                <div className="w-full">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">✓ Carregado:</p>
-                  <div className="space-y-1">
-                    {[...(layoutFileName ? [layoutFileName] : []), ...storeLayoutFileNames].filter((v, i, a) => a.indexOf(v) === i).map((fileName) => (
-                      <div key={fileName} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded text-xs">
-                        <span className="text-xs text-gray-600 dark:text-gray-300 truncate flex-1">{fileName}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeTasksByFileName(fileName);
-                            if (fileName === layoutFileName) {
-                              setLayoutFileName(null);
-                            }
-                          }}
-                          className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors ml-1"
-                          title="Remover arquivo"
+              ) : (layoutFileName || storeLayoutFileNames.length > 0) ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-300 text-sm font-medium">
+                    <FileSpreadsheet className="w-4 h-4" />
+                    {`Arquivo${storeLayoutFileNames.length + (layoutFileName ? 1 : 0) > 1 ? 's' : ''} carregado${storeLayoutFileNames.length + (layoutFileName ? 1 : 0) > 1 ? 's' : ''}`}
+                  </div>
+                  <div className="max-h-28 overflow-auto space-y-1 text-left">
+                    {[...(layoutFileName ? [layoutFileName] : []), ...storeLayoutFileNames]
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .map((fileName) => (
+                        <div
+                          key={fileName}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-100"
                         >
-                          <X className="w-3 h-3 text-red-600 dark:text-red-400" />
-                        </button>
-                      </div>
-                    ))}
+                          <span className="flex-1 truncate">{fileName}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTasksByFileName(fileName);
+                              if (fileName === layoutFileName) {
+                                setLayoutFileName(null);
+                              }
+                            }}
+                            className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40"
+                            title="Remover arquivo"
+                          >
+                            <X className="w-3 h-3 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
                   </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg">
-                  <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="size-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-200">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  Arraste arquivos .xls[x] ou clique para selecionar
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Arraste ou clique
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Chave | Resumo | Tempo | Sprint
-                  </p>
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      </div>
 
-      {/* Success Messages */}
-      {!error && (sprintsFileName || worklogFileName || layoutFileName || storeLayoutFileNames.length > 0 || storeWorklogFileNames.length > 0) && (
-        <div className="space-y-2">
-          {sprintsFileName && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <div className="p-1.5 bg-green-100 dark:bg-green-800 rounded-full">
-                <Calendar className="w-4 h-4 text-green-600 dark:text-green-300 flex-shrink-0" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                  Sprints carregados
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-0.5 truncate">
-                  {sprintsFileName}
-                </p>
-              </div>
-            </div>
-          )}
-          {(worklogFileName || storeWorklogFileNames.length > 0) && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <div className="p-1.5 bg-green-100 dark:bg-green-800 rounded-full">
-                <Clock className="w-4 h-4 text-green-600 dark:text-green-300 flex-shrink-0" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                  Worklog carregado
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                  {[...(worklogFileName ? [worklogFileName] : []), ...storeWorklogFileNames].filter((v, i, a) => a.indexOf(v) === i).length} arquivo(s)
-                </p>
-              </div>
-            </div>
-          )}
-          {(layoutFileName || storeLayoutFileNames.length > 0) && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <div className="p-1.5 bg-green-100 dark:bg-green-800 rounded-full">
-                <FileSpreadsheet className="w-4 h-4 text-green-600 dark:text-green-300 flex-shrink-0" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                  Tarefas carregadas
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                  {[...(layoutFileName ? [layoutFileName] : []), ...storeLayoutFileNames].filter((v, i, a) => a.indexOf(v) === i).length} arquivo(s)
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Clear All Button */}
+        {(layoutFileName || worklogFileName || sprintsFileName || storeLayoutFileNames.length > 0 || storeWorklogFileNames.length > 0 || folderPath) && (
+          <div className="flex justify-center">
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 transition-all duration-200 font-medium text-sm"
+              title="Limpar todos os arquivos carregados"
+            >
+              <Trash2 className="w-4 h-4" />
+              Limpar Todos os Arquivos
+            </button>
+          </div>
+        )}
 
       {/* Error Message */}
-      {error && (
-        <div className="p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2 animate-slide-in">
-          <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-red-800 dark:text-red-300">Erro ao carregar arquivo</p>
-            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 break-words">{error}</p>
+        {error && (
+          <div className="p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2 animate-slide-in">
+            <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-red-800 dark:text-red-300">Erro ao carregar arquivo</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 break-words">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
+              title="Fechar erro"
+            >
+              <X className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+            </button>
           </div>
-          <button
-            onClick={() => setError(null)}
-            className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
-            title="Fechar erro"
-          >
-            <X className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-          </button>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 };
 

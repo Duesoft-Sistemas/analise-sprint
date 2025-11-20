@@ -6,13 +6,24 @@ import {
   DeveloperTemporalEvolution,
   TemporalEvolutionAnalytics,
   SprintPerformanceMetrics,
+  WorklogEntry,
 } from '../types';
-import { calculatePerformanceAnalytics } from './performanceAnalytics';
+import { calculatePerformanceAnalytics, calculateCustomPeriodPerformance } from './performanceAnalytics';
+import { isCompletedStatus, isNeutralTask } from '../utils/calculations';
+import { getEfficiencyThreshold } from '../config/performanceConfig';
 
 /**
  * Get period identifier and label based on date and aggregation type
+ * For 'sprint' aggregation, sprintName should be provided instead of date
  */
-function getPeriodInfo(date: Date, aggregationType: TemporalAggregation): { id: string; label: string } {
+function getPeriodInfo(date: Date, aggregationType: TemporalAggregation, sprintName?: string): { id: string; label: string } {
+  if (aggregationType === 'sprint' && sprintName) {
+    return {
+      id: sprintName,
+      label: sprintName
+    };
+  }
+
   const year = date.getFullYear();
   const month = date.getMonth(); // 0-11
   const quarter = Math.floor(month / 3) + 1; // 1-4
@@ -44,13 +55,36 @@ function getPeriodInfo(date: Date, aggregationType: TemporalAggregation): { id: 
         id: `${year}`,
         label: `${year}`
       };
+    case 'sprint':
+      // Should not reach here if sprintName is provided
+      return {
+        id: date.toISOString(),
+        label: date.toISOString()
+      };
   }
 }
 
 /**
  * Get date range for a period
+ * For 'sprint' aggregation, sprints array should be provided to find the sprint dates
  */
-function getPeriodDateRange(periodId: string, aggregationType: TemporalAggregation): { start: Date; end: Date } {
+function getPeriodDateRange(periodId: string, aggregationType: TemporalAggregation, sprints?: SprintMetadata[]): { start: Date; end: Date } {
+  if (aggregationType === 'sprint' && sprints) {
+    // Find the sprint in the sprints array
+    const sprint = sprints.find(s => s.sprint === periodId);
+    if (sprint) {
+      return {
+        start: sprint.dataInicio,
+        end: sprint.dataFim
+      };
+    }
+    // Fallback if sprint not found
+    return {
+      start: new Date(),
+      end: new Date()
+    };
+  }
+
   if (aggregationType === 'monthly') {
     const [year, month] = periodId.split('-').map(Number);
     const start = new Date(year, month - 1, 1);
@@ -85,22 +119,40 @@ function groupSprintsByPeriod(
 ): Map<string, { periodId: string; periodLabel: string; sprints: string[]; startDate: Date; endDate: Date }> {
   const periodMap = new Map<string, { periodId: string; periodLabel: string; sprints: string[]; startDate: Date; endDate: Date }>();
 
-  for (const sprint of sprints) {
-    const periodInfo = getPeriodInfo(sprint.dataInicio, aggregationType);
-    const periodId = periodInfo.id;
-
-    if (!periodMap.has(periodId)) {
-      const dateRange = getPeriodDateRange(periodId, aggregationType);
+  if (aggregationType === 'sprint') {
+    // Each sprint is its own period
+    for (const sprint of sprints) {
+      const periodInfo = getPeriodInfo(sprint.dataInicio, aggregationType, sprint.sprint);
+      const periodId = periodInfo.id;
+      const dateRange = getPeriodDateRange(periodId, aggregationType, sprints);
+      
       periodMap.set(periodId, {
         periodId: periodId,
         periodLabel: periodInfo.label,
-        sprints: [],
+        sprints: [sprint.sprint],
         startDate: dateRange.start,
         endDate: dateRange.end,
       });
     }
+  } else {
+    // Group sprints by temporal period (monthly, quarterly, etc.)
+    for (const sprint of sprints) {
+      const periodInfo = getPeriodInfo(sprint.dataInicio, aggregationType);
+      const periodId = periodInfo.id;
 
-    periodMap.get(periodId)!.sprints.push(sprint.sprint);
+      if (!periodMap.has(periodId)) {
+        const dateRange = getPeriodDateRange(periodId, aggregationType, sprints);
+        periodMap.set(periodId, {
+          periodId: periodId,
+          periodLabel: periodInfo.label,
+          sprints: [],
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+        });
+      }
+
+      periodMap.get(periodId)!.sprints.push(sprint.sprint);
+    }
   }
 
   return periodMap;
@@ -108,46 +160,177 @@ function groupSprintsByPeriod(
 
 /**
  * Calculate metrics for a specific period
+ * Uses the same logic as PerformanceDashboard when multiple sprints are selected:
+ * aggregates tasks from all sprints and recalculates metrics, rather than averaging sprint scores
  */
 function calculatePeriodMetrics(
   developerId: string,
+  developerName: string,
   sprintNames: string[],
-  performanceMetrics: Map<string, SprintPerformanceMetrics>,
+  tasks: TaskItem[],
+  worklogs: WorklogEntry[] | undefined,
+  sprintMetadata: SprintMetadata[] | undefined,
   periodInfo: { periodId: string; periodLabel: string; startDate: Date; endDate: Date }
 ): TemporalPeriodMetrics | null {
-  // Get all sprint metrics for this developer in this period
-  const sprintMetrics = sprintNames
-    .map(sprintName => performanceMetrics.get(`${developerId}-${sprintName}`))
-    .filter((m): m is SprintPerformanceMetrics => m !== undefined);
-
-  if (sprintMetrics.length === 0) {
+  if (sprintNames.length === 0) {
     return null;
   }
 
-  // Aggregate metrics
-  const totalHoursWorked = sprintMetrics.reduce((sum, m) => sum + m.totalHoursWorked, 0);
-  const totalHoursEstimated = sprintMetrics.reduce((sum, m) => sum + m.totalHoursEstimated, 0);
-  const totalTasksCompleted = sprintMetrics.reduce((sum, m) => sum + m.tasksCompleted, 0);
-  const totalTasksStarted = sprintMetrics.reduce((sum, m) => sum + m.tasksStarted, 0);
+  // Use calculateCustomPeriodPerformance to get aggregated metrics from tasks
+  // This is the same approach used in PerformanceDashboard for multiple sprints
+  const customMetrics = calculateCustomPeriodPerformance(
+    tasks,
+    developerId,
+    developerName,
+    sprintNames,
+    periodInfo.periodLabel,
+    worklogs,
+    sprintMetadata
+  );
+
+  if (customMetrics.totalTasksCompleted === 0) {
+    return null;
+  }
+
+  // Aggregate tasks from all sprints in the period
+  const allTasksMetrics = customMetrics.sprints.flatMap(sprint => sprint.tasks);
+
+  // Calculate aggregated metrics based on aggregated tasks (same logic as PerformanceDashboard)
+  const completedTasks = allTasksMetrics.filter(t => isCompletedStatus(t.task.status));
+  const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
+
+  // Separate bugs and features
+  const bugs = completedWithEstimates.filter(t => t.task.tipo === 'Bug');
+  const features = completedWithEstimates.filter(t => t.task.tipo !== 'Bug');
+
+  // Calculate efficient bugs (using complexity zone)
+  const efficientBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'efficient').length;
+  const acceptableBugs = bugs.filter(t => t.efficiencyImpact?.zone === 'acceptable').length;
+  const bugAccuracyRate = bugs.length > 0 ? ((efficientBugs + (acceptableBugs * 0.5)) / bugs.length) * 100 : 0;
+
+  // Calculate feature estimation accuracy (average deviation)
+  const featureDeviations = features.map(t => t.estimationAccuracy);
+  const featureEstimationAccuracy = featureDeviations.length > 0
+    ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
+    : 0;
+
+  // Calculate weighted accuracy rate
+  const weightedEfficientScore = efficientBugs + (acceptableBugs * 0.5) + 
+    features.filter(t => {
+      const deviation = t.estimationAccuracy;
+      const threshold = getEfficiencyThreshold(t.complexityScore);
+      return deviation > 0 ? true : deviation >= threshold.slower;
+    }).length;
+  const accuracyRate = completedWithEstimates.length > 0
+    ? (weightedEfficientScore / completedWithEstimates.length) * 100
+    : 0;
+
+  // Recalculate bonuses based on aggregated tasks (same logic as PerformanceDashboard)
+  // Seniority Bonus: tasks with complexity 4-5 that are efficient and have quality >= 4
+  const seniorTasks = completedTasks.filter(t => t.complexityScore >= 4 && t.hoursEstimated > 0);
+  let seniorityEfficiencyBonus = 0;
+
+  if (seniorTasks.length > 0) {
+    let highlyEfficientSenior = 0;
+    for (const task of seniorTasks) {
+      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+      if (!hasGoodQuality) continue;
+
+      let isEfficient = false;
+      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+        if (task.efficiencyImpact.zone === 'efficient') {
+          highlyEfficientSenior++;
+          isEfficient = true;
+        }
+      } else {
+        const deviation = task.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(task.complexityScore);
+        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+          highlyEfficientSenior++;
+          isEfficient = true;
+        }
+      }
+    }
+    const seniorEfficiencyScore = highlyEfficientSenior / seniorTasks.length;
+    seniorityEfficiencyBonus = Math.round(seniorEfficiencyScore * 15); // MAX_SENIORITY_EFFICIENCY_BONUS
+  }
+
+  // Competence Bonus: tasks with complexity 3 that are efficient and have quality >= 4
+  const mediumTasks = completedTasks.filter(t => t.complexityScore === 3 && t.hoursEstimated > 0);
+  let competenceBonus = 0;
+
+  if (mediumTasks.length > 0) {
+    let highlyEfficientMedium = 0;
+    for (const task of mediumTasks) {
+      const hasGoodQuality = task.task.notaTeste !== null && task.task.notaTeste !== undefined && task.task.notaTeste >= 4;
+      if (!hasGoodQuality) continue;
+
+      let isEfficient = false;
+      if (task.efficiencyImpact && task.efficiencyImpact.type === 'complexity_zone') {
+        if (task.efficiencyImpact.zone === 'efficient') {
+          highlyEfficientMedium++;
+          isEfficient = true;
+        }
+      } else {
+        const deviation = task.estimationAccuracy;
+        const threshold = getEfficiencyThreshold(task.complexityScore);
+        if (deviation >= 0 || (deviation < 0 && deviation >= threshold.slower)) {
+          highlyEfficientMedium++;
+          isEfficient = true;
+        }
+      }
+    }
+    const mediumEfficiencyScore = highlyEfficientMedium / mediumTasks.length;
+    competenceBonus = Math.round(mediumEfficiencyScore * 5); // MAX_COMPLEXITY_3_BONUS
+  }
+
+  // Auxilio Bonus: sum of auxilio hours across all sprints
+  const auxilioBonus = customMetrics.sprints.reduce((sum, s) => sum + (s.auxilioBonus || 0), 0);
+
+  // Aggregate test notes for quality calculation
+  const qualityTasks = completedTasks.filter(t => 
+    !isNeutralTask(t.task) && 
+    t.task.notaTeste !== null && 
+    t.task.notaTeste !== undefined
+  );
+  const testNotes = qualityTasks.map(t => t.task.notaTeste as number);
+  const avgTestNote = testNotes.length > 0 ? (testNotes.reduce((s, n) => s + n, 0) / testNotes.length) : undefined;
+  const qualityScore = avgTestNote !== undefined ? Math.max(0, Math.min(100, avgTestNote * 20)) : customMetrics.avgQualityScore;
+
+  // Calculate base score (considering quality if available)
+  const executionEfficiency = accuracyRate;
+  const scoreHasQuality = qualityTasks.length > 0;
+  const baseScore = scoreHasQuality
+    ? ((qualityScore * 0.50) + (executionEfficiency * 0.50))
+    : executionEfficiency;
+
+  // Calculate performance score (same formula as PerformanceDashboard)
+  const performanceScore = baseScore + seniorityEfficiencyBonus + competenceBonus + auxilioBonus;
+
+  // Calculate bugs vs features (only completed tasks)
+  const completedTaskItems = completedTasks.map(t => t.task);
+  const bugTasks = completedTaskItems.filter(t => t.tipo === 'Bug').length;
+  const featureTasks = completedTaskItems.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
+  const bugsVsFeatures = featureTasks > 0 ? bugTasks / featureTasks : 0;
 
   return {
     periodId: periodInfo.periodId,
     periodLabel: periodInfo.periodLabel,
     startDate: periodInfo.startDate,
     endDate: periodInfo.endDate,
-    totalSprints: sprintMetrics.length,
-    totalHoursWorked,
-    totalHoursEstimated,
-    totalTasksCompleted,
-    totalTasksStarted,
-    avgPerformanceScore: sprintMetrics.reduce((sum, m) => sum + m.performanceScore, 0) / sprintMetrics.length,
-    avgAccuracyRate: sprintMetrics.reduce((sum, m) => sum + m.accuracyRate, 0) / sprintMetrics.length,
-    avgQualityScore: sprintMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / sprintMetrics.length,
-    avgCompletionRate: sprintMetrics.reduce((sum, m) => sum + m.completionRate, 0) / sprintMetrics.length,
-    avgBugRate: sprintMetrics.reduce((sum, m) => sum + m.bugRate, 0) / sprintMetrics.length,
-    avgEstimationAccuracy: sprintMetrics.reduce((sum, m) => sum + m.estimationAccuracy, 0) / sprintMetrics.length,
-    avgUtilizationRate: sprintMetrics.reduce((sum, m) => sum + m.utilizationRate, 0) / sprintMetrics.length,
-    avgComplexity: sprintMetrics.reduce((sum, m) => sum + m.avgComplexity, 0) / sprintMetrics.length,
+    totalSprints: sprintNames.length,
+    totalHoursWorked: customMetrics.totalHoursWorked,
+    totalHoursEstimated: customMetrics.totalHoursEstimated,
+    totalTasksCompleted: customMetrics.totalTasksCompleted,
+    totalTasksStarted: customMetrics.totalTasksStarted,
+    avgPerformanceScore: performanceScore, // Recalculated based on aggregated tasks, not average of sprint scores
+    avgAccuracyRate: accuracyRate,
+    avgQualityScore: qualityScore,
+    avgCompletionRate: customMetrics.completionRate,
+    avgBugRate: completedTaskItems.length > 0 ? (bugTasks / completedTaskItems.length) * 100 : 0,
+    avgEstimationAccuracy: customMetrics.avgEstimationAccuracy,
+    avgUtilizationRate: customMetrics.utilizationRate,
+    avgComplexity: customMetrics.avgComplexity,
     includedSprints: sprintNames,
   };
 }
@@ -346,13 +529,25 @@ function calculateStatistics(periods: TemporalPeriodMetrics[]) {
 export function calculateTemporalEvolution(
   tasks: TaskItem[],
   sprints: SprintMetadata[],
-  aggregationType: TemporalAggregation
+  aggregationType: TemporalAggregation,
+  worklogs?: WorklogEntry[]
 ): TemporalEvolutionAnalytics {
   // First, calculate all performance analytics
   const performanceAnalytics = calculatePerformanceAnalytics(tasks);
   
+  // Filter sprints: if aggregation is 'sprint', only include finished sprints (dataFim < today)
+  const filteredSprints = aggregationType === 'sprint'
+    ? sprints.filter(sprint => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+        const sprintEnd = new Date(sprint.dataFim);
+        sprintEnd.setHours(23, 59, 59, 999); // End of sprint end date
+        return sprintEnd < today;
+      })
+    : sprints;
+  
   // Group sprints by period
-  const periodGroups = groupSprintsByPeriod(sprints, aggregationType);
+  const periodGroups = groupSprintsByPeriod(filteredSprints, aggregationType);
   
   // Create a map for quick lookup of sprint metrics by developer and sprint
   const sprintMetricsMap = new Map<string, SprintPerformanceMetrics>();
@@ -378,8 +573,11 @@ export function calculateTemporalEvolution(
     for (const [_, periodInfo] of periodGroups) {
       const periodMetrics = calculatePeriodMetrics(
         developerId,
+        allSprintsMetrics.developerName,
         periodInfo.sprints,
-        sprintMetricsMap,
+        tasks,
+        worklogs,
+        sprints,
         periodInfo
       );
       

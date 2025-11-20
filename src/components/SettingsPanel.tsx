@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Settings,
   X,
@@ -13,8 +13,16 @@ import {
   Moon,
   Sun,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSprintStore } from '../store/useSprintStore';
+import {
+  getDefaultSelectedDevelopers,
+  setDefaultSelectedDevelopers,
+  getAllDevelopersFromTasks,
+  getAllDevelopersFromWorklogs,
+} from '../services/configService';
 import {
   COMPLEXITY_EFFICIENCY_ZONES,
   EFFICIENCY_THRESHOLDS,
@@ -37,6 +45,32 @@ interface SettingsPanelProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onClearData }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const { theme, toggleTheme } = useTheme();
+  
+  const tasks = useSprintStore((state) => state.tasks);
+  const worklogs = useSprintStore((state) => state.worklogs);
+  const [selectedDefaultDevelopers, setSelectedDefaultDevelopers] = useState<string[]>([]);
+
+  // Get all available developers
+  const allDevelopers = useMemo(() => {
+    const fromTasks = getAllDevelopersFromTasks(tasks);
+    const fromWorklogs = getAllDevelopersFromWorklogs(worklogs, tasks);
+    const combined = new Set([...fromTasks, ...fromWorklogs]);
+    return Array.from(combined).sort();
+  }, [tasks, worklogs]);
+
+  // Load default selected developers when panel opens or data changes
+  useEffect(() => {
+    if (isOpen) {
+      const defaults = getDefaultSelectedDevelopers();
+      // Filter to only include developers that actually exist
+      const validDefaults = defaults.filter(dev => allDevelopers.includes(dev));
+      setSelectedDefaultDevelopers(validDefaults);
+      // Update saved config if some developers were removed
+      if (validDefaults.length !== defaults.length) {
+        setDefaultSelectedDevelopers(validDefaults);
+      }
+    }
+  }, [isOpen, allDevelopers]);
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -46,6 +80,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
       newExpanded.add(section);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const handleToggleDefaultDeveloper = (developer: string) => {
+    const newSelected = selectedDefaultDevelopers.includes(developer)
+      ? selectedDefaultDevelopers.filter(d => d !== developer)
+      : [...selectedDefaultDevelopers, developer];
+    setSelectedDefaultDevelopers(newSelected);
+    setDefaultSelectedDevelopers(newSelected);
+  };
+
+  const handleSelectAllDevelopers = () => {
+    setSelectedDefaultDevelopers([...allDevelopers]);
+    setDefaultSelectedDevelopers([...allDevelopers]);
+  };
+
+  const handleDeselectAllDevelopers = () => {
+    setSelectedDefaultDevelopers([]);
+    setDefaultSelectedDevelopers([]);
   };
 
   if (!isOpen) return null;
@@ -377,6 +429,85 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Desenvolvedores Padrão */}
+            <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <button
+                onClick={() => toggleSection('default-developers')}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    Desenvolvedores Padrão
+                  </span>
+                </div>
+                {expandedSections.has('default-developers') ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {expandedSections.has('default-developers') && (
+                <div className="p-4 bg-white dark:bg-gray-800">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Selecione os desenvolvedores que devem aparecer selecionados por padrão em todas as telas que permitem seleção de desenvolvedores.
+                  </p>
+                  
+                  {allDevelopers.length === 0 ? (
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <Info className="w-4 h-4 inline mr-1" />
+                        Nenhum desenvolvedor encontrado. Carregue os arquivos de tarefas ou worklog primeiro.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-3 flex gap-2">
+                        <button
+                          onClick={handleSelectAllDevelopers}
+                          className="px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors"
+                        >
+                          Selecionar Todos
+                        </button>
+                        <button
+                          onClick={handleDeselectAllDevelopers}
+                          className="px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg transition-colors"
+                        >
+                          Desmarcar Todos
+                        </button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                        {allDevelopers.map((developer) => (
+                          <label
+                            key={developer}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDefaultDevelopers.includes(developer)}
+                              onChange={() => handleToggleDefaultDeveloper(developer)}
+                              className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-900 dark:text-white">{developer}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          {selectedDefaultDevelopers.length === 0 ? (
+                            <>Nenhum desenvolvedor selecionado. Todos os desenvolvedores aparecerão por padrão.</>
+                          ) : (
+                            <><strong>{selectedDefaultDevelopers.length}</strong> desenvolvedor{selectedDefaultDevelopers.length > 1 ? 'es' : ''} selecionado{selectedDefaultDevelopers.length > 1 ? 's' : ''} como padrão.</>
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

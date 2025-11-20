@@ -95,7 +95,12 @@ Score Máximo: 130
   auxilioHours >= 0.5: 1 ponto
   auxilioHours < 0.5: 0 pontos
   ```
-- **Regra Especial:** Para o cálculo do bônus, o tempo considerado (`auxilioHours`) é a soma do `tempoGastoNoSprint` de todas as tarefas identificadas como "Auxilio", **independentemente do seu status de conclusão**. Isso permite que tarefas de auxílio contínuas que atravessam múltiplos sprints sejam devidamente recompensadas a cada período.
+- **Regra Especial - Tarefas de Auxílio que Atravessam Sprints:**
+  - Cada desenvolvedor possui **uma única tarefa de auxílio** que nunca é concluída
+  - Esta tarefa é alocada em um sprint, trabalhada com worklog, e quando o sprint encerra e outro inicia, a tarefa é movida para o próximo sprint
+  - Para o cálculo do bônus, o sistema considera **todas as tarefas de auxílio do desenvolvedor** e soma apenas o `tempoGastoNoSprint` calculado para o sprint que está sendo analisado
+  - Isso significa que o bônus reflete exatamente as horas de auxílio registradas no worklog durante o período do sprint analisado, **independentemente do sprint ao qual a tarefa está atualmente alocada**
+  - O bônus é calculado **independentemente do status de conclusão** da tarefa de auxílio
 
 ### Classificações de Score
 

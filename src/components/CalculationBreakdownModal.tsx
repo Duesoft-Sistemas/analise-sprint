@@ -40,6 +40,7 @@ interface BreakdownItem {
 interface TaskBreakdown {
   taskKey: string;
   taskSummary: string;
+  sprint: string;
   complexity: number;
   hoursEstimated: number;
   hoursSpent: number;
@@ -150,6 +151,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             return {
               taskKey: t.task.chave || t.task.id,
               taskSummary: t.task.resumo || 'Sem resumo',
+              sprint: t.task.sprint || 'Sem sprint',
               complexity: t.task.complexidade,
               hoursEstimated: t.hoursEstimated,
               hoursSpent: t.hoursSpent,
@@ -192,6 +194,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             return {
               taskKey: t.task.chave || t.task.id,
               taskSummary: t.task.resumo || 'Sem resumo',
+              sprint: t.task.sprint || 'Sem sprint',
               complexity: t.task.complexidade,
               hoursEstimated: t.hoursEstimated,
               hoursSpent: t.hoursSpent,
@@ -225,6 +228,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
           tasks: completedTasks.map(t => ({
             taskKey: t.task.chave || t.task.id,
             taskSummary: t.task.resumo || 'Sem resumo',
+            sprint: t.task.sprint || 'Sem sprint',
             complexity: t.task.complexidade,
             hoursEstimated: t.hoursEstimated,
             hoursSpent: t.hoursSpent,
@@ -298,6 +302,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                 tasks: metrics.seniorityBonusTasks?.map(task => ({
                   taskKey: task.chave || task.id,
                   taskSummary: task.resumo || 'Sem resumo',
+                  sprint: task.sprint || 'Sem sprint',
                   complexity: task.complexidade,
                   hoursEstimated: task.estimativa || 0,
                   hoursSpent: task.tempoGastoTotal || 0,
@@ -321,6 +326,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                 tasks: metrics.competenceBonusTasks?.map(task => ({
                   taskKey: task.chave || task.id,
                   taskSummary: task.resumo || 'Sem resumo',
+                  sprint: task.sprint || 'Sem sprint',
                   complexity: task.complexidade,
                   hoursEstimated: task.estimativa || 0,
                   hoursSpent: task.tempoGastoTotal || 0,
@@ -489,7 +495,10 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                                   <div className="font-medium text-gray-900 dark:text-white truncate">
                                     {task.taskKey} - {task.taskSummary}
                                   </div>
-                                  <div className="flex items-center gap-3 mt-1 text-gray-600 dark:text-gray-400">
+                                  <div className="flex items-center gap-3 mt-1 text-gray-600 dark:text-gray-400 flex-wrap">
+                                    <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                      {task.sprint}
+                                    </span>
                                     <span className={getComplexityColor(task.complexity)}>
                                       Complexidade {task.complexity}
                                     </span>
