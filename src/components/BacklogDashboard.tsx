@@ -12,15 +12,14 @@ import {
   Layers,
   Calendar,
   TrendingUp,
-  AlertCircle,
   Filter,
   Clock,
 } from 'lucide-react';
 import { FileSpreadsheet } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
-import { Package, User, Calendar as CalendarIcon, AlertTriangle, TrendingUp as TrendingUpIcon } from 'lucide-react';
-import { formatHours, normalizeForComparison, isCompletedStatus, isBacklogSprintValue, isAuxilioTask, isNeutralTask, taskHasCategory } from '../utils/calculations';
+import { Package, User, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
+import { formatHours, normalizeForComparison, isCompletedStatus, isAuxilioTask, isNeutralTask, taskHasCategory } from '../utils/calculations';
 import { TaskItem } from '../types';
 import { AnalyticsChart } from './AnalyticsCharts';
 
@@ -66,8 +65,6 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
 
   // Extract filter values from activeFilter for backward compatibility
   const filterType = activeFilter?.type === 'type' ? (activeFilter.value as string) : null;
-  const filterFeature = activeFilter?.type === 'feature' ? (activeFilter.value as string) : null;
-  const filterClient = activeFilter?.type === 'client' ? (activeFilter.value as string) : null;
   const filterComplexity = activeFilter?.type === 'complexity' ? (activeFilter.value as number) : null;
 
   // Function to clear all filters
@@ -303,6 +300,21 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
       filtered = filtered.filter((t) => (t.complexidade || 1) === complexity);
     }
 
+    // Remove duplicates based on id or chave (only if both exist)
+    const seen = new Set<string>();
+    filtered = filtered.filter((t) => {
+      const key = (t.id || t.chave || '').toString();
+      // Only filter duplicates if we have a valid key
+      if (key && key.trim() !== '') {
+        if (seen.has(key)) {
+          return false; // Duplicate
+        }
+        seen.add(key);
+      }
+      // If no key, keep the task (it will be rendered with a fallback key)
+      return true;
+    });
+
     // Sort by task code (chave) - ascending order
     filtered = filtered.sort((a, b) => {
       const codeA = (a.chave || a.id || '').toUpperCase();
@@ -314,19 +326,6 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
   }, [analytics.tasks, activeFilter]);
 
   const TOP_OPTIONS = [5, 10, 15, 20, null];
-
-  // Calculate percentages for visual comparison
-  const typePercentages = useMemo(() => {
-    const total = analytics.summary.totalTasks;
-    if (total === 0) return {};
-    
-    return {
-      bugs: (analytics.summary.bugs / total) * 100,
-      dubidasOcultas: (analytics.summary.dubidasOcultas / total) * 100,
-      folha: (analytics.summary.folha / total) * 100,
-      tarefas: (analytics.summary.tarefas / total) * 100,
-    };
-  }, [analytics.summary]);
 
   if (analytics.summary.totalTasks === 0) {
     return (
@@ -664,7 +663,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analytics.byModule.slice(0, 9).map((module, index) => (
+            {analytics.byModule.slice(0, 9).map((module) => (
               <div
                 key={module.label}
                 className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
@@ -694,7 +693,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analytics.byResponsible.slice(0, 9).map((responsible, index) => (
+            {analytics.byResponsible.slice(0, 9).map((responsible) => (
               <div
                 key={responsible.label}
                 className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
@@ -721,7 +720,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Por Status</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analytics.byStatus.slice(0, 9).map((status, index) => (
+            {analytics.byStatus.slice(0, 9).map((status) => (
               <div
                 key={status.label}
                 className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
@@ -751,7 +750,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            {analytics.ageAnalysis.ageDistribution.map((ageRange, index) => (
+            {analytics.ageAnalysis.ageDistribution.map((ageRange) => (
               <div
                 key={ageRange.label}
                 className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800"
@@ -775,7 +774,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
                   const codeA = (a.chave || a.id || '').toUpperCase();
                   const codeB = (b.chave || b.id || '').toUpperCase();
                   return codeA.localeCompare(codeB);
-                }).slice(0, 5).map((task, index) => {
+                }).slice(0, 5).map((task) => {
                   const ageDays = task.criado && !isNaN(task.criado.getTime())
                     ? Math.floor((new Date().getTime() - task.criado.getTime()) / (1000 * 60 * 60 * 24))
                     : null;
@@ -819,7 +818,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-            {analytics.estimateAnalysis.estimateDistribution.map((range, index) => (
+            {analytics.estimateAnalysis.estimateDistribution.map((range) => (
               <div
                 key={range.label}
                 className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
@@ -880,7 +879,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            {analytics.riskAnalysis.riskDistribution.map((risk, index) => {
+            {analytics.riskAnalysis.riskDistribution.map((risk) => {
               const colorClasses = {
                 'Baixo': 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800',
                 'Médio': 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-800',
@@ -913,7 +912,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
                   const codeA = (a.task.chave || a.task.id || '').toUpperCase();
                   const codeB = (b.task.chave || b.task.id || '').toUpperCase();
                   return codeA.localeCompare(codeB);
-                }).slice(0, 10).map((riskItem, index) => (
+                }).slice(0, 10).map((riskItem) => (
                   <div key={riskItem.task.id || riskItem.task.chave} className="flex items-start justify-between py-2 px-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -947,109 +946,292 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
       )}
 
       {/* Priority Insights */}
-      <div ref={insightsRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Insights Card */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl shadow-md border border-blue-200 dark:border-blue-800 p-6">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-800">
-              <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Insights para Alocação</h3>
-              <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+      <div ref={insightsRef} className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl shadow-md border border-blue-200 dark:border-blue-800 p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-800">
+            <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Insights para Alocação</h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Análise detalhada do backlog para planejamento estratégico</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Visão Geral */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Visão Geral</h4>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-500 dark:text-blue-400 mt-0.5">📊</span>
+                <p>
+                  <strong>{analytics.summary.totalTasks}</strong> tarefas pendentes totalizando <strong>{formatHours(analytics.summary.totalEstimatedHours)}</strong> de trabalho planejado
+                </p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-blue-500 dark:text-blue-400 mt-0.5">⏱️</span>
+                <p>
+                  Média de <strong>{analytics.summary.totalTasks > 0 ? formatHours(analytics.summary.totalEstimatedHours / analytics.summary.totalTasks) : '0h'}</strong> por tarefa
+                </p>
+              </div>
+              {analytics.byFeature.length > 0 && (
                 <div className="flex items-start gap-2">
-                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">•</span>
+                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">🔧</span>
                   <p>
-                    <strong>{formatHours(analytics.summary.totalEstimatedHours)}</strong> de trabalho planejado aguardando alocação
+                    Distribuídas em <strong>{analytics.byFeature.length}</strong> features diferentes
                   </p>
                 </div>
+              )}
+              {analytics.byClient.length > 0 && (
                 <div className="flex items-start gap-2">
-                  <span className="text-red-500 dark:text-red-400 mt-0.5">•</span>
-                  <p>
-                    <strong>{analytics.summary.bugs + analytics.summary.dubidasOcultas}</strong> bugs/dúvidas precisam de atenção prioritária
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">•</span>
-                  <p>
-                    <strong>{analytics.byFeature.length}</strong> features diferentes no backlog
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-purple-500 dark:text-purple-400 mt-0.5">•</span>
+                  <span className="text-purple-500 dark:text-purple-400 mt-0.5">🏢</span>
                   <p>
                     <strong>{analytics.byClient.length}</strong> clientes com demanda pendente
                   </p>
                 </div>
-                {analytics.byComplexity.filter((c, i) => i >= 3 && c.count > 0).reduce((sum, c) => sum + c.count, 0) > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</span>
-                    <p className="text-orange-600 dark:text-orange-400">
-                      <strong>{analytics.byComplexity.filter((c, i) => i >= 3 && c.count > 0).reduce((sum, c) => sum + c.count, 0)}</strong> tarefas de alta complexidade (4-5) no backlog
-                    </p>
-                  </div>
-                )}
-                {viewScope === 'backlog' && analytics.ageAnalysis.averageAgeDays > 0 && (
+              )}
+            </div>
+          </div>
+
+          {/* Prioridades e Riscos */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Prioridades e Riscos</h4>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <div className="flex items-start gap-2">
+                <span className="text-red-500 dark:text-red-400 mt-0.5">🐛</span>
+                <p>
+                  <strong>{analytics.summary.bugs}</strong> bugs reais ({formatHours(analytics.byType.bugs.estimatedHours)}) precisam atenção imediata
+                </p>
+              </div>
+              {analytics.summary.dubidasOcultas > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-500 dark:text-yellow-400 mt-0.5">❓</span>
+                  <p>
+                    <strong>{analytics.summary.dubidasOcultas}</strong> dúvidas ocultas ({formatHours(analytics.byType.dubidasOcultas.estimatedHours)}) requerem esclarecimento
+                  </p>
+                </div>
+              )}
+              {viewScope === 'backlog' && analytics.riskAnalysis.highRiskTasks.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-red-500 dark:text-red-400 mt-0.5">🚨</span>
+                  <p className="text-red-600 dark:text-red-400">
+                    <strong>{analytics.riskAnalysis.highRiskTasks.length}</strong> tarefa{analytics.riskAnalysis.highRiskTasks.length !== 1 ? 's' : ''} de alto risco precisam atenção imediata
+                  </p>
+                </div>
+              )}
+              {analytics.byComplexity.filter((c, i) => i >= 3 && c.count > 0).reduce((sum, c) => sum + c.count, 0) > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-orange-500 dark:text-orange-400 mt-0.5">⚠️</span>
+                  <p className="text-orange-600 dark:text-orange-400">
+                    <strong>{analytics.byComplexity.filter((c, i) => i >= 3 && c.count > 0).reduce((sum, c) => sum + c.count, 0)}</strong> tarefas de alta complexidade (4-5) no backlog
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Distribuição e Complexidade */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Distribuição e Complexidade</h4>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              {analytics.byComplexity.some(c => c.count > 0) && (
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">📈</span>
+                  <p>
+                    Complexidade predominante: <strong>
+                      {analytics.byComplexity
+                        .map((c, i) => ({ level: i + 1, count: c.count }))
+                        .sort((a, b) => b.count - a.count)[0]?.level || 'N/A'}
+                    </strong> ({analytics.byComplexity
+                      .map((c, i) => ({ level: i + 1, count: c.count }))
+                      .sort((a, b) => b.count - a.count)[0]?.count || 0} tarefas)
+                  </p>
+                </div>
+              )}
+              {analytics.byFeature.length > 0 && analytics.byFeature[0] && (
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">⭐</span>
+                  <p>
+                    Feature com maior demanda: <strong>{analytics.byFeature[0].label}</strong> ({analytics.byFeature[0].count} tarefas, {formatHours(analytics.byFeature[0].estimatedHours)})
+                  </p>
+                </div>
+              )}
+              {analytics.byClient.length > 0 && analytics.byClient[0] && (
+                <div className="flex items-start gap-2">
+                  <span className="text-purple-500 dark:text-purple-400 mt-0.5">👤</span>
+                  <p>
+                    Cliente com maior demanda: <strong>{analytics.byClient[0].label}</strong> ({analytics.byClient[0].count} tarefas, {formatHours(analytics.byClient[0].estimatedHours)})
+                  </p>
+                </div>
+              )}
+              {viewScope === 'backlog' && analytics.byModule.length > 0 && analytics.byModule[0] && (
+                <div className="flex items-start gap-2">
+                  <span className="text-green-500 dark:text-green-400 mt-0.5">📦</span>
+                  <p>
+                    Módulo mais afetado: <strong>{analytics.byModule[0].label}</strong> ({analytics.byModule[0].count} tarefas)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Análise Temporal e Estimativas */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Análise Temporal e Estimativas</h4>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              {/* Análise Temporal - só disponível no modo backlog */}
+              {viewScope === 'backlog' && analytics.ageAnalysis.averageAgeDays > 0 && (
+                <>
                   <div className="flex items-start gap-2">
                     <span className="text-blue-500 dark:text-blue-400 mt-0.5">📅</span>
                     <p>
                       Idade média do backlog: <strong>{analytics.ageAnalysis.averageAgeDays.toFixed(1)} dias</strong>
                     </p>
                   </div>
-                )}
-                {viewScope === 'backlog' && analytics.estimateAnalysis.tasksWithoutEstimate.count > 0 && (
+                  {(() => {
+                    const oldTasks = analytics.ageAnalysis.ageDistribution.find(r => r.label === '90+ dias');
+                    return oldTasks && oldTasks.count > 0 && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 dark:text-red-400 mt-0.5">⏰</span>
+                        <p className="text-red-600 dark:text-red-400">
+                          <strong>{oldTasks.count}</strong> tarefas com mais de 90 dias no backlog
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+              {viewScope === 'pendingAll' && (
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">ℹ️</span>
+                  <p className="text-gray-500 dark:text-gray-400 italic">
+                    Análise temporal disponível apenas no modo "Backlog"
+                  </p>
+                </div>
+              )}
+
+              {/* Análise de Estimativas */}
+              {viewScope === 'backlog' && analytics.estimateAnalysis.averageEstimate > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-green-500 dark:text-green-400 mt-0.5">📏</span>
+                  <p>
+                    Estimativa média: <strong>{formatHours(analytics.estimateAnalysis.averageEstimate)}</strong> por tarefa
+                  </p>
+                </div>
+              )}
+              {viewScope === 'pendingAll' && analytics.summary.totalTasks > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-green-500 dark:text-green-400 mt-0.5">📏</span>
+                  <p>
+                    Estimativa média: <strong>{formatHours(analytics.summary.totalEstimatedHours / analytics.summary.totalTasks)}</strong> por tarefa
+                  </p>
+                </div>
+              )}
+              {viewScope === 'backlog' && analytics.estimateAnalysis.tasksWithoutEstimate.count > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-500 dark:text-yellow-400 mt-0.5">⚠️</span>
+                  <p className="text-yellow-600 dark:text-yellow-400">
+                    <strong>{analytics.estimateAnalysis.tasksWithoutEstimate.count}</strong> tarefa{analytics.estimateAnalysis.tasksWithoutEstimate.count !== 1 ? 's' : ''} sem estimativa ({((analytics.estimateAnalysis.tasksWithoutEstimate.count / analytics.summary.totalTasks) * 100).toFixed(1)}% do total)
+                  </p>
+                </div>
+              )}
+              {viewScope === 'pendingAll' && (() => {
+                const tasksWithoutEstimate = analytics.tasks.filter(t => !t.estimativa || t.estimativa === 0).length;
+                return tasksWithoutEstimate > 0 && (
                   <div className="flex items-start gap-2">
                     <span className="text-yellow-500 dark:text-yellow-400 mt-0.5">⚠️</span>
                     <p className="text-yellow-600 dark:text-yellow-400">
-                      <strong>{analytics.estimateAnalysis.tasksWithoutEstimate.count}</strong> tarefa{analytics.estimateAnalysis.tasksWithoutEstimate.count !== 1 ? 's' : ''} sem estimativa
+                      <strong>{tasksWithoutEstimate}</strong> tarefa{tasksWithoutEstimate !== 1 ? 's' : ''} sem estimativa ({((tasksWithoutEstimate / analytics.summary.totalTasks) * 100).toFixed(1)}% do total)
                     </p>
                   </div>
-                )}
-                {viewScope === 'backlog' && analytics.riskAnalysis.highRiskTasks.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-red-500 dark:text-red-400 mt-0.5">🚨</span>
-                    <p className="text-red-600 dark:text-red-400">
-                      <strong>{analytics.riskAnalysis.highRiskTasks.length}</strong> tarefa{analytics.riskAnalysis.highRiskTasks.length !== 1 ? 's' : ''} de alto risco precisam atenção imediata
-                    </p>
-                  </div>
-                )}
-              </div>
+                );
+              })()}
+
+              {/* Distribuição de Estimativas */}
+              {viewScope === 'backlog' && analytics.estimateAnalysis.estimateDistribution.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">📊</span>
+                  <p>
+                    Distribuição: {analytics.estimateAnalysis.estimateDistribution
+                      .filter(r => r.count > 0)
+                      .slice(0, 3)
+                      .map(r => `${r.count} em ${r.label}`)
+                      .join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {/* Status mais comum */}
+              {analytics.byStatus.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 mt-0.5">📋</span>
+                  <p>
+                    Status mais comum: <strong>{analytics.byStatus[0]?.label || 'N/A'}</strong> ({analytics.byStatus[0]?.count || 0} tarefas, {formatHours(analytics.byStatus[0]?.estimatedHours || 0)})
+                  </p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Quick Stats */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700">
-              <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Estatísticas Rápidas</h3>
-              <div className="space-y-3">
-                <StatRow
-                  label="Média de Horas por Tarefa"
-                  value={analytics.summary.totalTasks > 0 
-                    ? formatHours(analytics.summary.totalEstimatedHours / analytics.summary.totalTasks)
-                    : '0h'
-                  }
-                />
-                <StatRow
-                  label="Tarefa Mais Complexa"
-                  value={analytics.byComplexity
-                    .slice()
-                    .reverse()
-                    .find(c => c.count > 0)?.label || 'N/A'}
-                />
-                <StatRow
-                  label="Feature com Mais Demanda"
-                  value={analytics.byFeature[0]?.label || 'N/A'}
-                />
-                <StatRow
-                  label="Cliente com Mais Demanda"
-                  value={analytics.byClient[0]?.label || 'N/A'}
-                />
+          {/* Alocação e Responsáveis */}
+          {viewScope === 'backlog' && analytics.byResponsible.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Alocação e Responsáveis</h4>
+              <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-start gap-2">
+                  <span className="text-cyan-500 dark:text-cyan-400 mt-0.5">👥</span>
+                  <p>
+                    <strong>{analytics.byResponsible.length}</strong> responsável{analytics.byResponsible.length !== 1 ? 'eis' : ''} com tarefas no backlog
+                  </p>
+                </div>
+                {analytics.byResponsible[0] && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-cyan-500 dark:text-cyan-400 mt-0.5">🔝</span>
+                    <p>
+                      Maior backlog: <strong>{analytics.byResponsible[0].label}</strong> ({analytics.byResponsible[0].count} tarefas, {formatHours(analytics.byResponsible[0].estimatedHours)})
+                    </p>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Recomendações Estratégicas */}
+          <div className="space-y-2 md:col-span-2">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Recomendações Estratégicas</h4>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              {analytics.summary.bugs > 0 && (
+                <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+                  <span className="text-red-500 dark:text-red-400 mt-0.5">🎯</span>
+                  <p>
+                    Priorizar <strong>{analytics.summary.bugs} bugs reais</strong> para estabilização do sistema. Considere uma sprint focada em correções.
+                  </p>
+                </div>
+              )}
+              {analytics.byComplexity.filter((c, i) => i >= 2 && c.count > 0).reduce((sum, c) => sum + c.count, 0) > analytics.summary.totalTasks * 0.5 && (
+                <div className="flex items-start gap-2 p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <span className="text-orange-500 dark:text-orange-400 mt-0.5">⚖️</span>
+                  <p>
+                    Mais de <strong>50% das tarefas</strong> têm complexidade média-alta (3-5). Considere quebrar tarefas grandes em menores.
+                  </p>
+                </div>
+              )}
+              {viewScope === 'backlog' && analytics.ageAnalysis.averageAgeDays > 60 && (
+                <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <span className="text-yellow-500 dark:text-yellow-400 mt-0.5">🔄</span>
+                  <p>
+                    Backlog com idade média de <strong>{analytics.ageAnalysis.averageAgeDays.toFixed(1)} dias</strong>. Revise tarefas antigas para validar relevância.
+                  </p>
+                </div>
+              )}
+              {analytics.byFeature.length > 10 && (
+                <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <span className="text-blue-500 dark:text-blue-400 mt-0.5">📊</span>
+                  <p>
+                    Backlog distribuído em <strong>{analytics.byFeature.length} features</strong>. Considere priorizar features estratégicas para melhor foco.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1205,64 +1387,6 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle,
   );
 };
 
-interface TypeCardProps {
-  icon: React.ReactNode;
-  label: string;
-  count: number;
-  hours: number;
-  color: 'red' | 'yellow' | 'green' | 'purple' | 'gray';
-  percentage?: number;
-}
-
-const TypeCard: React.FC<TypeCardProps> = ({ icon, label, count, hours, color, percentage }) => {
-  const colorClasses = {
-    red: 'border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30',
-    yellow: 'border-yellow-200 dark:border-yellow-800 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/30',
-    green: 'border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30',
-    purple: 'border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30',
-    gray: 'border-gray-200 dark:border-gray-800 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30',
-  };
-
-  const textColorClasses = {
-    red: 'text-red-700 dark:text-red-400',
-    yellow: 'text-yellow-700 dark:text-yellow-400',
-    green: 'text-green-700 dark:text-green-400',
-    purple: 'text-purple-700 dark:text-purple-400',
-    gray: 'text-gray-700 dark:text-gray-400',
-  };
-
-  const progressColorClasses = {
-    red: 'bg-red-500 dark:bg-red-400',
-    yellow: 'bg-yellow-500 dark:bg-yellow-400',
-    green: 'bg-green-500 dark:bg-green-400',
-    purple: 'bg-purple-500 dark:bg-purple-400',
-    gray: 'bg-gray-500 dark:bg-gray-400',
-  };
-
-  return (
-    <div className={`rounded-xl border-2 ${colorClasses[color]} p-4 hover:shadow-lg transition-all duration-300`}>
-      <div className="flex items-center gap-2 mb-2">
-        {icon}
-        <p className={`text-sm font-medium ${textColorClasses[color]}`}>{label}</p>
-      </div>
-      <div className="flex items-baseline gap-2 mb-2">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{count}</p>
-        {percentage !== undefined && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">({percentage.toFixed(1)}%)</span>
-        )}
-      </div>
-      {percentage !== undefined && (
-        <div className="mb-2 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-          <div
-            className={`h-1.5 rounded-full transition-all duration-300 ${progressColorClasses[color]}`}
-            style={{ width: `${Math.min(percentage, 100)}%` }}
-          />
-        </div>
-      )}
-      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">{formatHours(hours)} estimadas</p>
-    </div>
-  );
-};
 
 interface ComplexityCardProps {
   level: number;
@@ -1299,49 +1423,5 @@ const ComplexityCard: React.FC<ComplexityCardProps> = ({ level, count, hours, on
   );
 };
 
-interface AnalysisRowProps {
-  rank: number;
-  label: string;
-  count: number;
-  hours: number;
-  icon: React.ReactNode;
-}
 
-const AnalysisRow: React.FC<AnalysisRowProps> = ({ rank, label, count, hours, icon }) => {
-  return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-      <div className="flex-shrink-0 w-8 text-center">
-        <span className="text-xs font-bold text-gray-400 dark:text-gray-500">#{rank}</span>
-      </div>
-      <div className="flex-shrink-0 text-gray-500 dark:text-gray-400">{icon}</div>
-      <div className="flex-shrink-0 min-w-[200px] flex-1">
-        <p className="font-medium text-gray-900 dark:text-white text-sm truncate" title={label}>{label}</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="text-right">
-          <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-            {count} tarefa{count !== 1 ? 's' : ''}
-          </p>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            {formatHours(hours)}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface StatRowProps {
-  label: string;
-  value: string;
-}
-
-const StatRow: React.FC<StatRowProps> = ({ label, value }) => {
-  return (
-    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
-      <span className="text-sm text-gray-600 dark:text-gray-400">{label}:</span>
-      <span className="text-sm font-semibold text-gray-900 dark:text-white">{value}</span>
-    </div>
-  );
-};
 
