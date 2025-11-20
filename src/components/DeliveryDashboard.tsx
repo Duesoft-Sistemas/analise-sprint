@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   Building2,
   Search,
   FileWarning,
+  ChevronDown,
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, SprintPeriod } from '../types';
@@ -27,6 +28,14 @@ function getSextaFeiraSemanaSeguinte(sprintEndDate: Date): Date {
   sexta.setDate(sexta.getDate() + 5);
   sexta.setHours(23, 59, 59, 999);
   return sexta;
+}
+
+// Função helper: verificar se o status é realmente concluído (apenas "concluído"/"concluido", não teste/compilar)
+// IMPORTANTE: Na gestão de entregas por data limite, apenas status "concluído"/"concluido" é considerado concluído
+// Outros status como "teste", "compilar", etc. não são considerados concluídos
+function isReallyCompletedStatus(status: string): boolean {
+  const normalized = (status || '').toLowerCase().trim();
+  return normalized === 'concluído' || normalized === 'concluido';
 }
 
 interface DeliveryTask extends TaskItem {
@@ -165,14 +174,11 @@ function calculateClientSchedules(
     tarefas.forEach(task => {
       const dataLimite = new Date(task.dataLimiteCalculada);
       dataLimite.setHours(0, 0, 0, 0);
-      const isCompleted = isCompletedStatus(task.status);
       
-      // Tarefas concluídas sempre estão no prazo (não contam como vencidas ou próximas)
-      if (isCompleted) {
-        noPrazo++;
-      } 
+      // IMPORTANTE: Tarefas com data limite já foram filtradas para excluir as concluídas (status "concluído"/"concluido")
+      // Então não precisamos mais verificar o status de conclusão aqui para tarefas com data limite
       // Tarefas com previsão não devem ser marcadas como vencidas (são apenas estimativas)
-      else if (task.isPrevisao) {
+      if (task.isPrevisao) {
         // Para previsões, só marcamos como próxima se estiver nos próximos 7 dias E no futuro
         // E se a data de previsão for futura (não passada)
         if (dataLimite.getTime() <= proximos7Dias.getTime() && dataLimite.getTime() >= hoje.getTime()) {
@@ -181,7 +187,7 @@ function calculateClientSchedules(
           noPrazo++;
         }
       }
-      // Tarefas com data limite definida
+      // Tarefas com data limite definida (já filtradas para excluir concluídas)
       else if (dataLimite.getTime() < hoje.getTime()) {
         vencidas++;
       } else if (dataLimite.getTime() <= proximos7Dias.getTime() && dataLimite.getTime() >= hoje.getTime()) {
@@ -218,16 +224,21 @@ function calculateDeliveryAnalytics(
   proximos30Dias.setDate(proximos30Dias.getDate() + 30);
   
   // Separar tarefas com e sem data limite
+  // IMPORTANTE: Para tarefas com data limite, incluir apenas as NÃO concluídas (status diferente de "concluído"/"concluido")
   const tasksComDataLimite: DeliveryTask[] = [];
   const tasksSemDataLimite: DeliveryTask[] = [];
   
   tasks.forEach(task => {
     if (task.dataLimite) {
-      tasksComDataLimite.push({
-        ...task,
-        dataLimiteCalculada: task.dataLimite,
-        isPrevisao: false,
-      });
+      // IMPORTANTE: Na gestão de entregas por data limite, incluir apenas tarefas NÃO concluídas
+      // Status "concluído"/"concluido" são excluídos, mas outros como "teste", "compilar", etc. são incluídos
+      if (!isReallyCompletedStatus(task.status || '')) {
+        tasksComDataLimite.push({
+          ...task,
+          dataLimiteCalculada: task.dataLimite,
+          isPrevisao: false,
+        });
+      }
     } else if (task.sprint && task.sprint.trim() !== '') {
       // Calcular previsão: data final do sprint + 5 dias (último dia da semana seguinte)
       // IMPORTANTE: Apenas sprints futuros são considerados na gestão de entregas
@@ -271,13 +282,10 @@ function calculateDeliveryAnalytics(
     const dataLimite = new Date(task.dataLimiteCalculada);
     dataLimite.setHours(0, 0, 0, 0);
     const horas = task.estimativa || 0;
-    const isCompleted = isCompletedStatus(task.status);
     
-    if (isCompleted) {
-      // Tarefas concluídas são consideradas no prazo
-      comDataLimite.noPrazo++;
-      comDataLimite.horasNoPrazo += horas;
-    } else if (dataLimite.getTime() < hoje.getTime()) {
+    // IMPORTANTE: Neste ponto, todas as tarefas já foram filtradas para excluir as concluídas
+    // Então não precisamos mais verificar o status de conclusão aqui
+    if (dataLimite.getTime() < hoje.getTime()) {
       comDataLimite.vencidas++;
       comDataLimite.horasVencidas += horas;
     } else if (dataLimite.getTime() === hoje.getTime()) {
@@ -348,6 +356,101 @@ function calculateDeliveryAnalytics(
   };
 }
 
+interface StatusMultiSelectProps {
+  selectedStatuses: string[];
+  onChange: (statuses: string[]) => void;
+  allStatuses: string[];
+}
+
+const StatusMultiSelect: React.FC<StatusMultiSelectProps> = ({ selectedStatuses, onChange, allStatuses }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleStatus = (status: string) => {
+    if (selectedStatuses.includes(status)) {
+      onChange(selectedStatuses.filter(s => s !== status));
+    } else {
+      onChange([...selectedStatuses, status]);
+    }
+  };
+
+  const specialStatuses = [
+    { value: 'nao_concluidas', label: 'Não Concluídas' },
+    { value: 'concluidas', label: 'Concluídas' },
+  ];
+
+  const displayText = selectedStatuses.length === 0 
+    ? 'Todos' 
+    : selectedStatuses.length === 1 
+      ? selectedStatuses[0] === 'nao_concluidas' ? 'Não Concluídas'
+        : selectedStatuses[0] === 'concluidas' ? 'Concluídas'
+        : selectedStatuses[0]
+      : `${selectedStatuses.length} selecionados`;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
+      >
+        <span className="truncate">{displayText}</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            {specialStatuses.map(status => (
+              <label
+                key={status.value}
+                className="flex items-center px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(status.value)}
+                  onChange={() => toggleStatus(status.value)}
+                  className="mr-2 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-900 dark:text-white">{status.label}</span>
+              </label>
+            ))}
+            {allStatuses.length > 0 && (
+              <>
+                <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                {allStatuses.map(status => (
+                  <label
+                    key={status}
+                    className="flex items-center px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() => toggleStatus(status)}
+                      className="mr-2 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-900 dark:text-white">{status}</span>
+                  </label>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface DeliveryDashboardProps {
   dataLimiteRef?: React.RefObject<HTMLDivElement>;
   previsaoRef?: React.RefObject<HTMLDivElement>;
@@ -373,7 +476,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   const [filterDataAte, setFilterDataAte] = useState<string>('');
   const [filterCliente, setFilterCliente] = useState<string>('');
   const [filterSprint, setFilterSprint] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterDescricao, setFilterDescricao] = useState<string>('');
   const [filterCodigo, setFilterCodigo] = useState<string>('');
   
@@ -383,16 +486,50 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     setFilterDataAte('');
     setFilterCliente('');
     setFilterSprint('');
-    setFilterStatus('');
+    setFilterStatus([]);
     setFilterDescricao('');
     setFilterCodigo('');
     setSelectedFilter(null);
   };
   
-  // Função para verificar se status é realmente concluído (apenas "concluído"/"concluido", não teste/compilar)
-  const isReallyCompletedStatus = (status: string): boolean => {
-    const normalized = status.toLowerCase().trim();
-    return normalized === 'concluído' || normalized === 'concluido';
+  
+  // Função helper para formatar data como string YYYY-MM-DD (evita problemas de timezone)
+  const formatDateForFilter = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  // Função helper que replica EXATAMENTE a lógica de classificação dos cards
+  // Retorna a categoria da tarefa: 'vencidas', 'venceHoje', 'venceProximos7Dias', 'venceProximos30Dias', 'noPrazo'
+  // IMPORTANTE: Esta função assume que as tarefas já foram filtradas para excluir as concluídas
+  const classifyTaskByDeadline = (task: DeliveryTask): string | null => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    const proximos7Dias = new Date(hoje);
+    proximos7Dias.setDate(proximos7Dias.getDate() + 7);
+    
+    const proximos30Dias = new Date(hoje);
+    proximos30Dias.setDate(proximos30Dias.getDate() + 30);
+    
+    const dataLimite = new Date(task.dataLimiteCalculada);
+    dataLimite.setHours(0, 0, 0, 0);
+    
+    // IMPORTANTE: Neste ponto, todas as tarefas já foram filtradas para excluir as concluídas
+    // Então não precisamos mais verificar o status de conclusão aqui
+    if (dataLimite.getTime() < hoje.getTime()) {
+      return 'vencidas';
+    } else if (dataLimite.getTime() === hoje.getTime()) {
+      return 'venceHoje';
+    } else if (dataLimite.getTime() > hoje.getTime() && dataLimite.getTime() <= proximos7Dias.getTime()) {
+      return 'venceProximos7Dias';
+    } else if (dataLimite.getTime() <= proximos30Dias.getTime()) {
+      return 'venceProximos30Dias';
+    } else {
+      return 'noPrazo';
+    }
   };
   
   const analytics = useMemo(() => {
@@ -409,12 +546,16 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     
     tasks.forEach(task => {
       if (task.dataLimite) {
-        // Tarefas com data limite definida (prioritárias)
-        tasksComDataLimite.push({
-          ...task,
-          dataLimiteCalculada: task.dataLimite,
-          isPrevisao: false,
-        });
+        // IMPORTANTE: Na gestão de entregas por data limite, incluir apenas tarefas NÃO concluídas
+        // Status "concluído"/"concluido" são excluídos, mas outros como "teste", "compilar", etc. são incluídos
+        if (!isReallyCompletedStatus(task.status || '')) {
+          // Tarefas com data limite definida (prioritárias)
+          tasksComDataLimite.push({
+            ...task,
+            dataLimiteCalculada: task.dataLimite,
+            isPrevisao: false,
+          });
+        }
       } else if (task.sprint && task.sprint.trim() !== '') {
         const sprintPeriod = getSprintPeriod(task.sprint);
         if (sprintPeriod) {
@@ -495,16 +636,42 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   }, [tasks, getSprintPeriod]);
   
   // Separar para as duas áreas principais
+  // IMPORTANTE: Para tarefas com data limite, incluir apenas as NÃO concluídas (status diferente de "concluído"/"concluido")
   const tasksComDataLimite = useMemo(() => {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     
     return tasks
-      .filter(task => task.dataLimite)
+      .filter(task => {
+        // Deve ter data limite
+        if (!task.dataLimite) return false;
+        // IMPORTANTE: Na gestão de entregas por data limite, incluir apenas tarefas NÃO concluídas
+        // Status "concluído"/"concluido" são excluídos, mas outros como "teste", "compilar", etc. são incluídos
+        if (isReallyCompletedStatus(task.status || '')) return false;
+        return true;
+      })
       .map(task => ({
         ...task,
         dataLimiteCalculada: task.dataLimite!,
         isPrevisao: false,
+      }));
+  }, [tasks]);
+  
+  // Tarefas de backlog (sem sprint ou com valor de backlog)
+  const tasksBacklog = useMemo(() => {
+    return tasks
+      .filter(task => {
+        // Tarefas sem sprint ou com valor de backlog
+        const sprintName = task.sprint?.trim();
+        return !sprintName || isBacklogSprintValue(sprintName);
+      })
+      .filter(task => !task.dataLimite) // Apenas backlog sem data limite (com data limite já está em tasksComDataLimite)
+      .map(task => ({
+        ...task,
+        // Para backlog sem data limite, usar uma data muito futura como previsão (para ordenação)
+        // Isso permite que apareçam no final da lista quando ordenadas por data
+        dataLimiteCalculada: new Date(2100, 0, 1), // Data muito futura para ordenação
+        isPrevisao: true,
       }));
   }, [tasks]);
   
@@ -513,7 +680,13 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     hoje.setHours(0, 0, 0, 0);
     
     return tasks
-      .filter(task => !task.dataLimite && task.sprint && task.sprint.trim() !== '')
+      .filter(task => {
+        // Excluir tarefas com data limite e tarefas de backlog (já estão em tasksBacklog)
+        if (task.dataLimite) return false;
+        const sprintName = task.sprint?.trim();
+        if (!sprintName || isBacklogSprintValue(sprintName)) return false;
+        return true;
+      })
       .map(task => {
         const sprintPeriod = getSprintPeriod(task.sprint);
         if (sprintPeriod) {
@@ -562,13 +735,111 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         quantidade: analytics.comDataLimite.venceProximos30Dias,
         horas: analytics.comDataLimite.horasProximos30Dias,
       },
-      {
-        periodo: 'No prazo',
-        quantidade: analytics.comDataLimite.noPrazo,
-        horas: analytics.comDataLimite.horasNoPrazo,
-      },
     ];
   }, [analytics]);
+  
+  // Calcular tarefas filtradas usando useMemo para recalcular quando os filtros mudarem
+  const filteredTasksList = useMemo(() => {
+    let filtered: DeliveryTask[] = [];
+    
+    if (taskListFilter === 'dataLimite') {
+      filtered = tasksComDataLimite;
+    } else if (taskListFilter === 'previsao') {
+      filtered = [...tasksComPrevisao, ...tasksBacklog];
+    } else {
+      filtered = [...tasksComDataLimite, ...tasksComPrevisao, ...tasksBacklog];
+    }
+    
+    // Aplicar filtros de data
+    if (filterDataDe) {
+      const [year, month, day] = filterDataDe.split('-').map(Number);
+      const dataDe = new Date(year, month - 1, day, 0, 0, 0, 0);
+      filtered = filtered.filter(task => {
+        const taskData = new Date(task.dataLimiteCalculada);
+        taskData.setHours(0, 0, 0, 0);
+        return taskData.getTime() >= dataDe.getTime();
+      });
+    }
+    
+    if (filterDataAte) {
+      const [year, month, day] = filterDataAte.split('-').map(Number);
+      const dataAte = new Date(year, month - 1, day, 0, 0, 0, 0);
+      filtered = filtered.filter(task => {
+        const taskData = new Date(task.dataLimiteCalculada);
+        taskData.setHours(0, 0, 0, 0);
+        return taskData.getTime() <= dataAte.getTime();
+      });
+    }
+    
+    // Aplicar filtros adicionais
+    if (filterCliente) {
+      filtered = filtered.filter(task => 
+        task.categorias && task.categorias.some(cat => cat === filterCliente)
+      );
+    }
+    
+    if (filterSprint) {
+      if (filterSprint === 'backlog') {
+        // Filtrar tarefas de backlog (sem sprint ou com valor de backlog)
+        filtered = filtered.filter(task => {
+          const sprintName = task.sprint?.trim();
+          return !sprintName || isBacklogSprintValue(sprintName);
+        });
+      } else {
+        filtered = filtered.filter(task => task.sprint === filterSprint);
+      }
+    }
+    
+    if (filterStatus.length > 0) {
+      filtered = filtered.filter(task => {
+        const taskStatus = task.status || '';
+        return filterStatus.some(selectedStatus => {
+          if (selectedStatus === 'nao_concluidas') {
+            return !isReallyCompletedStatus(taskStatus);
+          } else if (selectedStatus === 'concluidas') {
+            return isReallyCompletedStatus(taskStatus);
+          } else {
+            return taskStatus === selectedStatus;
+          }
+        });
+      });
+    }
+    
+    if (filterCodigo) {
+      filtered = filtered.filter(task => {
+        const codigo = (task.chave || task.id || '').toLowerCase();
+        return codigo.includes(filterCodigo.toLowerCase());
+      });
+    }
+    
+    if (filterDescricao) {
+      filtered = filtered.filter(task => {
+        const descricao = (task.resumo || '').toLowerCase();
+        return descricao.includes(filterDescricao.toLowerCase());
+      });
+    }
+    
+    // Ordenar por código
+    filtered.sort((a, b) => {
+      const codeA = (a.chave || a.id || '').toUpperCase();
+      const codeB = (b.chave || b.id || '').toUpperCase();
+      return codeA.localeCompare(codeB);
+    });
+    
+    return filtered;
+  }, [
+    taskListFilter,
+    tasksComDataLimite,
+    tasksComPrevisao,
+    tasksBacklog,
+    filterDataDe,
+    filterDataAte,
+    filterCliente,
+    filterSprint,
+    filterStatus,
+    filterCodigo,
+    filterDescricao,
+  ]);
   
   // Função para exportar PDF do cronograma de um cliente (lista simples)
   const exportClientPDF = async (
@@ -877,6 +1148,317 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     pdf.save(`Programacao_${sanitizedClient}${suffix}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
   
+  // Função para exportar PDF da lista filtrada
+  const exportFilteredListPDF = async () => {
+    if (filteredTasksList.length === 0) {
+      alert('Não há tarefas para exportar');
+      return;
+    }
+    
+    // Criar PDF em paisagem (landscape)
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    
+    // Função helper para adicionar logo (reutilizar da função exportClientPDF)
+    const addLogo = async (): Promise<{ width: number; height: number } | null> => {
+      try {
+        const logoPaths = [
+          './imagens/duesoft.jpg',
+          '/imagens/duesoft.jpg',
+          'imagens/duesoft.jpg',
+          '../imagens/duesoft.jpg',
+        ];
+        
+        for (const path of logoPaths) {
+          try {
+            const response = await fetch(path);
+            if (response.ok) {
+              const blob = await response.blob();
+              const reader = new FileReader();
+              
+              const result = await new Promise<{ width: number; height: number } | null>((resolve) => {
+                reader.onload = (e) => {
+                  try {
+                    const img = new Image();
+                    img.onload = () => {
+                      const maxHeight = 20;
+                      const aspectRatio = img.width / img.height;
+                      const logoHeight = maxHeight;
+                      const logoWidth = logoHeight * aspectRatio;
+                      
+                      pdf.addImage(img, 'JPEG', margin, margin, logoWidth, logoHeight);
+                      resolve({ width: logoWidth, height: logoHeight });
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = e.target?.result as string;
+                  } catch (error) {
+                    resolve(null);
+                  }
+                };
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+              });
+              
+              if (result) {
+                return result;
+              }
+            }
+          } catch (error) {
+            continue;
+          }
+        }
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        return new Promise<{ width: number; height: number } | null>((resolve) => {
+          let currentPathIndex = 0;
+          
+          const tryNextPath = () => {
+            if (currentPathIndex >= logoPaths.length) {
+              resolve(null);
+              return;
+            }
+            
+            img.onload = () => {
+              try {
+                const maxHeight = 20;
+                const aspectRatio = img.width / img.height;
+                const logoHeight = maxHeight;
+                const logoWidth = logoHeight * aspectRatio;
+                
+                pdf.addImage(img, 'JPEG', margin, margin, logoWidth, logoHeight);
+                resolve({ width: logoWidth, height: logoHeight });
+              } catch (error) {
+                tryNextPath();
+              }
+            };
+            
+            img.onerror = () => {
+              currentPathIndex++;
+              if (currentPathIndex < logoPaths.length) {
+                img.src = logoPaths[currentPathIndex];
+              } else {
+                resolve(null);
+              }
+            };
+            
+            img.src = logoPaths[currentPathIndex];
+          };
+          
+          tryNextPath();
+        });
+      } catch (error) {
+        return null;
+      }
+    };
+    
+    const logoInfo = await addLogo();
+    const logoWidth = logoInfo ? logoInfo.width : 0;
+    const logoHeight = logoInfo ? logoInfo.height : 0;
+    const logoRightEdge = logoInfo ? margin + logoWidth + 10 : margin;
+    
+    // Cabeçalho
+    const headerY = margin;
+    const headerStartX = logoRightEdge;
+    
+    // Linha divisória sutil no topo
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, headerY + logoHeight + 8, pageWidth - margin, headerY + logoHeight + 8);
+    
+    // Título principal
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Lista de Tarefas (Entregas)', headerStartX, headerY + 8);
+    
+    // Construir descrição dos filtros aplicados
+    const filtrosAplicados: string[] = [];
+    
+    if (taskListFilter === 'dataLimite') {
+      filtrosAplicados.push('Tipo: Data Limite');
+    } else if (taskListFilter === 'previsao') {
+      filtrosAplicados.push('Tipo: Previsão');
+    } else {
+      filtrosAplicados.push('Tipo: Todas');
+    }
+    
+    if (filterDataDe) {
+      const dataDe = new Date(filterDataDe);
+      filtrosAplicados.push(`Data De: ${dataDe.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
+    }
+    
+    if (filterDataAte) {
+      const dataAte = new Date(filterDataAte);
+      filtrosAplicados.push(`Data Até: ${dataAte.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
+    }
+    
+    if (filterCliente) {
+      filtrosAplicados.push(`Cliente: ${filterCliente}`);
+    }
+    
+    if (filterSprint) {
+      filtrosAplicados.push(`Sprint: ${filterSprint}`);
+    }
+    
+    if (filterStatus.length > 0) {
+      const statusLabels = filterStatus.map(s => {
+        if (s === 'nao_concluidas') return 'Não Concluídas';
+        if (s === 'concluidas') return 'Concluídas';
+        return s;
+      });
+      filtrosAplicados.push(`Status: ${statusLabels.join(', ')}`);
+    }
+    
+    if (filterCodigo) {
+      filtrosAplicados.push(`Código: ${filterCodigo}`);
+    }
+    
+    if (filterDescricao) {
+      filtrosAplicados.push(`Descrição: ${filterDescricao}`);
+    }
+    
+    // Exibir filtros aplicados
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(60, 60, 60);
+    
+    let currentY = headerY + 16;
+    if (filtrosAplicados.length > 0) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Filtros Aplicados:', headerStartX, currentY);
+      currentY += 5;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      
+      // Dividir filtros em linhas se necessário
+      let lineText = '';
+      filtrosAplicados.forEach((filtro, idx) => {
+        const testText = lineText ? `${lineText} | ${filtro}` : filtro;
+        const testWidth = pdf.getTextWidth(testText);
+        const maxWidth = pageWidth - headerStartX - margin - 10;
+        
+        if (testWidth > maxWidth && lineText) {
+          pdf.text(lineText, headerStartX, currentY);
+          currentY += 4;
+          lineText = filtro;
+        } else {
+          lineText = testText;
+        }
+        
+        // Se for o último, escrever
+        if (idx === filtrosAplicados.length - 1) {
+          pdf.text(lineText, headerStartX, currentY);
+          currentY += 4;
+        }
+      });
+    } else {
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Sem filtros aplicados (mostrando todas as tarefas)', headerStartX, currentY);
+      currentY += 4;
+    }
+    
+    // Data de geração (alinhada à direita)
+    pdf.setFontSize(9);
+    pdf.setTextColor(120, 120, 120);
+    const dateText = `Gerado em: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+    const dateWidth = pdf.getTextWidth(dateText);
+    pdf.text(dateText, pageWidth - margin - dateWidth, headerY + 8);
+    
+    // Resetar cor do texto para preto
+    pdf.setTextColor(0, 0, 0);
+    
+    // Altura do cabeçalho para posicionar a tabela
+    const headerHeight = currentY + 5;
+    
+    // Preparar dados da tabela
+    const tableData = filteredTasksList.map(task => {
+      const sprintName = task.sprint?.trim();
+      const isBacklog = !sprintName || isBacklogSprintValue(sprintName);
+      const sprintDisplay = isBacklog ? 'backlog' : (sprintName || '-');
+      
+      let dataDisplay = '-';
+      if (!(isBacklog && !task.dataLimite)) {
+        dataDisplay = task.dataLimiteCalculada.toLocaleDateString('pt-BR', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric' 
+        });
+      }
+      
+      return [
+        task.chave || task.id || '-',
+        task.resumo || '',
+        task.isPrevisao ? 'Previsão' : 'Limite',
+        sprintDisplay,
+        dataDisplay,
+        task.status || 'Sem Status',
+        task.estimativa ? formatHours(task.estimativa) : '-',
+      ];
+    });
+    
+    // Criar tabela
+    if (tableData.length > 0) {
+      autoTable(pdf, {
+        startY: headerHeight + 5,
+        head: [['Código', 'Descrição', 'Tipo', 'Sprint', 'Data', 'Status', 'Horas']],
+        body: tableData,
+        margin: { left: margin, right: margin },
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 2,
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        headStyles: { 
+          fillColor: [59, 130, 246],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 10,
+          cellPadding: 2,
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 30 }, // Código (reduzido)
+          1: { cellWidth: pageWidth - 2 * margin - 30 - 30 - 30 - 30 - 25 - 25 }, // Descrição (aumentado)
+          2: { cellWidth: 30 }, // Tipo
+          3: { cellWidth: 30 }, // Sprint
+          4: { cellWidth: 25 }, // Data (reduzido)
+          5: { cellWidth: 30 }, // Status
+          6: { cellWidth: 25 }, // Horas
+        },
+        didParseCell: (data: any) => {
+          const colIndex = data.column.index;
+          
+          // Centralizar texto nas colunas Tipo, Status e Horas
+          if (colIndex === 2 || colIndex === 5 || colIndex === 6) {
+            data.cell.styles.halign = 'center';
+          }
+        },
+      });
+    }
+    
+    // Rodapé
+    const totalPages = (pdf as any).internal?.getNumberOfPages() || 1;
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text(
+        `Página ${i} de ${totalPages}`,
+        pageWidth - margin - 30,
+        pageHeight - 10
+      );
+    }
+    
+    // Salvar PDF
+    const timestamp = new Date().toISOString().split('T')[0];
+    pdf.save(`Lista_Tarefas_Entregas_${timestamp}.pdf`);
+  };
+  
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -901,18 +1483,25 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Tarefas prioritárias com data limite de entrega definida
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             onClick={() => {
               // Limpar todos os filtros antes de aplicar novos
               clearAllFilters();
               setSelectedFilter({ type: 'status', value: 'vencidas' });
-              // Aplicar filtro automático: apenas data limite, data até hoje, não concluídas
+              // Aplicar filtro automático: apenas data limite, data < hoje, não concluídas
+              // IMPORTANTE: O card mostra tarefas NÃO concluídas com data < hoje
+              // Na lógica de cálculo: vencidas = data < hoje (não concluídas)
               setTaskListFilter('dataLimite');
-              const hoje = new Date().toISOString().split('T')[0];
-              setFilterDataAte(hoje);
+              const hoje = new Date();
+              hoje.setHours(0, 0, 0, 0);
+              // Vencidas = data < hoje, então vamos usar hoje como dataAte e depois filtrar com <
+              // Mas como filterDataAte usa <=, vamos usar hoje-1 como dataAte
+              const ontem = new Date(hoje);
+              ontem.setDate(ontem.getDate() - 1);
+              setFilterDataAte(formatDateForFilter(ontem));
               setFilterDataDe('');
-              setFilterStatus('nao_concluidas'); // Filtrar apenas não concluídas
+              setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
             }}
             className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border-2 border-red-200 dark:border-red-800 hover:shadow-md transition-all cursor-pointer text-left"
           >
@@ -933,14 +1522,16 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
               // Limpar todos os filtros antes de aplicar novos
               clearAllFilters();
               setSelectedFilter({ type: 'status', value: 'proximos7dias' });
-              // Aplicar filtro automático: data limite, próximos 7 dias
+              // Aplicar filtro automático: data limite, próximos 7 dias (inclui hoje)
+              // IMPORTANTE: O card mostra apenas tarefas NÃO concluídas (venceHoje + venceProximos7Dias)
               setTaskListFilter('dataLimite');
               const hoje = new Date();
+              hoje.setHours(0, 0, 0, 0);
               const proximos7Dias = new Date(hoje);
               proximos7Dias.setDate(proximos7Dias.getDate() + 7);
-              setFilterDataDe(hoje.toISOString().split('T')[0]);
-              setFilterDataAte(proximos7Dias.toISOString().split('T')[0]);
-              setFilterStatus('');
+              setFilterDataDe(formatDateForFilter(hoje));
+              setFilterDataAte(formatDateForFilter(proximos7Dias));
+              setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas para corresponder ao card
             }}
             className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border-2 border-orange-200 dark:border-orange-800 hover:shadow-md transition-all cursor-pointer text-left"
           >
@@ -962,13 +1553,23 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
               clearAllFilters();
               setSelectedFilter({ type: 'status', value: 'proximos30dias' });
               // Aplicar filtro automático: data limite, próximos 30 dias
+              // IMPORTANTE: O card mostra apenas tarefas NÃO concluídas (venceProximos30Dias)
+              // Na lógica de cálculo: venceProximos30Dias = data > hoje+7 && data <= hoje+30
+              // IMPORTANTE: Isso EXCLUI as tarefas dos primeiros 7 dias (que estão em "Próximos 7 dias")
               setTaskListFilter('dataLimite');
               const hoje = new Date();
+              hoje.setHours(0, 0, 0, 0);
+              const proximos7Dias = new Date(hoje);
+              proximos7Dias.setDate(proximos7Dias.getDate() + 7);
               const proximos30Dias = new Date(hoje);
               proximos30Dias.setDate(proximos30Dias.getDate() + 30);
-              setFilterDataDe(hoje.toISOString().split('T')[0]);
-              setFilterDataAte(proximos30Dias.toISOString().split('T')[0]);
-              setFilterStatus('');
+              // Próximos 30 dias = data > hoje+7 && data <= hoje+30
+              // Como filterDataDe usa >=, precisamos usar hoje+8 para representar "> hoje+7"
+              const proximos8Dias = new Date(hoje);
+              proximos8Dias.setDate(proximos8Dias.getDate() + 8);
+              setFilterDataDe(formatDateForFilter(proximos8Dias));
+              setFilterDataAte(formatDateForFilter(proximos30Dias));
+              setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas para corresponder ao card
             }}
             className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border-2 border-yellow-200 dark:border-yellow-800 hover:shadow-md transition-all cursor-pointer text-left"
           >
@@ -988,37 +1589,10 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
             onClick={() => {
               // Limpar todos os filtros antes de aplicar novos
               clearAllFilters();
-              setSelectedFilter({ type: 'status', value: 'noprazo' });
-              // Aplicar filtro automático: data limite, não atrasadas (data >= hoje)
-              setTaskListFilter('dataLimite');
-              const hoje = new Date();
-              const amanha = new Date(hoje);
-              amanha.setDate(amanha.getDate() + 1);
-              setFilterDataDe(amanha.toISOString().split('T')[0]);
-              setFilterDataAte('');
-              setFilterStatus('');
-            }}
-            className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border-2 border-green-200 dark:border-green-800 hover:shadow-md transition-all cursor-pointer text-left"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">No prazo</span>
-            </div>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {analytics.comDataLimite.noPrazo}
-            </div>
-            <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-              {formatHours(analytics.comDataLimite.horasNoPrazo)}
-            </div>
-          </button>
-          
-          <button
-            onClick={() => {
-              // Limpar todos os filtros antes de aplicar novos
-              clearAllFilters();
               setSelectedFilter({ type: 'status', value: 'total' });
-              // Aplicar filtro automático: todas, sem filtros de data
-              setTaskListFilter('todas');
+              // Aplicar filtro automático: apenas tarefas com data limite (sem filtros de data)
+              // IMPORTANTE: O card "Total" mostra apenas tarefas com data limite definida
+              setTaskListFilter('dataLimite');
               setFilterDataDe('');
               setFilterDataAte('');
             }}
@@ -1070,37 +1644,41 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                   
                   const periodo = timelineData[index].periodo;
                   const hoje = new Date();
+                  hoje.setHours(0, 0, 0, 0);
                   
                   // Aplicar filtros baseado no período clicado
                   setTaskListFilter('dataLimite');
                   
                   if (periodo === 'Vencidas') {
-                    setFilterDataAte(hoje.toISOString().split('T')[0]);
+                    // Vencidas = data < hoje (não concluídas)
+                    const ontem = new Date(hoje);
+                    ontem.setDate(ontem.getDate() - 1);
+                    setFilterDataAte(formatDateForFilter(ontem));
                     setFilterDataDe('');
-                    setFilterStatus('nao_concluidas'); // Filtrar apenas não concluídas
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Hoje') {
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(hoje.toISOString().split('T')[0]);
-                    setFilterStatus('');
+                    // Hoje = data === hoje (não concluídas)
+                    setFilterDataDe(formatDateForFilter(hoje));
+                    setFilterDataAte(formatDateForFilter(hoje));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Próximos 7 dias') {
+                    // Próximos 7 dias = data > hoje && data <= hoje+7 (não concluídas)
                     const proximos7Dias = new Date(hoje);
                     proximos7Dias.setDate(proximos7Dias.getDate() + 7);
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(proximos7Dias.toISOString().split('T')[0]);
-                    setFilterStatus('');
+                    setFilterDataDe(formatDateForFilter(hoje));
+                    setFilterDataAte(formatDateForFilter(proximos7Dias));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Próximos 30 dias') {
+                    // Próximos 30 dias = data > hoje+7 && data <= hoje+30 (não concluídas)
+                    const proximos7Dias = new Date(hoje);
+                    proximos7Dias.setDate(proximos7Dias.getDate() + 7);
                     const proximos30Dias = new Date(hoje);
                     proximos30Dias.setDate(proximos30Dias.getDate() + 30);
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(proximos30Dias.toISOString().split('T')[0]);
-                    setFilterStatus('');
-                  } else if (periodo === 'No prazo') {
-                    // No prazo = tarefas que não estão atrasadas (data >= hoje)
-                    const amanha = new Date(hoje);
-                    amanha.setDate(amanha.getDate() + 1);
-                    setFilterDataDe(amanha.toISOString().split('T')[0]);
-                    setFilterDataAte('');
-                    setFilterStatus('');
+                    const proximos8Dias = new Date(hoje);
+                    proximos8Dias.setDate(proximos8Dias.getDate() + 8);
+                    setFilterDataDe(formatDateForFilter(proximos8Dias));
+                    setFilterDataAte(formatDateForFilter(proximos30Dias));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   }
                 }
               }}
@@ -1118,37 +1696,41 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                   
                   const periodo = timelineData[index].periodo;
                   const hoje = new Date();
+                  hoje.setHours(0, 0, 0, 0);
                   
                   // Aplicar filtros baseado no período clicado
                   setTaskListFilter('dataLimite');
                   
                   if (periodo === 'Vencidas') {
-                    setFilterDataAte(hoje.toISOString().split('T')[0]);
+                    // Vencidas = data < hoje (não concluídas)
+                    const ontem = new Date(hoje);
+                    ontem.setDate(ontem.getDate() - 1);
+                    setFilterDataAte(formatDateForFilter(ontem));
                     setFilterDataDe('');
-                    setFilterStatus('nao_concluidas'); // Filtrar apenas não concluídas
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Hoje') {
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(hoje.toISOString().split('T')[0]);
-                    setFilterStatus('');
+                    // Hoje = data === hoje (não concluídas)
+                    setFilterDataDe(formatDateForFilter(hoje));
+                    setFilterDataAte(formatDateForFilter(hoje));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Próximos 7 dias') {
+                    // Próximos 7 dias = data > hoje && data <= hoje+7 (não concluídas)
                     const proximos7Dias = new Date(hoje);
                     proximos7Dias.setDate(proximos7Dias.getDate() + 7);
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(proximos7Dias.toISOString().split('T')[0]);
-                    setFilterStatus('');
+                    setFilterDataDe(formatDateForFilter(hoje));
+                    setFilterDataAte(formatDateForFilter(proximos7Dias));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   } else if (periodo === 'Próximos 30 dias') {
+                    // Próximos 30 dias = data > hoje+7 && data <= hoje+30 (não concluídas)
+                    const proximos7Dias = new Date(hoje);
+                    proximos7Dias.setDate(proximos7Dias.getDate() + 7);
                     const proximos30Dias = new Date(hoje);
                     proximos30Dias.setDate(proximos30Dias.getDate() + 30);
-                    setFilterDataDe(hoje.toISOString().split('T')[0]);
-                    setFilterDataAte(proximos30Dias.toISOString().split('T')[0]);
-                    setFilterStatus('');
-                  } else if (periodo === 'No prazo') {
-                    // No prazo = tarefas que não estão atrasadas (data >= hoje)
-                    const amanha = new Date(hoje);
-                    amanha.setDate(amanha.getDate() + 1);
-                    setFilterDataDe(amanha.toISOString().split('T')[0]);
-                    setFilterDataAte('');
-                    setFilterStatus('');
+                    const proximos8Dias = new Date(hoje);
+                    proximos8Dias.setDate(proximos8Dias.getDate() + 8);
+                    setFilterDataDe(formatDateForFilter(proximos8Dias));
+                    setFilterDataAte(formatDateForFilter(proximos30Dias));
+                    setFilterStatus(['nao_concluidas']); // Filtrar apenas não concluídas
                   }
                 }
               }}
@@ -1380,272 +1962,21 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         )}
       </div>
       
-      {/* Lista de Tarefas de Entrega - No final da página */}
+      {/* Lista de Tarefas de Entrega - Apenas consulta (sem filtros) */}
       <div ref={taskListRef}>
-      {(() => {
-        // Verificar se há algum filtro aplicado
-        const hasFilters = 
-          taskListFilter !== 'todas' ||
-          filterDataDe !== '' ||
-          filterDataAte !== '' ||
-          filterCliente !== '' ||
-          filterSprint !== '' ||
-          filterStatus !== '' ||
-          filterDescricao !== '' ||
-          filterCodigo !== '';
-        
-        // Se não houver filtros, não mostrar a lista
-        if (!hasFilters) {
-          return null;
-        }
-        
-        return (
           <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border-2 border-indigo-200 dark:border-indigo-800">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  Lista de Tarefas (Entregas)
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Tarefas com data limite ou previsão de entrega
-                </p>
-              </div>
-            </div>
-            
-            {/* Filtros */}
-            <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtros de Busca</span>
-                <button
-                  onClick={() => {
-                    setTaskListFilter('todas');
-                    setFilterDataDe('');
-                    setFilterDataAte('');
-                    setFilterCliente('');
-                    setFilterSprint('');
-                    setFilterStatus('');
-                    setFilterDescricao('');
-                    setFilterCodigo('');
-                    setSelectedFilter(null);
-                  }}
-                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
-                >
-                  Limpar Filtros
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Tipo
-                  </label>
-                  <select
-                    value={taskListFilter}
-                    onChange={(e) => setTaskListFilter(e.target.value as 'dataLimite' | 'previsao' | 'todas')}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="todas">Todas</option>
-                    <option value="dataLimite">Data Limite</option>
-                    <option value="previsao">Previsão</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Data De
-                  </label>
-                  <input
-                    type="date"
-                    value={filterDataDe}
-                    onChange={(e) => setFilterDataDe(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Data Até
-                  </label>
-                  <input
-                    type="date"
-                    value={filterDataAte}
-                    onChange={(e) => setFilterDataAte(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Cliente
-                  </label>
-                  <select
-                    value={filterCliente}
-                    onChange={(e) => setFilterCliente(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Todos</option>
-                    {Array.from(new Set(
-                      [...tasksComDataLimite, ...tasksComPrevisao]
-                        .flatMap(t => t.categorias || [])
-                        .filter(c => c && c.trim() !== '')
-                    )).sort().map(cliente => (
-                      <option key={cliente} value={cliente}>{cliente}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Sprint
-                  </label>
-                  <select
-                    value={filterSprint}
-                    onChange={(e) => setFilterSprint(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Todos</option>
-                    {Array.from(new Set(
-                      tasksComPrevisao.map(t => t.sprint).filter(s => s && s.trim() !== '')
-                    )).sort().map(sprint => (
-                      <option key={sprint} value={sprint}>{sprint}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Todos</option>
-                    <option value="nao_concluidas">Não Concluídas</option>
-                    <option value="concluidas">Concluídas</option>
-                    {Array.from(new Set(
-                      [...tasksComDataLimite, ...tasksComPrevisao]
-                        .map(t => t.status)
-                        .filter(s => s && s.trim() !== '')
-                    )).sort().map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Código
-                  </label>
-                  <input
-                    type="text"
-                    value={filterCodigo}
-                    onChange={(e) => setFilterCodigo(e.target.value)}
-                    placeholder="Buscar código..."
-                    className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Descrição
-                </label>
-                <input
-                  type="text"
-                  value={filterDescricao}
-                  onChange={(e) => setFilterDescricao(e.target.value)}
-                  placeholder="Buscar na descrição..."
-                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Lista de Tarefas (Entregas)
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Consulta de tarefas com data limite ou previsão de entrega
+              </p>
             </div>
             
             {(() => {
-              // Filtrar tarefas baseado no filtro selecionado
-              let filteredTasks: DeliveryTask[] = [];
-              
-              if (taskListFilter === 'dataLimite') {
-                filteredTasks = tasksComDataLimite;
-              } else if (taskListFilter === 'previsao') {
-                filteredTasks = tasksComPrevisao;
-              } else {
-                // Todas: combinar ambas
-                filteredTasks = [...tasksComDataLimite, ...tasksComPrevisao];
-              }
-              
-              // Aplicar filtros adicionais
-              if (filterDataDe) {
-                const dataDe = new Date(filterDataDe);
-                dataDe.setHours(0, 0, 0, 0);
-                filteredTasks = filteredTasks.filter(task => {
-                  const taskData = new Date(task.dataLimiteCalculada);
-                  taskData.setHours(0, 0, 0, 0);
-                  return taskData.getTime() >= dataDe.getTime();
-                });
-              }
-              
-              if (filterDataAte) {
-                const dataAte = new Date(filterDataAte);
-                dataAte.setHours(23, 59, 59, 999);
-                filteredTasks = filteredTasks.filter(task => {
-                  const taskData = new Date(task.dataLimiteCalculada);
-                  taskData.setHours(0, 0, 0, 0);
-                  return taskData.getTime() <= dataAte.getTime();
-                });
-              }
-              
-              if (filterCliente) {
-                filteredTasks = filteredTasks.filter(task => 
-                  task.categorias && task.categorias.some(cat => 
-                    cat && cat === filterCliente
-                  )
-                );
-              }
-              
-              if (filterSprint) {
-                filteredTasks = filteredTasks.filter(task => 
-                  task.sprint && task.sprint === filterSprint
-                );
-              }
-              
-              if (filterStatus) {
-                if (filterStatus === 'nao_concluidas') {
-                  filteredTasks = filteredTasks.filter(task => 
-                    !isReallyCompletedStatus(task.status || '')
-                  );
-                } else if (filterStatus === 'concluidas') {
-                  filteredTasks = filteredTasks.filter(task => 
-                    isReallyCompletedStatus(task.status || '')
-                  );
-                } else {
-                  filteredTasks = filteredTasks.filter(task => 
-                    task.status && task.status === filterStatus
-                  );
-                }
-              }
-              
-              if (filterCodigo) {
-                filteredTasks = filteredTasks.filter(task => {
-                  const codigo = (task.chave || task.id || '').toLowerCase();
-                  return codigo.includes(filterCodigo.toLowerCase());
-                });
-              }
-              
-              if (filterDescricao) {
-                filteredTasks = filteredTasks.filter(task => {
-                  const descricao = (task.resumo || '').toLowerCase();
-                  return descricao.includes(filterDescricao.toLowerCase());
-                });
-              }
-              
-              // Ordenar por código (chave) - ascending order
-              filteredTasks.sort((a, b) => {
-                const codeA = (a.chave || a.id || '').toUpperCase();
-                const codeB = (b.chave || b.id || '').toUpperCase();
-                return codeA.localeCompare(codeB);
-              });
+              const filteredTasks = filteredTasksList;
               
               if (filteredTasks.length === 0) {
                 return (
@@ -1668,6 +1999,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                           <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Código</th>
                           <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
                           <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+                          <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Sprint</th>
                           <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Data</th>
                           <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Status</th>
                           <th className="text-right p-3 font-semibold text-gray-700 dark:text-gray-300">Horas</th>
@@ -1695,11 +2027,28 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
                               </span>
                             </td>
                             <td className="p-3 text-gray-700 dark:text-gray-300">
-                              {task.dataLimiteCalculada.toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              })}
+                              {(() => {
+                                const sprintName = task.sprint?.trim();
+                                if (!sprintName || isBacklogSprintValue(sprintName)) {
+                                  return 'backlog';
+                                }
+                                return sprintName;
+                              })()}
+                            </td>
+                            <td className="p-3 text-gray-700 dark:text-gray-300">
+                              {(() => {
+                                const sprintName = task.sprint?.trim();
+                                const isBacklog = !sprintName || isBacklogSprintValue(sprintName);
+                                // Se for backlog sem data limite, mostrar "-"
+                                if (isBacklog && !task.dataLimite) {
+                                  return '-';
+                                }
+                                return task.dataLimiteCalculada.toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                });
+                              })()}
                             </td>
                             <td className="p-3">
                               <span className={`px-2 py-1 rounded-full text-xs ${
@@ -1722,8 +2071,6 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
               );
             })()}
           </div>
-        );
-      })()}
       </div>
     </div>
   );

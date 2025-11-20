@@ -15,9 +15,10 @@ import {
   X,
   Activity,
   Layers,
+  Square,
 } from 'lucide-react';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery' | 'tasks';
 
 interface SidebarNavigationProps {
   viewMode: ViewMode;
@@ -99,6 +100,13 @@ const navItems: NavItem[] = [
     icon: Package,
     gradient: 'from-orange-600 to-orange-500',
     hoverGradient: 'hover:from-orange-700 hover:to-orange-600',
+  },
+  {
+    id: 'tasks',
+    label: 'Tarefas',
+    icon: Square,
+    gradient: 'from-indigo-600 to-purple-500',
+    hoverGradient: 'hover:from-indigo-700 hover:to-purple-600',
   },
   {
     id: 'inconsistencies',
