@@ -282,6 +282,41 @@ export function isImpedimentoTrabalhoTask(task: { detalhesOcultos?: string[]; ti
 }
 
 /**
+ * Check if a task should be excluded from inconsistencies analysis
+ * Criteria: detalhesOcultos contains "ImpedimentoTrabalho" OR "Testes"
+ * This is independent of the task type - any task with these values in detalhesOcultos
+ * should not appear in inconsistencies dashboard
+ */
+export function shouldExcludeFromInconsistencies(task: { detalhesOcultos?: string[] }): boolean {
+  if (!task || !task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  
+  return task.detalhesOcultos.some(d => {
+    // Handle null, undefined, or non-string values
+    if (!d) return false;
+    
+    // Convert to string if not already
+    const dStr = String(d).trim();
+    if (dStr === '') return false;
+    
+    // Normalize: remove accents, convert to lowercase, and remove all spaces
+    // This handles variations like "ImpedimentoTrabalho", "Impedimento de trabalho", "impedimento trabalho", etc.
+    let normalized = normalizeForComparison(dStr).replace(/\s+/g, '');
+    
+    // Normalize multiple consecutive 'i' to single 'i' to handle typos like "ImpediimentoTrabalho"
+    normalized = normalized.replace(/i+/g, 'i');
+    
+    // Check for "ImpedimentoTrabalho" - exact match after normalization
+    // Handles: "ImpedimentoTrabalho", "Impedimento de trabalho", "impedimento trabalho", "ImpediimentoTrabalho", etc.
+    const isImpedimento = normalized === 'impedimentotrabalho';
+    
+    // Check for "Testes" - exact match after normalization
+    const isTestes = normalized === 'testes';
+    
+    return isImpedimento || isTestes;
+  });
+}
+
+/**
  * Detect if a Sprint cell value should be treated as Backlog.
  * Accepts common placeholders besides empty string: "backlog", "sem sprint", "-", "n/a", "na",
  * "não alocado"/"nao alocado", "none", "null", "undefined".

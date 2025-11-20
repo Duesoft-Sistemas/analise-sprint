@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, Clock, FileWarning, User, CheckCircle2, Calendar, Hash, Star } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, WorklogEntry, SprintMetadata } from '../types';
-import { formatHours, isCompletedStatus, isNeutralTask, isAuxilioTask } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isNeutralTask, isAuxilioTask, shouldExcludeFromInconsistencies } from '../utils/calculations';
 import { isDateInSprint } from '../services/hybridCalculations';
 
 interface Inconsistency {
@@ -59,6 +59,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 1. Tarefas concluídas sem worklog
   const tasksWithoutWorklog = useMemo(() => {
     return filteredTasks.filter(task => 
+      !shouldExcludeFromInconsistencies(task) &&
       isCompletedStatus(task.status) && !taskHasWorklogHelper(task, worklogs)
     );
   }, [filteredTasks, worklogs]);
@@ -67,15 +68,17 @@ export const InconsistenciesDashboard: React.FC = () => {
   const duplicateTasks = useMemo(() => {
     const taskMap = new Map<string, TaskItem[]>();
     
-    filteredTasks.forEach(task => {
-      const key = task.chave?.toLowerCase().trim() || task.id?.toLowerCase().trim() || '';
-      if (key) {
-        if (!taskMap.has(key)) {
-          taskMap.set(key, []);
+    filteredTasks
+      .filter(task => !shouldExcludeFromInconsistencies(task))
+      .forEach(task => {
+        const key = task.chave?.toLowerCase().trim() || task.id?.toLowerCase().trim() || '';
+        if (key) {
+          if (!taskMap.has(key)) {
+            taskMap.set(key, []);
+          }
+          taskMap.get(key)!.push(task);
         }
-        taskMap.get(key)!.push(task);
-      }
-    });
+      });
 
     const duplicates: TaskItem[][] = [];
     taskMap.forEach((taskList) => {
@@ -91,6 +94,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   const tasksWithInvalidSprint = useMemo(() => {
     if (sprintMetadata.length === 0) return []; // If no metadata, skip this check
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const sprintName = task.sprint;
       return !sprintMetadata.some(m => m.sprint === sprintName);
     });
@@ -99,6 +103,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 6. Valores numéricos inválidos
   const tasksWithInvalidValues = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const estimativa = task.estimativa || 0;
       const tempoGastoTotal = task.tempoGastoTotal ?? 0;
       
@@ -128,6 +133,7 @@ export const InconsistenciesDashboard: React.FC = () => {
     const items: { task: TaskItem; reason: string }[] = [];
 
     filteredTasks.forEach((task) => {
+      if (shouldExcludeFromInconsistencies(task)) return;
       const createdDate = task.criado;
 
       // Data de criação no futuro (sempre inconsistente)
@@ -172,6 +178,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 10. Tarefas sem responsável
   const tasksWithoutOwner = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const hasResponsavel = task.responsavel && task.responsavel.trim() !== '';
       const hasIdResponsavel = task.idResponsavel && task.idResponsavel.trim() !== '';
       return !hasResponsavel && !hasIdResponsavel;
@@ -181,6 +188,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 11. Campos obrigatórios ausentes
   const tasksWithMissingFields = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const hasChave = task.chave && task.chave.trim() !== '';
       const hasId = task.id && task.id.trim() !== '';
       return !hasChave && !hasId;
@@ -199,6 +207,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 13. Estimativas inconsistentes (tempo gasto muito maior que estimativa)
   const tasksWithInconsistentEstimates = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const estimativa = task.estimativa || 0;
       const tempoGastoTotal = task.tempoGastoTotal ?? 0;
       
@@ -215,6 +224,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // Tarefas sem estimativa (excluindo neutras/auxilio)
   const tasksWithoutEstimate = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const hasEstimate = task.estimativa && task.estimativa > 0;
       const isExcluded = isNeutralTask(task) || isAuxilioTask(task);
       return !hasEstimate && !isExcluded;
@@ -227,6 +237,7 @@ export const InconsistenciesDashboard: React.FC = () => {
   // 16. Tarefas concluídas sem nota de teste (excluindo neutras)
   const tasksWithMissingTestScore = useMemo(() => {
     return filteredTasks.filter(task => {
+      if (shouldExcludeFromInconsistencies(task)) return false;
       const isMissingTestScore = task.notaTeste === null || task.notaTeste === undefined;
       const isDone = isCompletedStatus(task.status);
       const isExcluded = isNeutralTask(task) || isAuxilioTask(task);
@@ -255,7 +266,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Worklog',
         severity: 'high',
         title: 'Tarefas Concluídas sem Worklog',
-        description: 'Tarefas com status "concluído" mas sem nenhum registro de worklog. Indica possível falta de registro de tempo.',
+        description: 'Tarefas com status "concluído" mas sem nenhum registro de worklog. Indica possível falta de registro de tempo. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithoutWorklog.length,
         items: tasksWithoutWorklog,
       });
@@ -270,7 +281,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Dados',
         severity: 'medium',
         title: 'Tarefas Duplicadas',
-        description: 'Tarefas com a mesma chave ou ID aparecendo múltiplas vezes. Pode causar duplicação nos cálculos.',
+        description: 'Tarefas com a mesma chave ou ID aparecendo múltiplas vezes. Pode causar duplicação nos cálculos. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: allDuplicates.length,
         items: duplicateTasks,
       });
@@ -284,7 +295,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Sprint',
         severity: 'medium',
         title: 'Tarefas com Sprint Inexistente',
-        description: 'Tarefas referenciando sprints que não existem no arquivo de sprints. Impacta agrupamento e análise por sprint.',
+        description: 'Tarefas referenciando sprints que não existem no arquivo de sprints. Impacta agrupamento e análise por sprint. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithInvalidSprint.length,
         items: tasksWithInvalidSprint,
       });
@@ -298,7 +309,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Validação',
         severity: 'medium',
         title: 'Tarefas com Valores Numéricos Inválidos',
-        description: 'Tarefas com estimativas negativas ou extremamente altas (>200h), ou tempo gasto negativo. Indica possível erro de entrada.',
+        description: 'Tarefas com estimativas negativas ou extremamente altas (>200h), ou tempo gasto negativo. Indica possível erro de entrada. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithInvalidValues.length,
         items: tasksWithInvalidValues,
       });
@@ -331,7 +342,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Data',
         severity: 'medium',
         title: 'Datas Inválidas',
-        description: 'Datas de criação no futuro, worklogs no futuro, ou sprints com período inválido (fim antes do início).',
+        description: 'Datas de criação no futuro, worklogs no futuro, ou sprints com período inválido (fim antes do início). Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: allInvalidDates.length,
         items: {
           tasks: tasksWithInvalidDates,
@@ -363,7 +374,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Dados',
         severity: 'medium',
         title: 'Tarefas sem Responsável',
-        description: 'Tarefas sem responsável ou ID do responsável definido. Impacta análise por desenvolvedor.',
+        description: 'Tarefas sem responsável ou ID do responsável definido. Impacta análise por desenvolvedor. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithoutOwner.length,
         items: tasksWithoutOwner,
       });
@@ -381,7 +392,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Dados',
         severity: 'high',
         title: 'Campos Obrigatórios Ausentes',
-        description: 'Tarefas sem chave/ID ou worklogs sem taskId. Dados incompletos que podem causar problemas.',
+        description: 'Tarefas sem chave/ID ou worklogs sem taskId. Dados incompletos que podem causar problemas. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: allMissingFields.length,
         items: {
           tasks: tasksWithMissingFields,
@@ -403,7 +414,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Estimativa',
         severity: 'low',
         title: 'Estimativas Inconsistentes',
-        description: 'Tarefas com tempo gasto muito maior que a estimativa original (>300%). Pode indicar erro de registro ou estimativa incorreta.',
+        description: 'Tarefas com tempo gasto muito maior que a estimativa original (>300%). Pode indicar erro de registro ou estimativa incorreta. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithInconsistentEstimates.length,
         items: tasksWithInconsistentEstimates,
       });
@@ -417,7 +428,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Estimativa',
         severity: 'medium',
         title: 'Tarefas sem Estimativa',
-        description: 'Tarefas que não possuem estimativa de horas e não são do tipo "auxílio", "reunião" ou "treinamento".',
+        description: 'Tarefas que não possuem estimativa de horas e não são do tipo "auxílio", "reunião" ou "treinamento". Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithoutEstimate.length,
         items: tasksWithoutEstimate,
       });
@@ -433,7 +444,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Qualidade',
         severity: 'medium',
         title: 'Tarefas Concluídas sem Nota de Teste',
-        description: 'Tarefas que foram concluídas mas não possuem nota de teste. A ausência da nota impede o cálculo correto do score de qualidade e performance.',
+        description: 'Tarefas que foram concluídas mas não possuem nota de teste. A ausência da nota impede o cálculo correto do score de qualidade e performance. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithMissingTestScore.length,
         items: tasksWithMissingTestScore,
       });

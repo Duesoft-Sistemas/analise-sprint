@@ -178,6 +178,35 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     return null;
   };
 
+  // Calculate trend based on time series data using linear regression
+  const calculateTrend = (values: number[]): 'improving' | 'declining' | 'stable' => {
+    if (values.length < 2) return 'stable';
+
+    // Simple linear regression
+    const n = values.length;
+    const xMean = (n - 1) / 2;
+    const yMean = values.reduce((sum, v) => sum + v, 0) / n;
+
+    let numerator = 0;
+    let denominator = 0;
+
+    for (let i = 0; i < n; i++) {
+      const xDiff = i - xMean;
+      const yDiff = values[i] - yMean;
+      numerator += xDiff * yDiff;
+      denominator += xDiff * xDiff;
+    }
+
+    const slope = denominator === 0 ? 0 : numerator / denominator;
+
+    // Threshold for considering a trend significant
+    const threshold = 0.5;
+
+    if (slope > threshold) return 'improving';
+    if (slope < -threshold) return 'declining';
+    return 'stable';
+  };
+
   // Calculate statistics based on showBonuses toggle
   const calculateDisplayStatistics = (dev: DeveloperTemporalEvolution) => {
     const scores = dev.periods.map(p => 
@@ -212,9 +241,215 @@ export const TemporalEvolutionDashboard: React.FC = () => {
     };
   };
 
+  // Generate career insights based on recalculated metrics
+  const generateDisplayInsights = (
+    dev: DeveloperTemporalEvolution,
+    displayTrendAndGrowth: ReturnType<typeof calculateDisplayTrendAndGrowth>,
+    displayStats: ReturnType<typeof calculateDisplayStatistics>
+  ) => {
+    const insights: typeof dev.careerInsights = [];
+    const { trend, growth } = displayTrendAndGrowth;
+
+    // Performance trend insights
+    if (trend.performance === 'improving') {
+      insights.push({
+        type: 'positive',
+        title: 'Evolução Positiva de Performance',
+        description: `Performance melhorou ${growth.performanceGrowth.toFixed(1)}% ao longo do período analisado.`,
+        metric: 'Performance',
+        recommendation: 'Continue o excelente trabalho! Considere compartilhar suas práticas com a equipe.'
+      });
+    } else if (trend.performance === 'declining') {
+      insights.push({
+        type: 'negative',
+        title: 'Declínio na Performance',
+        description: `Performance diminuiu ${Math.abs(growth.performanceGrowth).toFixed(1)}% no período.`,
+        metric: 'Performance',
+        recommendation: 'Recomendamos uma conversa 1:1 para identificar possíveis bloqueios ou necessidades de suporte.'
+      });
+    }
+
+    // Quality trend insights
+    if (trend.quality === 'improving') {
+      insights.push({
+        type: 'positive',
+        title: 'Melhoria Contínua na Qualidade',
+        description: `Qualidade do código melhorou ${growth.qualityGrowth.toFixed(1)}% ao longo do tempo.`,
+        metric: 'Qualidade',
+      });
+    } else if (trend.quality === 'declining') {
+      insights.push({
+        type: 'negative',
+        title: 'Qualidade Precisa Atenção',
+        description: `Qualidade (nota de teste) diminuiu ao longo do período.`,
+        metric: 'Qualidade',
+        recommendation: 'Considere revisar processos de code review e aumentar cobertura de testes.'
+      });
+    }
+
+    // Complexity growth insights
+    if (trend.complexity === 'increasing') {
+      insights.push({
+        type: 'positive',
+        title: 'Assumindo Tarefas Mais Complexas',
+        description: `Complexidade média aumentou ${growth.complexityGrowth.toFixed(1)}%, indicando crescimento técnico.`,
+        metric: 'Complexidade',
+        recommendation: 'Excelente! Está assumindo desafios maiores. Considere para promoção ou tarefas de liderança técnica.'
+      });
+    }
+
+    // Consistency insights
+    if (displayStats.consistencyScore >= 80) {
+      insights.push({
+        type: 'positive',
+        title: 'Performance Consistente',
+        description: `Mantém performance estável com score de consistência de ${displayStats.consistencyScore.toFixed(0)}/100.`,
+        metric: 'Consistência',
+      });
+    } else if (displayStats.consistencyScore < 60) {
+      insights.push({
+        type: 'neutral',
+        title: 'Variação na Performance',
+        description: `Performance varia significativamente entre períodos (consistência: ${displayStats.consistencyScore.toFixed(0)}/100).`,
+        metric: 'Consistência',
+        recommendation: 'Identifique fatores que causam variação (tipo de tarefa, carga, etc) para estabilizar performance.'
+      });
+    }
+
+    // Overall growth insights
+    if (growth.totalGrowthScore >= 20) {
+      insights.push({
+        type: 'positive',
+        title: '🏆 Crescimento Excepcional',
+        description: `Crescimento total de ${growth.totalGrowthScore.toFixed(1)}% em múltiplas dimensões.`,
+        recommendation: 'Forte candidato para promoção ou aumento de responsabilidades.'
+      });
+    } else if (growth.totalGrowthScore < -10) {
+      insights.push({
+        type: 'negative',
+        title: 'Regressão nas Métricas',
+        description: `Métricas gerais diminuíram ${Math.abs(growth.totalGrowthScore).toFixed(1)}% no período.`,
+        recommendation: 'Agende reunião para discutir desafios e plano de desenvolvimento individual.'
+      });
+    }
+
+    // Recent performance check (last period vs average)
+    if (dev.periods.length >= 2) {
+      const lastPeriod = dev.periods[dev.periods.length - 1];
+      const lastPeriodScore = showBonuses && lastPeriod.avgPerformanceScoreWithBonus !== undefined
+        ? lastPeriod.avgPerformanceScoreWithBonus
+        : lastPeriod.avgPerformanceScore;
+      const avgScore = displayStats.avgPerformanceScore;
+      const difference = avgScore > 0 ? ((lastPeriodScore - avgScore) / avgScore) * 100 : 0;
+
+      if (difference > 15) {
+        insights.push({
+          type: 'positive',
+          title: 'Performance Recente Acima da Média',
+          description: `Última performance (${lastPeriodScore.toFixed(0)}) está ${difference.toFixed(0)}% acima da média pessoal.`,
+        });
+      } else if (difference < -15) {
+        insights.push({
+          type: 'negative',
+          title: 'Performance Recente Abaixo da Média',
+          description: `Última performance está ${Math.abs(difference).toFixed(0)}% abaixo da média pessoal.`,
+          recommendation: 'Verifique se há bloqueios ou desafios específicos no período recente.'
+        });
+      }
+    }
+
+    return insights;
+  };
+
+  // Calculate trend and growth metrics based on showBonuses toggle
+  const calculateDisplayTrendAndGrowth = (dev: DeveloperTemporalEvolution) => {
+    const performanceScores = dev.periods.map(p => 
+      showBonuses && p.avgPerformanceScoreWithBonus !== undefined
+        ? p.avgPerformanceScoreWithBonus
+        : p.avgPerformanceScore
+    );
+    const accuracyScores = dev.periods.map(p => p.avgAccuracyRate);
+    const qualityScores = dev.periods.map(p => p.avgQualityScore);
+    const complexityScores = dev.periods.map(p => p.avgComplexity);
+    
+    const performanceTrend = calculateTrend(performanceScores);
+    const accuracyTrend = calculateTrend(accuracyScores);
+    const qualityTrend = calculateTrend(qualityScores);
+    const complexityTrend = calculateTrend(complexityScores);
+    
+    // Calculate growth metrics (first to last period)
+    if (dev.periods.length === 0) {
+      return {
+        trend: {
+          performance: 'stable' as const,
+          accuracy: 'stable' as const,
+          quality: 'stable' as const,
+          complexity: 'stable' as const,
+        },
+        growth: {
+          performanceGrowth: 0,
+          accuracyGrowth: 0,
+          qualityGrowth: 0,
+          complexityGrowth: 0,
+          totalGrowthScore: 0,
+        },
+      };
+    }
+    
+    const firstPeriod = dev.periods[0];
+    const lastPeriod = dev.periods[dev.periods.length - 1];
+    
+    const firstPerformanceScore = showBonuses && firstPeriod.avgPerformanceScoreWithBonus !== undefined
+      ? firstPeriod.avgPerformanceScoreWithBonus
+      : firstPeriod.avgPerformanceScore;
+    const lastPerformanceScore = showBonuses && lastPeriod.avgPerformanceScoreWithBonus !== undefined
+      ? lastPeriod.avgPerformanceScoreWithBonus
+      : lastPeriod.avgPerformanceScore;
+    
+    const performanceGrowth = firstPerformanceScore > 0
+      ? ((lastPerformanceScore - firstPerformanceScore) / firstPerformanceScore) * 100
+      : 0;
+    const accuracyGrowth = firstPeriod.avgAccuracyRate > 0
+      ? ((lastPeriod.avgAccuracyRate - firstPeriod.avgAccuracyRate) / firstPeriod.avgAccuracyRate) * 100
+      : 0;
+    const qualityGrowth = firstPeriod.avgQualityScore > 0
+      ? ((lastPeriod.avgQualityScore - firstPeriod.avgQualityScore) / firstPeriod.avgQualityScore) * 100
+      : 0;
+    const complexityGrowth = firstPeriod.avgComplexity > 0
+      ? ((lastPeriod.avgComplexity - firstPeriod.avgComplexity) / firstPeriod.avgComplexity) * 100
+      : 0;
+    
+    // Weighted total growth score (performance and quality are more important)
+    const totalGrowthScore = (
+      performanceGrowth * 0.4 +
+      qualityGrowth * 0.3 +
+      accuracyGrowth * 0.2 +
+      complexityGrowth * 0.1
+    );
+    
+    return {
+      trend: {
+        performance: performanceTrend,
+        accuracy: accuracyTrend,
+        quality: qualityTrend,
+        complexity: complexityTrend === 'improving' ? 'increasing' as const :
+                   complexityTrend === 'declining' ? 'decreasing' as const : 'stable' as const,
+      },
+      growth: {
+        performanceGrowth,
+        accuracyGrowth,
+        qualityGrowth,
+        complexityGrowth,
+        totalGrowthScore,
+      },
+    };
+  };
+
   const renderDeveloperEvolution = (dev: DeveloperTemporalEvolution) => {
     const chartData = prepareChartData(dev);
     const displayStats = calculateDisplayStatistics(dev);
+    const displayTrendAndGrowth = calculateDisplayTrendAndGrowth(dev);
+    const displayInsights = generateDisplayInsights(dev, displayTrendAndGrowth, displayStats);
 
     return (
       <div className="space-y-6">
@@ -226,14 +461,14 @@ export const TemporalEvolutionDashboard: React.FC = () => {
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Tendência Geral
               </span>
-              {getTrendIcon(dev.overallTrend.performance)}
+              {getTrendIcon(displayTrendAndGrowth.trend.performance)}
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {getTrendLabel(dev.overallTrend.performance)}
+              {getTrendLabel(displayTrendAndGrowth.trend.performance)}
             </p>
-            <p className={`text-sm mt-1 ${getGrowthColor(dev.growthMetrics.performanceGrowth)}`}>
-              {dev.growthMetrics.performanceGrowth > 0 ? '+' : ''}
-              {dev.growthMetrics.performanceGrowth.toFixed(1)}% no período
+            <p className={`text-sm mt-1 ${getGrowthColor(displayTrendAndGrowth.growth.performanceGrowth)}`}>
+              {displayTrendAndGrowth.growth.performanceGrowth > 0 ? '+' : ''}
+              {displayTrendAndGrowth.growth.performanceGrowth.toFixed(1)}% no período
             </p>
           </div>
 
@@ -263,12 +498,12 @@ export const TemporalEvolutionDashboard: React.FC = () => {
               </span>
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {dev.statistics.consistencyScore.toFixed(0)}
+              {displayStats.consistencyScore.toFixed(0)}
               <span className="text-lg text-gray-500 dark:text-gray-400">/100</span>
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {dev.statistics.consistencyScore >= 80 ? 'Muito consistente' :
-               dev.statistics.consistencyScore >= 60 ? 'Consistente' : 'Variável'}
+              {displayStats.consistencyScore >= 80 ? 'Muito consistente' :
+               displayStats.consistencyScore >= 60 ? 'Consistente' : 'Variável'}
             </p>
           </div>
 
@@ -280,9 +515,9 @@ export const TemporalEvolutionDashboard: React.FC = () => {
                 Crescimento Total
               </span>
             </div>
-            <p className={`text-2xl font-bold ${getGrowthColor(dev.growthMetrics.totalGrowthScore)}`}>
-              {dev.growthMetrics.totalGrowthScore > 0 ? '+' : ''}
-              {dev.growthMetrics.totalGrowthScore.toFixed(1)}%
+            <p className={`text-2xl font-bold ${getGrowthColor(displayTrendAndGrowth.growth.totalGrowthScore)}`}>
+              {displayTrendAndGrowth.growth.totalGrowthScore > 0 ? '+' : ''}
+              {displayTrendAndGrowth.growth.totalGrowthScore.toFixed(1)}%
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {dev.periods.length} {aggregationType === 'monthly' ? 'meses' :
@@ -464,14 +699,14 @@ export const TemporalEvolutionDashboard: React.FC = () => {
             
             <div className="mt-4 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                {getTrendIcon(dev.overallTrend.quality)}
+                {getTrendIcon(displayTrendAndGrowth.trend.quality)}
                 <span className="text-gray-700 dark:text-gray-300">
-                  {getTrendLabel(dev.overallTrend.quality)}
+                  {getTrendLabel(displayTrendAndGrowth.trend.quality)}
                 </span>
               </div>
-              <span className={`font-medium ${getGrowthColor(dev.growthMetrics.qualityGrowth)}`}>
-                {dev.growthMetrics.qualityGrowth > 0 ? '+' : ''}
-                {dev.growthMetrics.qualityGrowth.toFixed(1)}%
+              <span className={`font-medium ${getGrowthColor(displayTrendAndGrowth.growth.qualityGrowth)}`}>
+                {displayTrendAndGrowth.growth.qualityGrowth > 0 ? '+' : ''}
+                {displayTrendAndGrowth.growth.qualityGrowth.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -528,14 +763,14 @@ export const TemporalEvolutionDashboard: React.FC = () => {
             
             <div className="mt-4 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                {getTrendIcon(dev.overallTrend.accuracy)}
+                {getTrendIcon(displayTrendAndGrowth.trend.accuracy)}
                 <span className="text-gray-700 dark:text-gray-300">
-                  {getTrendLabel(dev.overallTrend.accuracy)}
+                  {getTrendLabel(displayTrendAndGrowth.trend.accuracy)}
                 </span>
               </div>
-              <span className={`font-medium ${getGrowthColor(dev.growthMetrics.accuracyGrowth)}`}>
-                {dev.growthMetrics.accuracyGrowth > 0 ? '+' : ''}
-                {dev.growthMetrics.accuracyGrowth.toFixed(1)}%
+              <span className={`font-medium ${getGrowthColor(displayTrendAndGrowth.growth.accuracyGrowth)}`}>
+                {displayTrendAndGrowth.growth.accuracyGrowth > 0 ? '+' : ''}
+                {displayTrendAndGrowth.growth.accuracyGrowth.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -583,17 +818,17 @@ export const TemporalEvolutionDashboard: React.FC = () => {
           <div className="mt-4 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               {getTrendIcon(
-                dev.overallTrend.complexity === 'increasing' ? 'improving' :
-                dev.overallTrend.complexity === 'decreasing' ? 'declining' : 'stable'
+                displayTrendAndGrowth.trend.complexity === 'increasing' ? 'improving' :
+                displayTrendAndGrowth.trend.complexity === 'decreasing' ? 'declining' : 'stable'
               )}
               <span className="text-gray-700 dark:text-gray-300">
-                {getTrendLabel(dev.overallTrend.complexity)}
+                {getTrendLabel(displayTrendAndGrowth.trend.complexity)}
               </span>
             </div>
             <span className="text-gray-600 dark:text-gray-400">
-              {dev.growthMetrics.complexityGrowth > 0 ? '+' : ''}
-              {dev.growthMetrics.complexityGrowth.toFixed(1)}% 
-              {dev.growthMetrics.complexityGrowth > 10 && (
+              {displayTrendAndGrowth.growth.complexityGrowth > 0 ? '+' : ''}
+              {displayTrendAndGrowth.growth.complexityGrowth.toFixed(1)}% 
+              {displayTrendAndGrowth.growth.complexityGrowth > 10 && (
                 <span className="text-green-600 dark:text-green-400 ml-2">✨ Desafiador!</span>
               )}
             </span>
@@ -601,14 +836,14 @@ export const TemporalEvolutionDashboard: React.FC = () => {
         </div>
 
         {/* Career Insights */}
-        {dev.careerInsights.length > 0 && (
+        {displayInsights.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               💡 Insights para Plano de Carreira
             </h3>
             
             <div className="space-y-3">
-              {dev.careerInsights.map((insight, index) => (
+              {displayInsights.map((insight, index) => (
                 <div
                   key={index}
                   className={`p-4 rounded-lg border-l-4 ${
