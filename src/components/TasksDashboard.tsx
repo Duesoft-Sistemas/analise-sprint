@@ -368,16 +368,31 @@ export const TasksDashboard: React.FC = () => {
     // Função helper para adicionar logo
     const addLogo = async (): Promise<{ width: number; height: number } | null> => {
       try {
-        const logoPaths = [
-          './imagens/duesoft.jpg',
-          '/imagens/duesoft.jpg',
-          'imagens/duesoft.jpg',
-          '../imagens/duesoft.jpg',
-        ];
+        // Detectar se está rodando no Electron
+        const isElectron = typeof window !== 'undefined' && 
+          (window.navigator.userAgent.indexOf('Electron') !== -1 || 
+           (window as any).process?.type === 'renderer' ||
+           (window as any).require);
         
-        for (const path of logoPaths) {
+        // Caminhos para tentar - priorizar conforme o ambiente
+        // No Electron, caminhos relativos funcionam melhor (file:// protocol)
+        // No browser, caminhos absolutos funcionam melhor (http:// protocol)
+        const logoPaths = isElectron 
+          ? [
+              './imagens/duesoft.jpg', // Caminho relativo (prioritário no Electron)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+              '/imagens/duesoft.jpg',  // Caminho absoluto (fallback)
+            ]
+          : [
+              '/imagens/duesoft.jpg',  // Caminho absoluto do Vite (prioritário no browser)
+              './imagens/duesoft.jpg', // Caminho relativo (fallback)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+            ];
+        
+        // Tentar primeiro com fetch (para converter em base64) - funciona melhor no browser
+        for (const logoPath of logoPaths) {
           try {
-            const response = await fetch(path);
+            const response = await fetch(logoPath);
             if (response.ok) {
               const blob = await response.blob();
               const reader = new FileReader();
@@ -414,6 +429,7 @@ export const TasksDashboard: React.FC = () => {
           }
         }
         
+        // Se fetch não funcionar, tentar com Image diretamente (fallback)
         const img = new Image();
         img.crossOrigin = 'anonymous';
         

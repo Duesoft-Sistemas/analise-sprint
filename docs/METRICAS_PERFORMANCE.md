@@ -2,6 +2,8 @@
 
 Especificação técnica das métricas de performance do Sprint Analysis Dashboard.
 
+> 💡 **Nota Visual:** Diagramas de fluxo de cálculo e exemplos visuais podem ser adicionados. Veja [Guia de Melhorias Visuais](GUIA_MELHORIAS_VISUAIS.md) para recomendações específicas.
+
 ## Visão Geral
 
 Sistema fornece três níveis de análise:

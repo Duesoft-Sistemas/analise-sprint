@@ -859,18 +859,31 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     // Função helper para adicionar logo
     const addLogo = async (): Promise<{ width: number; height: number } | null> => {
       try {
-        // Tentar carregar a logo da pasta imagens (tentativas com diferentes caminhos)
-        const logoPaths = [
-          './imagens/duesoft.jpg',
-          '/imagens/duesoft.jpg',
-          'imagens/duesoft.jpg',
-          '../imagens/duesoft.jpg',
-        ];
+        // Detectar se está rodando no Electron
+        const isElectron = typeof window !== 'undefined' && 
+          (window.navigator.userAgent.indexOf('Electron') !== -1 || 
+           (window as any).process?.type === 'renderer' ||
+           (window as any).require);
         
-        // Tentar primeiro com fetch (para converter em base64)
-        for (const path of logoPaths) {
+        // Caminhos para tentar - priorizar conforme o ambiente
+        // No Electron, caminhos relativos funcionam melhor (file:// protocol)
+        // No browser, caminhos absolutos funcionam melhor (http:// protocol)
+        const logoPaths = isElectron 
+          ? [
+              './imagens/duesoft.jpg', // Caminho relativo (prioritário no Electron)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+              '/imagens/duesoft.jpg',  // Caminho absoluto (fallback)
+            ]
+          : [
+              '/imagens/duesoft.jpg',  // Caminho absoluto do Vite (prioritário no browser)
+              './imagens/duesoft.jpg', // Caminho relativo (fallback)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+            ];
+        
+        // Tentar primeiro com fetch (para converter em base64) - funciona melhor no browser
+        for (const logoPath of logoPaths) {
           try {
-            const response = await fetch(path);
+            const response = await fetch(logoPath);
             if (response.ok) {
               const blob = await response.blob();
               const reader = new FileReader();
@@ -910,7 +923,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
           }
         }
         
-        // Se fetch não funcionar, tentar com Image diretamente
+        // Se fetch não funcionar, tentar com Image diretamente (fallback)
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
@@ -1065,25 +1078,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
         lastTableY = headerHeight + 10;
       }
       
-      // Verificar se há espaço suficiente na página atual (precisamos de pelo menos 20mm para título + cabeçalho da tabela)
-      const spaceNeeded = 20;
-      const currentPageHeight = pdf.internal.pageSize.getHeight();
-      const spaceAvailable = currentPageHeight - lastTableY - margin;
-      
-      let startY = lastTableY;
-      
-      // Se não houver espaço suficiente, adicionar nova página
-      if (spaceAvailable < spaceNeeded) {
-        pdf.addPage();
-        startY = margin + 10;
-      }
-      
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Tarefas sem previsão definida', margin, startY);
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-
+      // Preparar dados da tabela
       const backlogTableData = [...unplannedTasks]
         .sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id))
         .map(task => [
@@ -1094,8 +1089,36 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
 
       // Só adicionar a tabela se houver dados
       if (backlogTableData.length > 0) {
+        // Calcular espaço necessário: título (~6mm) + espaço após título (4mm) + cabeçalho (~8mm) + uma linha de dados (~8mm) + margem inferior (10mm)
+        // Total: ~36mm necessário para evitar cabeçalho duplicado
+        const titleHeight = 6;
+        const spaceAfterTitle = 4;
+        const headerRowHeight = 8;
+        const dataRowHeight = 8;
+        const bottomMargin = 10;
+        const spaceNeeded = titleHeight + spaceAfterTitle + headerRowHeight + dataRowHeight + bottomMargin;
+        
+        const currentPageHeight = pdf.internal.pageSize.getHeight();
+        const spaceAvailable = currentPageHeight - lastTableY - margin;
+        
+        let titleY = lastTableY;
+        
+        // Se não houver espaço suficiente para título + cabeçalho + pelo menos uma linha, adicionar nova página
+        if (spaceAvailable < spaceNeeded) {
+          pdf.addPage();
+          titleY = margin + 10;
+        }
+        
+        // Desenhar título
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Tarefas sem previsão definida', margin, titleY);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        
+        // Criar tabela com startY após o título
         autoTable(pdf, {
-          startY: startY + 4,
+          startY: titleY + titleHeight + spaceAfterTitle,
           head: [['Código', 'Descrição', 'Data de Previsão']],
           body: backlogTableData,
           margin: { left: margin, right: margin },
@@ -1162,16 +1185,31 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
     // Função helper para adicionar logo (reutilizar da função exportClientPDF)
     const addLogo = async (): Promise<{ width: number; height: number } | null> => {
       try {
-        const logoPaths = [
-          './imagens/duesoft.jpg',
-          '/imagens/duesoft.jpg',
-          'imagens/duesoft.jpg',
-          '../imagens/duesoft.jpg',
-        ];
+        // Detectar se está rodando no Electron
+        const isElectron = typeof window !== 'undefined' && 
+          (window.navigator.userAgent.indexOf('Electron') !== -1 || 
+           (window as any).process?.type === 'renderer' ||
+           (window as any).require);
         
-        for (const path of logoPaths) {
+        // Caminhos para tentar - priorizar conforme o ambiente
+        // No Electron, caminhos relativos funcionam melhor (file:// protocol)
+        // No browser, caminhos absolutos funcionam melhor (http:// protocol)
+        const logoPaths = isElectron 
+          ? [
+              './imagens/duesoft.jpg', // Caminho relativo (prioritário no Electron)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+              '/imagens/duesoft.jpg',  // Caminho absoluto (fallback)
+            ]
+          : [
+              '/imagens/duesoft.jpg',  // Caminho absoluto do Vite (prioritário no browser)
+              './imagens/duesoft.jpg', // Caminho relativo (fallback)
+              'imagens/duesoft.jpg',   // Caminho sem barra inicial
+            ];
+        
+        // Tentar primeiro com fetch (para converter em base64) - funciona melhor no browser
+        for (const logoPath of logoPaths) {
           try {
-            const response = await fetch(path);
+            const response = await fetch(logoPath);
             if (response.ok) {
               const blob = await response.blob();
               const reader = new FileReader();
@@ -1208,6 +1246,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
           }
         }
         
+        // Se fetch não funcionar, tentar com Image diretamente (fallback)
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
