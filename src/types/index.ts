@@ -596,6 +596,11 @@ export type DeliveryPresentationSection =
   | 'cronograma'
   | 'taskList';
 
+export type WorklogPresentationSection =
+  | 'overview'
+  | 'daily'
+  | 'developers';
+
 export interface PresentationStep {
   view: ViewMode;
   section?: SprintPresentationSection; // Applies to 'sprint' view
@@ -603,6 +608,7 @@ export interface PresentationStep {
   backlogSection?: BacklogPresentationSection; // Applies to 'backlog' view
   backlogFlowSection?: BacklogFlowPresentationSection; // Applies to 'backlogFlow' view
   deliverySection?: DeliveryPresentationSection; // Applies to 'delivery' view
+  worklogSection?: WorklogPresentationSection; // Applies to 'worklog' view
   durationMs?: number; // Optional per-step override; falls back to intervalMs
 }
 

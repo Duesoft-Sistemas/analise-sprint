@@ -29,17 +29,34 @@ interface DailyWorklogData {
   byDeveloper: Array<{ developer: string; hours: number }>;
 }
 
-export const WorklogDashboard: React.FC = () => {
+interface WorklogDashboardProps {
+  overviewRef?: React.RefObject<HTMLDivElement>;
+  dailyRef?: React.RefObject<HTMLDivElement>;
+  developersRef?: React.RefObject<HTMLDivElement>;
+}
+
+export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef, dailyRef, developersRef }) => {
   const worklogs = useSprintStore((state) => state.worklogs);
   const tasks = useSprintStore((state) => state.tasks);
   const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
   const sprints = useSprintStore((state) => state.sprints);
   const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
+  const presentation = useSprintStore((state) => state.presentation);
 
   const [filterPeriod, setFilterPeriod] = useState<'sprint' | 'all'>('sprint');
   const [selectedDevelopers, setSelectedDevelopers] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'overview' | 'daily' | 'developers' | 'tasks'>('overview');
+
+  // Sync viewMode with presentation step
+  useEffect(() => {
+    if (presentation.isActive && presentation.steps.length > 0) {
+      const currentStep = presentation.steps[presentation.currentStepIndex];
+      if (currentStep && currentStep.view === 'worklog' && currentStep.worklogSection) {
+        setViewMode(currentStep.worklogSection);
+      }
+    }
+  }, [presentation.isActive, presentation.currentStepIndex, presentation.steps]);
 
   // Calcular período de análise
   const analysisPeriod = useMemo(() => {
@@ -383,6 +400,7 @@ export const WorklogDashboard: React.FC = () => {
 
         {/* Visão Geral */}
         {viewMode === 'overview' && (
+          <div ref={overviewRef}>
           <div className="space-y-6">
             {/* Gráfico de Distribuição por Desenvolvedor */}
             <div>
@@ -458,10 +476,12 @@ export const WorklogDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+          </div>
         )}
 
         {/* Análise Diária */}
         {viewMode === 'daily' && (
+          <div ref={dailyRef}>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Lançamentos por Dia
@@ -525,10 +545,12 @@ export const WorklogDashboard: React.FC = () => {
               })}
             </div>
           </div>
+          </div>
         )}
 
         {/* Por Desenvolvedor */}
         {viewMode === 'developers' && (
+          <div ref={developersRef}>
           <div className="space-y-6">
             {/* Filtro de Desenvolvedores */}
             <div>
@@ -636,6 +658,7 @@ export const WorklogDashboard: React.FC = () => {
                 );
               })}
             </div>
+          </div>
           </div>
         )}
       </div>

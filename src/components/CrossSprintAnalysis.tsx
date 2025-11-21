@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Users, Building2, Bug, HelpCircle, Code, AlertTriangle, Filter, CheckSquare, Clock, Award, FileSpreadsheet, BarChart2, List, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { CrossSprintAnalytics, TaskItem as TaskItemType, WorklogEntry } from '../types';
-import { formatHours, normalizeForComparison } from '../utils/calculations';
+import { formatHours, normalizeForComparison, isCompletedStatus } from '../utils/calculations';
 import { calculateProblemAnalysisByFeature } from '../services/analytics';
 import { useSprintStore } from '../store/useSprintStore';
 import { AnalyticsChart } from './AnalyticsCharts';
@@ -29,11 +29,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   const [showSprintSelector, setShowSprintSelector] = useState(false);
   const [selectedSprints, setSelectedSprints] = useState<string[]>(sprints);
   const [filteredSprintForKPIs, setFilteredSprintForKPIs] = useState<string | null>(null); // Sprint específico para filtrar os KPIs
+  const [sprintStatusFilter, setSprintStatusFilter] = useState<'all' | 'inProgress' | 'completed'>('all'); // Filtro de status do sprint
   const sprintSelectorRef = useRef<HTMLDivElement>(null);
   const worklogs = useSprintStore((s) => s.worklogs);
   const getSprintPeriod = useSprintStore((s) => s.getSprintPeriod);
   const setSelectedDeveloper = useSprintStore((s) => s.setSelectedDeveloper);
   const setAnalyticsFilter = useSprintStore((s) => s.setAnalyticsFilter);
+  const sprintMetadata = useSprintStore((s) => s.sprintMetadata);
   
   // Estados para controlar expansão dos cards de KPIs
   const [expandedKPIs, setExpandedKPIs] = useState<Set<string>>(new Set());
@@ -94,6 +96,29 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
   };
 
 
+  // Helper function to determine if a sprint is completed based on tasks
+  const getSprintStatus = (sprintName: string): 'inProgress' | 'completed' => {
+    const sprintTasks = tasks.filter(t => t.sprint === sprintName && t.sprint && t.sprint.trim() !== '');
+    
+    // Se não há tarefas, considera em andamento
+    if (sprintTasks.length === 0) return 'inProgress';
+    
+    // Verifica se todas as tarefas estão concluídas
+    const allCompleted = sprintTasks.every(t => isCompletedStatus(t.status));
+    
+    return allCompleted ? 'completed' : 'inProgress';
+  };
+
+  // Filter sprints based on status filter
+  const getFilteredSprintsByStatus = (sprintsList: string[]): string[] => {
+    if (sprintStatusFilter === 'all') return sprintsList;
+    
+    return sprintsList.filter(sprintName => {
+      const status = getSprintStatus(sprintName);
+      return status === sprintStatusFilter;
+    });
+  };
+
   // Management KPIs (per sprint and totals) for selected sprints
   const managementKPIs = React.useMemo(() => {
     // Precompute task IDs (id or key) from all tasks for each category, not only by t.sprint
@@ -133,10 +158,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       }
     });
 
-    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados
+    // Aplicar filtro de status primeiro
+    const sprintsFilteredByStatus = getFilteredSprintsByStatus(selectedSprints);
+    
+    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados (já filtrados por status)
     const sprintsToProcess = filteredSprintForKPIs 
-      ? [filteredSprintForKPIs].filter(s => selectedSprints.includes(s))
-      : selectedSprints;
+      ? [filteredSprintForKPIs].filter(s => sprintsFilteredByStatus.includes(s))
+      : sprintsFilteredByStatus;
 
     const perSprint = sprintsToProcess.map((sprintName) => {
       const sprintTasks = tasks.filter(t => t.sprint === sprintName);
@@ -208,7 +236,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     );
 
     return { perSprint, totals };
-  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs]);
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs, sprintStatusFilter]);
 
   // Calculate totals per developer for each KPI category
   const kpiByDeveloper = React.useMemo(() => {
@@ -254,10 +282,13 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
     const auxilioByDev = new Map<string, number>();
     const reuniaoByDev = new Map<string, number>();
     
-    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados
+    // Aplicar filtro de status primeiro
+    const sprintsFilteredByStatus = getFilteredSprintsByStatus(selectedSprints);
+    
+    // Se há um sprint filtrado, usar apenas ele; caso contrário, usar todos os sprints selecionados (já filtrados por status)
     const sprintsToProcess = filteredSprintForKPIs 
-      ? [filteredSprintForKPIs].filter(s => selectedSprints.includes(s))
-      : selectedSprints;
+      ? [filteredSprintForKPIs].filter(s => sprintsFilteredByStatus.includes(s))
+      : sprintsFilteredByStatus;
 
     // Process worklogs for selected sprints
     sprintsToProcess.forEach(sprintName => {
@@ -304,7 +335,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
       auxilio: toArray(auxilioByDev),
       reuniao: toArray(reuniaoByDev),
     };
-  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs]);
+  }, [tasks, selectedSprints, worklogs, getSprintPeriod, filteredSprintForKPIs, sprintStatusFilter]);
 
   // Filter analytics based on selected sprints
   const filteredAnalytics = React.useMemo(() => {
@@ -618,16 +649,54 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
               Multi Sprint • KPIs de Gestão {filteredSprintForKPIs ? `(${filteredSprintForKPIs})` : '(Sprints Selecionados)'}
             </h3>
           </div>
-          {filteredSprintForKPIs && (
-            <button
-              onClick={() => setFilteredSprintForKPIs(null)}
-              className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex items-center gap-2"
-              title="Mostrar todos os sprints selecionados"
-            >
-              <X className="w-4 h-4" />
-              Mostrar Todos
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Filtro de Status do Sprint */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setSprintStatusFilter('all')}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  sprintStatusFilter === 'all'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                }`}
+                title="Mostrar todos os sprints"
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setSprintStatusFilter('inProgress')}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  sprintStatusFilter === 'inProgress'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                }`}
+                title="Mostrar apenas sprints em andamento (não concluídos)"
+              >
+                Em Andamento
+              </button>
+              <button
+                onClick={() => setSprintStatusFilter('completed')}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  sprintStatusFilter === 'completed'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                }`}
+                title="Mostrar apenas sprints concluídos"
+              >
+                Concluídos
+              </button>
+            </div>
+            {filteredSprintForKPIs && (
+              <button
+                onClick={() => setFilteredSprintForKPIs(null)}
+                className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex items-center gap-2"
+                title="Mostrar todos os sprints selecionados"
+              >
+                <X className="w-4 h-4" />
+                Mostrar Todos
+              </button>
+            )}
+          </div>
         </div>
 
         {selectedSprints.length === 0 ? (
@@ -819,7 +888,7 @@ export const CrossSprintAnalysis: React.FC<CrossSprintAnalysisProps> = ({ analyt
                   <div className="p-2 rounded-md bg-sky-100 dark:bg-sky-900/30">
                     <CheckSquare className="w-4 h-4 text-sky-700 dark:text-sky-300" />
                   </div>
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tarefas (não‑bug)</span>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tarefas</span>
                 </div>
                 <span className="text-xl font-extrabold text-gray-900 dark:text-white">{managementKPIs.totals.nonBugCount}</span>
               </div>

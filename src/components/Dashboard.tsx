@@ -77,6 +77,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
   const deliveryPrevisaoRef = useRef<HTMLDivElement | null>(null);
   const deliveryCronogramaRef = useRef<HTMLDivElement | null>(null);
   const deliveryTaskListRef = useRef<HTMLDivElement | null>(null);
+  // Refs para seções de worklog
+  const worklogRef = useRef<HTMLDivElement | null>(null);
+  const worklogOverviewRef = useRef<HTMLDivElement | null>(null);
+  const worklogDailyRef = useRef<HTMLDivElement | null>(null);
+  const worklogDevelopersRef = useRef<HTMLDivElement | null>(null);
 
   // Sync view with current presentation step
   const currentStep = useMemo(() => {
@@ -149,6 +154,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
         else if (currentStep.backlogFlowSection === 'capacity') scrollTo(backlogFlowCapacityRef.current || backlogFlowRef.current);
         else if (currentStep.backlogFlowSection === 'help') scrollTo(backlogFlowHelpRef.current || backlogFlowRef.current);
         else scrollTo(backlogFlowRef.current);
+      } else if (currentStep.view === 'delivery') {
+        if (currentStep.deliverySection === 'dataLimite') scrollTo(deliveryDataLimiteRef.current || deliveryRef.current);
+        else if (currentStep.deliverySection === 'previsao') scrollTo(deliveryPrevisaoRef.current || deliveryRef.current);
+        else if (currentStep.deliverySection === 'cronograma') scrollTo(deliveryCronogramaRef.current || deliveryRef.current);
+        else if (currentStep.deliverySection === 'taskList') scrollTo(deliveryTaskListRef.current || deliveryRef.current);
+        else scrollTo(deliveryRef.current);
+      } else if (currentStep.view === 'worklog') {
+        if (currentStep.worklogSection === 'overview') scrollTo(worklogOverviewRef.current || worklogRef.current);
+        else if (currentStep.worklogSection === 'daily') scrollTo(worklogDailyRef.current || worklogRef.current);
+        else if (currentStep.worklogSection === 'developers') scrollTo(worklogDevelopersRef.current || worklogRef.current);
+        else scrollTo(worklogRef.current);
       }
     }, 300); // Wait 300ms for view to render
     
@@ -225,6 +241,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       chartHours: 'Gráfico (Horas)',
       capacity: 'Recomendação de Capacidade',
       help: 'Ajuda',
+      overview: 'Visão Geral',
+      daily: 'Análise Diária',
       dataLimite: 'Tarefas com Data Limite',
       previsao: 'Tarefas com Previsão',
       cronograma: 'Cronograma por Cliente',
@@ -240,6 +258,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       label += ` • ${sectionLabels[step.backlogSection] || step.backlogSection}`;
     } else if (step.backlogFlowSection) {
       label += ` • ${sectionLabels[step.backlogFlowSection] || step.backlogFlowSection}`;
+    } else if (step.worklogSection) {
+      label += ` • ${sectionLabels[step.worklogSection] || step.worklogSection}`;
     } else if (step.deliverySection) {
       label += ` • ${sectionLabels[step.deliverySection] || step.deliverySection}`;
     }
@@ -356,7 +376,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
           />
         </div>
       ) : viewMode === 'worklog' ? (
-        <WorklogDashboard />
+        <div ref={worklogRef}>
+          <WorklogDashboard
+            overviewRef={worklogOverviewRef}
+            dailyRef={worklogDailyRef}
+            developersRef={worklogDevelopersRef}
+          />
+        </div>
       ) : viewMode === 'delivery' ? (
         <div ref={deliveryRef}>
           <DeliveryDashboard

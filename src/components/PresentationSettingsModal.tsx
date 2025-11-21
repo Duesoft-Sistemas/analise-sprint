@@ -20,10 +20,6 @@ const DEFAULT_STEPS: PresentationStep[] = [
   { view: 'multiSprint', multiSection: 'clientAllocation' },
   { view: 'multiSprint', multiSection: 'featureAnalysis' },
   { view: 'multiSprint', multiSection: 'managementKPIs' },
-  // Other views
-  { view: 'evolution' },
-  { view: 'quality' },
-  { view: 'inconsistencies' },
   // Backlog sections
   { view: 'backlog', backlogSection: 'summary' },
   { view: 'backlog', backlogSection: 'byComplexity' },
@@ -39,6 +35,10 @@ const DEFAULT_STEPS: PresentationStep[] = [
   { view: 'backlogFlow', backlogFlowSection: 'chartHours' },
   { view: 'backlogFlow', backlogFlowSection: 'capacity' },
   { view: 'backlogFlow', backlogFlowSection: 'help' },
+  // Worklog sections
+  { view: 'worklog', worklogSection: 'overview' },
+  { view: 'worklog', worklogSection: 'daily' },
+  { view: 'worklog', worklogSection: 'developers' },
   // Delivery sections
   { view: 'delivery', deliverySection: 'dataLimite' },
   { view: 'delivery', deliverySection: 'previsao' },
@@ -100,7 +100,9 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
     a.section === b.section && 
     a.multiSection === b.multiSection &&
     a.backlogSection === b.backlogSection &&
-    a.backlogFlowSection === b.backlogFlowSection;
+    a.backlogFlowSection === b.backlogFlowSection &&
+    a.deliverySection === b.deliverySection &&
+    a.worklogSection === b.worklogSection;
 
   const toggleStep = (step: PresentationStep) => {
     const exists = localSteps.find((s) => sameStep(s, step));
@@ -204,30 +206,6 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
                   onChange={() => toggleStep({ view: 'multiSprint', multiSection: 'managementKPIs' })}
                 />
                 KPIs de Gestão
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                <input
-                  type="checkbox"
-                  checked={stepChecked((s) => s.view === 'evolution')}
-                  onChange={() => toggleStep({ view: 'evolution' })}
-                />
-                Evolução Temporal
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                <input
-                  type="checkbox"
-                  checked={stepChecked((s) => s.view === 'quality')}
-                  onChange={() => toggleStep({ view: 'quality' })}
-                />
-                Qualidade dos Chamados
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                <input
-                  type="checkbox"
-                  checked={stepChecked((s) => s.view === 'inconsistencies')}
-                  onChange={() => toggleStep({ view: 'inconsistencies' })}
-                />
-                Inconsistências
               </label>
               <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Backlog</div>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
@@ -334,6 +312,31 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
                   onChange={() => toggleStep({ view: 'backlogFlow', backlogFlowSection: 'help' })}
                 />
                 Ajuda
+              </label>
+              <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Worklogs</div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'worklog' && s.worklogSection === 'overview')}
+                  onChange={() => toggleStep({ view: 'worklog', worklogSection: 'overview' })}
+                />
+                Visão Geral
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'worklog' && s.worklogSection === 'daily')}
+                  onChange={() => toggleStep({ view: 'worklog', worklogSection: 'daily' })}
+                />
+                Análise Diária
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={stepChecked((s) => s.view === 'worklog' && s.worklogSection === 'developers')}
+                  onChange={() => toggleStep({ view: 'worklog', worklogSection: 'developers' })}
+                />
+                Por Desenvolvedor
               </label>
               <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Gestão de Entregas</div>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">

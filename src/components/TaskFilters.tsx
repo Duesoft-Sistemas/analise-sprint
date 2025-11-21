@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
+import { AutocompleteSelect } from './AutocompleteSelect';
 
 interface TaskFiltersProps {
   searchTerm: string;
@@ -77,18 +78,12 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
         </div>
 
         {/* Feature Filter */}
-        <select
+        <AutocompleteSelect
           value={filterFeature}
-          onChange={(e) => setFilterFeature(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        >
-          <option value="">Todas as Features</option>
-          {uniqueFeatures.map((feature) => (
-            <option key={feature} value={feature}>
-              {feature}
-            </option>
-          ))}
-        </select>
+          onChange={setFilterFeature}
+          options={uniqueFeatures}
+          placeholder="Todas as Features"
+        />
 
         {/* Module Filter */}
         <select
@@ -105,18 +100,12 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
         </select>
 
         {/* Client Filter */}
-        <select
+        <AutocompleteSelect
           value={filterClient}
-          onChange={(e) => setFilterClient(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        >
-          <option value="">Todos os Clientes</option>
-          {uniqueClients.map((client) => (
-            <option key={client} value={client}>
-              {client}
-            </option>
-          ))}
-        </select>
+          onChange={setFilterClient}
+          options={uniqueClients}
+          placeholder="Todos os Clientes"
+        />
 
         {/* Type Filter */}
         <select
