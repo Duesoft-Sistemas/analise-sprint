@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogFlowBySprint, calculateCapacityRecommendation } from '../services/analytics';
-import { Inbox, CheckSquare, TrendingUp, BarChart3, Clock, X, List, Calendar, Info, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
+import { Inbox, CheckSquare, TrendingUp, BarChart3, Clock, X, List, Calendar, Info, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, AlertTriangle, Building2, Users } from 'lucide-react';
 import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask, isImpedimentoTrabalhoTask, isTestesTask, hasImpedimentoTrabalho, compareTicketCodes } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TaskItem } from '../types';
-import { getDefaultSelectedDevelopers } from '../services/configService';
+import { getDefaultSelectedDevelopers, getInternDevelopers } from '../services/configService';
 
 type FilterType = 
   | { type: 'legacyInflow' }
@@ -47,6 +47,8 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
   const [selectedDevs, setSelectedDevs] = useState<Set<string>>(new Set());
   const [showDevSelector, setShowDevSelector] = useState(false);
   const [selectedCapacityPercentile, setSelectedCapacityPercentile] = useState<'P50' | 'P80' | null>(null);
+  const [selectedCapacityPercentileHours, setSelectedCapacityPercentileHours] = useState<'P50' | 'P80' | null>(null);
+  const [capacityViewMode, setCapacityViewMode] = useState<'tasks' | 'hours' | 'both'>('both');
 
   // Get all unique developers who completed tasks in sprints
   const allDevs = useMemo(() => {
@@ -84,6 +86,69 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
     const selectedDevsSet = selectedDevs.size > 0 ? selectedDevs : null;
     return calculateCapacityRecommendation(tasks, sprintMetadata, selectedDevsSet);
   }, [tasks, sprintMetadata, selectedDevs]);
+
+  // Calculate average outflow (completed tasks) per developer per sprint
+  const outflowByDev = useMemo(() => {
+    if (!backlogFlow || !sprintMetadata || sprintMetadata.length === 0) return [];
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    // Filter only completed sprints
+    const completedSprints = sprintMetadata.filter(meta => {
+      const sprintEnd = new Date(meta.dataFim);
+      sprintEnd.setHours(23, 59, 59, 999);
+      return sprintEnd.getTime() < now.getTime();
+    });
+    
+    // Aggregate completed tasks by developer across all completed sprints
+    // Only count sprints where the dev actually had completed tasks
+    const devMap = new Map<string, { totalTasks: number; sprintCount: number }>();
+    
+    completedSprints.forEach(meta => {
+      // Get completed tasks allocated to this sprint
+      const sprintTasks = tasks.filter(t => 
+        t.sprint && 
+        t.sprint.trim() !== '' && 
+        !isBacklogSprintValue(t.sprint) &&
+        t.sprint === meta.sprint &&
+        isCompletedStatus(t.status) &&
+        t.responsavel
+      );
+      
+      // Filter by selected devs if provided
+      const filteredTasks = selectedDevs.size > 0
+        ? sprintTasks.filter(t => t.responsavel && selectedDevs.has(t.responsavel))
+        : sprintTasks;
+      
+      // Group by developer
+      const tasksByDev = new Map<string, number>();
+      filteredTasks.forEach(task => {
+        if (task.responsavel) {
+          const count = tasksByDev.get(task.responsavel) || 0;
+          tasksByDev.set(task.responsavel, count + 1);
+        }
+      });
+      
+      // Aggregate to devMap - only count sprints where dev had tasks
+      tasksByDev.forEach((taskCount, developer) => {
+        const current = devMap.get(developer) || { totalTasks: 0, sprintCount: 0 };
+        devMap.set(developer, {
+          totalTasks: current.totalTasks + taskCount,
+          sprintCount: current.sprintCount + 1, // Only increment if dev had tasks in this sprint
+        });
+      });
+    });
+    
+    // Calculate averages - only for devs who had tasks in at least one sprint
+    return Array.from(devMap.entries())
+      .filter(([_, data]) => data.sprintCount > 0) // Only include devs with at least one sprint
+      .map(([developer, data]) => ({
+        developer,
+        avgTasks: data.totalTasks / data.sprintCount, // Average = total / sprints where dev had tasks
+      }))
+      .sort((a, b) => b.avgTasks - a.avgTasks); // Sort by avg tasks descending
+  }, [tasks, sprintMetadata, selectedDevs, backlogFlow]);
 
   if (!backlogFlow) {
     return (
@@ -366,6 +431,7 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
         />
       </div>
 
+
       {/* Chart */}
       {backlogFlow.series.length > 0 && (
         <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
@@ -635,6 +701,41 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Recomendação de Capacidade</h4>
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => setCapacityViewMode('tasks')}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    capacityViewMode === 'tasks' || capacityViewMode === 'both'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                  title="Mostrar análise por tarefas"
+                >
+                  Tarefas
+                </button>
+                <button
+                  onClick={() => setCapacityViewMode('hours')}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    capacityViewMode === 'hours' || capacityViewMode === 'both'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                  title="Mostrar análise por horas"
+                >
+                  Horas
+                </button>
+                <button
+                  onClick={() => setCapacityViewMode('both')}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    capacityViewMode === 'both'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                  title="Mostrar ambas as análises"
+                >
+                  Ambos
+                </button>
+              </div>
               <button
                 onClick={() => setShowDevSelector(!showDevSelector)}
                 className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -728,17 +829,22 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
                     
                     <div>
                       <p className="font-semibold text-gray-800 dark:text-gray-200">Throughput (P50 e P80)</p>
-                      <p className="text-gray-600 dark:text-gray-400">Quantos tickets cada desenvolvedor finaliza por sprint, em média. P50 = performance mediana (pior), P80 = performance melhor.</p>
+                      <p className="text-gray-600 dark:text-gray-400">Quantos tickets cada desenvolvedor finaliza por sprint, em média. P50 = performance mediana (pior), P80 = performance melhor. A análise também está disponível por horas.</p>
                     </div>
                     
                     <div>
                       <p className="font-semibold text-gray-800 dark:text-gray-200">Inflow Médio</p>
-                      <p className="text-gray-600 dark:text-gray-400">Média de tarefas novas que chegam no backlog a cada sprint.</p>
+                      <p className="text-gray-600 dark:text-gray-400">Média de tarefas novas que chegam no backlog a cada sprint. Também disponível em horas.</p>
                     </div>
                     
                     <div>
                       <p className="font-semibold text-gray-800 dark:text-gray-200">Capacidade (P50 e P80)</p>
-                      <p className="text-gray-600 dark:text-gray-400">Quantos desenvolvedores adicionais você precisa contratar. P50 assume performance pior (precisa de mais devs), P80 assume performance melhor (precisa de menos devs).</p>
+                      <p className="text-gray-600 dark:text-gray-400">Quantos desenvolvedores adicionais você precisa contratar. P50 assume performance pior (precisa de mais devs), P80 assume performance melhor (precisa de menos devs). Disponível tanto por quantidade de tarefas quanto por horas.</p>
+                    </div>
+                    
+                    <div>
+                      <p className="font-semibold text-gray-800 dark:text-gray-200">Análise por Horas</p>
+                      <p className="text-gray-600 dark:text-gray-400">Use os botões "Tarefas", "Horas" ou "Ambos" no topo para alternar entre as visualizações. A análise por horas considera o tempo gasto real (worklog) ao invés da quantidade de tarefas.</p>
                     </div>
                   </div>
                 </div>
@@ -746,83 +852,137 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
             </div>
           )}
           
-          {/* Informações da Capacidade Atual */}
-          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Capacidade Atual</p>
-              </div>
-              <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 mb-1">
-                {capacityReco.avgCurrentDevs}
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-400">
-                {selectedDevs.size > 0 
-                  ? `desenvolvedores selecionados para análise`
-                  : `desenvolvedores ativos (média dos últimos sprints)`}
-              </p>
-            </div>
-            
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">Throughput Atual</p>
-              </div>
-              <div className="flex items-baseline gap-3">
-                <div>
-                  <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                    {capacityReco.throughputPerDevP80.toFixed(1)}
-                  </p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400">tickets/dev/sprint (P80)</p>
+          {/* Informações Compartilhadas - Capacidade e Throughput */}
+          <div className="mb-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-5 border-2 border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-gray-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Capacidade Atual</p>
                 </div>
-                <div className="text-gray-400">|</div>
-                <div>
-                  <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                    {capacityReco.throughputPerDevP50.toFixed(1)}
-                  </p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400">tickets/dev/sprint (P50)</p>
-                </div>
+                <p className="text-3xl font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {capacityReco.avgCurrentDevs}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {selectedDevs.size > 0 
+                    ? `desenvolvedores selecionados para análise`
+                    : `desenvolvedores ativos (média dos últimos sprints)`}
+                </p>
               </div>
+              
+              {(capacityViewMode === 'tasks' || capacityViewMode === 'both') && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Throughput Atual (Tarefas)</p>
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <div>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {capacityReco.throughputPerDevP80.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">tickets/dev/sprint (P80)</p>
+                    </div>
+                    <div className="text-gray-400">|</div>
+                    <div>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {capacityReco.throughputPerDevP50.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">tickets/dev/sprint (P50)</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {(capacityViewMode === 'hours' || capacityViewMode === 'both') && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">Throughput Atual (Horas)</p>
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                        {formatHours(capacityReco.throughputPerDevP80Hours)}
+                      </p>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">horas/dev/sprint (P80)</p>
+                    </div>
+                    <div className="text-gray-400">|</div>
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                        {formatHours(capacityReco.throughputPerDevP50Hours)}
+                      </p>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">horas/dev/sprint (P50)</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryCard
-              icon={<TrendingUp className="w-5 h-5" />}
-              label="Capacidade (P50)"
-              value={`+${capacityReco.suggestedDevsP50}`}
-              subtitle={`${capacityReco.totalDevsNeededP50} devs no total | ${capacityReco.throughputPerDevP50.toFixed(2)} tickets/dev/sprint`}
-              color="green"
-              onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P50' ? null : 'P50')}
-              isClickable={true}
-              isActive={selectedCapacityPercentile === 'P50'}
-            />
-            <SummaryCard
-              icon={<TrendingUp className="w-5 h-5" />}
-              label="Capacidade (P80)"
-              value={`+${capacityReco.suggestedDevsP80}`}
-              subtitle={`${capacityReco.totalDevsNeededP80} devs no total | ${capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint`}
-              color="blue"
-              onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P80' ? null : 'P80')}
-              isClickable={true}
-              isActive={selectedCapacityPercentile === 'P80'}
-            />
-            <SummaryCard
-              icon={<BarChart3 className="w-5 h-5" />}
-              label="Inflow Médio"
-              value={capacityReco.avgInflow.toFixed(1)}
-              subtitle="tickets/sprint (base p/ capacidade)"
-              color="purple"
-            />
-          </div>
+          {/* Análise por Tarefas */}
+          {(capacityViewMode === 'tasks' || capacityViewMode === 'both') && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-300 dark:via-blue-700 to-transparent"></div>
+                <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 flex items-center gap-2 px-4">
+                  <CheckSquare className="w-5 h-5" />
+                  Análise por Tarefas
+                </h3>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-300 dark:via-blue-700 to-transparent"></div>
+              </div>
+              
+              <div className="bg-blue-50/30 dark:bg-blue-900/10 rounded-xl p-5 border-2 border-blue-200 dark:border-blue-800">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <SummaryCard
+                  icon={<TrendingUp className="w-5 h-5" />}
+                  label="Capacidade (P50) - Tarefas"
+                  value={`+${capacityReco.suggestedDevsP50}`}
+                  subtitle={`${capacityReco.totalDevsNeededP50} devs no total | ${capacityReco.throughputPerDevP50.toFixed(2)} tickets/dev/sprint`}
+                  color="green"
+                  onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P50' ? null : 'P50')}
+                  isClickable={true}
+                  isActive={selectedCapacityPercentile === 'P50'}
+                />
+                <SummaryCard
+                  icon={<TrendingUp className="w-5 h-5" />}
+                  label="Capacidade (P80) - Tarefas"
+                  value={`+${capacityReco.suggestedDevsP80}`}
+                  subtitle={`${capacityReco.totalDevsNeededP80} devs no total | ${capacityReco.throughputPerDevP80.toFixed(2)} tickets/dev/sprint`}
+                  color="blue"
+                  onClick={() => setSelectedCapacityPercentile(selectedCapacityPercentile === 'P80' ? null : 'P80')}
+                  isClickable={true}
+                  isActive={selectedCapacityPercentile === 'P80'}
+                />
+                <SummaryCard
+                  icon={<BarChart3 className="w-5 h-5" />}
+                  label="Inflow Médio - Tarefas"
+                  value={capacityReco.avgInflow.toFixed(1)}
+                  subtitle="tickets/sprint (base p/ capacidade)"
+                  color="purple"
+                />
+                <SummaryCard
+                  icon={<Users className="w-5 h-5" />}
+                  label="Inflow Médio por Dev - Tarefas"
+                  value={(() => {
+                    const devCount = selectedDevs.size > 0 ? selectedDevs.size : capacityReco.avgCurrentDevs;
+                    return devCount > 0 ? (capacityReco.avgInflow / devCount).toFixed(1) : '0';
+                  })()}
+                  subtitle={`${selectedDevs.size > 0 ? selectedDevs.size : capacityReco.avgCurrentDevs} devs selecionados`}
+                  color="indigo"
+                />
+              </div>
+              </div>
+            </div>
+          )}
           
-          {/* Detalhes por Sprint */}
-          {selectedCapacityPercentile && capacityReco.sprintData.length > 0 && (
-            <div className="mt-4 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          {/* Detalhes por Sprint (Tarefas) */}
+          {selectedCapacityPercentile && capacityReco.sprintData.length > 0 && (capacityViewMode === 'tasks' || capacityViewMode === 'both') && (
+            <div className="mt-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl shadow-md border-2 border-blue-200 dark:border-blue-800 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  Detalhes por Sprint - {selectedCapacityPercentile}
+                  Detalhes por Sprint - {selectedCapacityPercentile} (Tarefas)
                 </h4>
                 <button
                   onClick={() => setSelectedCapacityPercentile(null)}
@@ -908,6 +1068,184 @@ export const BacklogFlowDashboard: React.FC<BacklogFlowDashboardProps> = ({
               </div>
             </div>
           )}
+          
+          {/* Análise por Horas */}
+          {(capacityViewMode === 'hours' || capacityViewMode === 'both') && (
+            <div className={`${capacityViewMode === 'both' ? 'mt-8' : ''}`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-indigo-300 dark:via-indigo-700 to-transparent"></div>
+                <h3 className="text-lg font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-2 px-4">
+                  <Clock className="w-5 h-5" />
+                  Análise por Horas
+                </h3>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-indigo-300 dark:via-indigo-700 to-transparent"></div>
+              </div>
+              
+              <div className="bg-indigo-50/30 dark:bg-indigo-900/10 rounded-xl p-5 border-2 border-indigo-200 dark:border-indigo-800">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <SummaryCard
+                  icon={<TrendingUp className="w-5 h-5" />}
+                  label="Capacidade (P50) - Horas"
+                  value={`+${capacityReco.suggestedDevsP50Hours}`}
+                  subtitle={`${capacityReco.totalDevsNeededP50Hours} devs no total | ${formatHours(capacityReco.throughputPerDevP50Hours)} horas/dev/sprint`}
+                  color="green"
+                  onClick={() => setSelectedCapacityPercentileHours(selectedCapacityPercentileHours === 'P50' ? null : 'P50')}
+                  isClickable={true}
+                  isActive={selectedCapacityPercentileHours === 'P50'}
+                />
+                <SummaryCard
+                  icon={<TrendingUp className="w-5 h-5" />}
+                  label="Capacidade (P80) - Horas"
+                  value={`+${capacityReco.suggestedDevsP80Hours}`}
+                  subtitle={`${capacityReco.totalDevsNeededP80Hours} devs no total | ${formatHours(capacityReco.throughputPerDevP80Hours)} horas/dev/sprint`}
+                  color="blue"
+                  onClick={() => setSelectedCapacityPercentileHours(selectedCapacityPercentileHours === 'P80' ? null : 'P80')}
+                  isClickable={true}
+                  isActive={selectedCapacityPercentileHours === 'P80'}
+                />
+                <SummaryCard
+                  icon={<BarChart3 className="w-5 h-5" />}
+                  label="Inflow Médio - Horas"
+                  value={formatHours(capacityReco.avgInflowHours)}
+                  subtitle="horas/sprint (base p/ capacidade)"
+                  color="purple"
+                />
+                <SummaryCard
+                  icon={<Users className="w-5 h-5" />}
+                  label="Inflow Médio por Dev - Horas"
+                  value={(() => {
+                    const devCount = selectedDevs.size > 0 ? selectedDevs.size : capacityReco.avgCurrentDevs;
+                    return devCount > 0 ? formatHours(capacityReco.avgInflowHours / devCount) : '0h';
+                  })()}
+                  subtitle={`${selectedDevs.size > 0 ? selectedDevs.size : capacityReco.avgCurrentDevs} devs selecionados`}
+                  color="indigo"
+                />
+              </div>
+              
+              {/* Detalhes por Sprint (Horas) */}
+              {selectedCapacityPercentileHours && capacityReco.sprintDataHours.length > 0 && (
+                <div className="mt-4 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl shadow-md border-2 border-indigo-200 dark:border-indigo-800 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      Detalhes por Sprint - {selectedCapacityPercentileHours} (Horas)
+                    </h4>
+                    <button
+                      onClick={() => setSelectedCapacityPercentileHours(null)}
+                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      title="Fechar"
+                    >
+                      <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </div>
+                  
+                  <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      <strong>Média ({selectedCapacityPercentileHours}):</strong>{' '}
+                      <span className="font-bold text-gray-900 dark:text-white">
+                        {selectedCapacityPercentileHours === 'P50' 
+                          ? formatHours(capacityReco.throughputPerDevP50Hours)
+                          : formatHours(capacityReco.throughputPerDevP80Hours)} horas/dev/sprint
+                      </span>
+                    </p>
+                    {(() => {
+                      const percentileValue = selectedCapacityPercentileHours === 'P50' 
+                        ? capacityReco.throughputPerDevP50Hours 
+                        : capacityReco.throughputPerDevP80Hours;
+                      const contributingSprints = capacityReco.sprintDataHours.filter(
+                        sprint => sprint.throughputPerDevHours <= percentileValue
+                      );
+                      return (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          Calculado com base em {contributingSprints.length} sprint(s) que contribuíram para o {selectedCapacityPercentileHours}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {capacityReco.sprintDataHours
+                      .filter((sprint) => {
+                        const percentileValue = selectedCapacityPercentileHours === 'P50' 
+                          ? capacityReco.throughputPerDevP50Hours 
+                          : capacityReco.throughputPerDevP80Hours;
+                        return sprint.throughputPerDevHours <= percentileValue;
+                      })
+                      .sort((a, b) => {
+                        // Sort by period (date inicio)
+                        return a.dateInicio.getTime() - b.dateInicio.getTime();
+                      })
+                      .map((sprint) => (
+                          <div
+                            key={sprint.sprintName}
+                            className="bg-indigo-50 dark:bg-indigo-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-700 p-4"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                                  {sprint.sprintName}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {sprint.dateInicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {' '}
+                                  {sprint.dateFim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                                  {formatHours(sprint.throughputPerDevHours)}
+                                </p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  horas/dev/sprint
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-800 grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <span className="text-gray-600 dark:text-gray-400">Horas concluídas:</span>{' '}
+                                <span className="font-semibold text-gray-900 dark:text-white">{formatHours(sprint.completedHours)}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600 dark:text-gray-400">Desenvolvedores:</span>{' '}
+                                <span className="font-semibold text-gray-900 dark:text-white">{sprint.devCount}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Saída Média por Desenvolvedor */}
+      {outflowByDev.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Saída Média por Desenvolvedor</h4>
+            <Info className="w-4 h-4 text-gray-400 dark:text-gray-500" title="Média de tarefas concluídas por desenvolvedor por sprint (apenas sprints concluídos). Considera apenas os desenvolvedores selecionados na análise de capacidade." />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Desenvolvedor</th>
+                  <th className="text-right py-2 px-3 font-semibold text-gray-700 dark:text-gray-300">Média Tarefas/Sprint</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outflowByDev.map((dev) => (
+                  <tr key={dev.developer} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <td className="py-2 px-3 font-medium text-gray-900 dark:text-white">{dev.developer}</td>
+                    <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">{dev.avgTasks.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1500,5 +1838,6 @@ const AllocationDetailsView: React.FC<AllocationDetailsViewProps> = ({ filter, b
     </div>
   );
 };
+
 
 

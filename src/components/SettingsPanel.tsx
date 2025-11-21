@@ -22,6 +22,8 @@ import {
   setDefaultSelectedDevelopers,
   getAllDevelopersFromTasks,
   getAllDevelopersFromWorklogs,
+  getInternDevelopers,
+  setInternDevelopers,
 } from '../services/configService';
 import {
   COMPLEXITY_EFFICIENCY_ZONES,
@@ -49,6 +51,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
   const tasks = useSprintStore((state) => state.tasks);
   const worklogs = useSprintStore((state) => state.worklogs);
   const [selectedDefaultDevelopers, setSelectedDefaultDevelopers] = useState<string[]>([]);
+  const [selectedInternDevelopers, setSelectedInternDevelopers] = useState<string[]>([]);
 
   // Get all available developers
   const allDevelopers = useMemo(() => {
@@ -68,6 +71,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
       // Update saved config if some developers were removed
       if (validDefaults.length !== defaults.length) {
         setDefaultSelectedDevelopers(validDefaults);
+      }
+      
+      // Load intern developers
+      const interns = getInternDevelopers();
+      const validInterns = interns.filter(dev => allDevelopers.includes(dev));
+      setSelectedInternDevelopers(validInterns);
+      // Update saved config if some developers were removed
+      if (validInterns.length !== interns.length) {
+        setInternDevelopers(validInterns);
       }
     }
   }, [isOpen, allDevelopers]);
@@ -98,6 +110,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
   const handleDeselectAllDevelopers = () => {
     setSelectedDefaultDevelopers([]);
     setDefaultSelectedDevelopers([]);
+  };
+
+  const handleToggleInternDeveloper = (developer: string) => {
+    const newSelected = selectedInternDevelopers.includes(developer)
+      ? selectedInternDevelopers.filter(d => d !== developer)
+      : [...selectedInternDevelopers, developer];
+    setSelectedInternDevelopers(newSelected);
+    setInternDevelopers(newSelected);
+  };
+
+  const handleSelectAllInterns = () => {
+    setSelectedInternDevelopers([...allDevelopers]);
+    setInternDevelopers([...allDevelopers]);
+  };
+
+  const handleDeselectAllInterns = () => {
+    setSelectedInternDevelopers([]);
+    setInternDevelopers([]);
   };
 
   if (!isOpen) return null;
@@ -503,6 +533,88 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
                             <>Nenhum desenvolvedor selecionado. Todos os desenvolvedores aparecerão por padrão.</>
                           ) : (
                             <><strong>{selectedDefaultDevelopers.length}</strong> desenvolvedor{selectedDefaultDevelopers.length > 1 ? 'es' : ''} selecionado{selectedDefaultDevelopers.length > 1 ? 's' : ''} como padrão.</>
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Desenvolvedores Estagiários */}
+            <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <button
+                onClick={() => toggleSection('intern-developers')}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    Desenvolvedores Estagiários
+                  </span>
+                </div>
+                {expandedSections.has('intern-developers') ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {expandedSections.has('intern-developers') && (
+                <div className="p-4 bg-white dark:bg-gray-800">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Selecione os desenvolvedores que são estagiários. Estagiários terão capacidade de <strong>30 horas por sprint</strong> ao invés de 40 horas na análise de capacidade por horas.
+                  </p>
+                  
+                  {allDevelopers.length === 0 ? (
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <Info className="w-4 h-4 inline mr-1" />
+                        Nenhum desenvolvedor encontrado. Carregue os arquivos de tarefas ou worklog primeiro.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-3 flex gap-2">
+                        <button
+                          onClick={handleSelectAllInterns}
+                          className="px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-lg transition-colors"
+                        >
+                          Selecionar Todos
+                        </button>
+                        <button
+                          onClick={handleDeselectAllInterns}
+                          className="px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg transition-colors"
+                        >
+                          Desmarcar Todos
+                        </button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                        {allDevelopers.map((developer) => (
+                          <label
+                            key={developer}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedInternDevelopers.includes(developer)}
+                              onChange={() => handleToggleInternDeveloper(developer)}
+                              className="w-4 h-4 text-orange-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-900 dark:text-white">{developer}</span>
+                            {selectedInternDevelopers.includes(developer) && (
+                              <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">(30h/sprint)</span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <Info className="w-4 h-4 inline mr-1" />
+                          {selectedInternDevelopers.length === 0 ? (
+                            <>Nenhum estagiário configurado. Todos os desenvolvedores usarão 40h/sprint.</>
+                          ) : (
+                            <><strong>{selectedInternDevelopers.length}</strong> estagiário{selectedInternDevelopers.length > 1 ? 's' : ''} configurado{selectedInternDevelopers.length > 1 ? 's' : ''} (30h/sprint).</>
                           )}
                         </p>
                       </div>

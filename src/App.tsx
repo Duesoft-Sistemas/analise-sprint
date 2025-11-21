@@ -55,7 +55,7 @@ function App() {
             </div>
           </div>
         ) : (
-          <Dashboard />
+          <Dashboard onReturnToHome={() => setShowDashboard(false)} />
         )}
       </main>
 

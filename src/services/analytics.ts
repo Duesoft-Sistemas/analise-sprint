@@ -21,6 +21,7 @@ import {
   hasImpedimentoTrabalho,
 } from '../utils/calculations';
 import { isBacklogSprintValue } from '../utils/calculations';
+import { getInternDevelopers } from '../services/configService';
 
 // Helper function to compare dates without time (only date part)
 function compareDateOnly(date1: Date, date2: Date): number {
@@ -1183,6 +1184,7 @@ export interface BacklogFlowSprintItem {
   carriedIn: number; // tasks in this sprint created before sprint start
   carriedInTasks: TaskItem[]; // actual tasks for carried-in
   backlogAtStart: number; // backlog size (tasks without sprint) existing before sprint start
+  inflowByDev: Array<{ developer: string; tasks: number; hours: number }>; // Inflow grouped by developer
 }
 
 export interface BacklogFlowAnalytics {
@@ -1324,6 +1326,18 @@ export function calculateBacklogFlowBySprint(
     const inflow = inflowTasks.length;
     const inflowHours = inflowTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0);
     const inflowByType = calculateBreakdownByType(inflowTasks);
+    
+    // Calculate inflow by developer: group tasks by responsavel
+    const inflowByDev = new Map<string, { tasks: number; hours: number }>();
+    inflowTasks.forEach(t => {
+      if (t.responsavel) {
+        const current = inflowByDev.get(t.responsavel) || { tasks: 0, hours: 0 };
+        inflowByDev.set(t.responsavel, {
+          tasks: current.tasks + 1,
+          hours: current.hours + (t.estimativa || 0),
+        });
+      }
+    });
 
     // carried-in (optional diagnostic): tasks that belong to this sprint and were created BEFORE period start
     const carriedInTasks = tasksWithSprint.filter(t =>
@@ -1383,6 +1397,11 @@ export function calculateBacklogFlowBySprint(
       carriedIn,
       carriedInTasks,
       backlogAtStart,
+      inflowByDev: Array.from(inflowByDev.entries()).map(([dev, data]) => ({
+        developer: dev,
+        tasks: data.tasks,
+        hours: data.hours,
+      })),
     };
   });
 
@@ -1506,6 +1525,15 @@ export interface SprintThroughputData {
   dateFim: Date;
 }
 
+export interface SprintThroughputHoursData {
+  sprintName: string;
+  throughputPerDevHours: number;
+  completedHours: number;
+  devCount: number;
+  dateInicio: Date;
+  dateFim: Date;
+}
+
 export interface CapacityRecommendation {
   suggestedDevsP50: number; // Additional devs needed (P50)
   suggestedDevsP80: number; // Additional devs needed (P80)
@@ -1516,6 +1544,15 @@ export interface CapacityRecommendation {
   totalDevsNeededP50: number; // Total devs needed (P50)
   totalDevsNeededP80: number; // Total devs needed (P80)
   sprintData: SprintThroughputData[]; // Throughput data per sprint
+  // Hours-based analysis
+  suggestedDevsP50Hours: number; // Additional devs needed (P50) based on hours
+  suggestedDevsP80Hours: number; // Additional devs needed (P80) based on hours
+  throughputPerDevP50Hours: number;
+  throughputPerDevP80Hours: number;
+  avgInflowHours: number;
+  totalDevsNeededP50Hours: number; // Total devs needed (P50) based on hours
+  totalDevsNeededP80Hours: number; // Total devs needed (P80) based on hours
+  sprintDataHours: SprintThroughputHoursData[]; // Throughput hours data per sprint
 }
 
 /**
@@ -1541,6 +1578,14 @@ export function calculateCapacityRecommendation(
       totalDevsNeededP50: 0,
       totalDevsNeededP80: 0,
       sprintData: [],
+      suggestedDevsP50Hours: 0,
+      suggestedDevsP80Hours: 0,
+      throughputPerDevP50Hours: 0,
+      throughputPerDevP80Hours: 0,
+      avgInflowHours: 0,
+      totalDevsNeededP50Hours: 0,
+      totalDevsNeededP80Hours: 0,
+      sprintDataHours: [],
     };
   }
 
@@ -1549,12 +1594,15 @@ export function calculateCapacityRecommendation(
   // Compute inflow per sprint
   const flow = calculateBacklogFlowBySprint(tasks, sprintMetadata);
   const avgInflow = flow.averages.avgInflow;
+  const avgInflowHours = flow.averages.avgInflowHours;
 
-  // For each sprint, compute throughput per dev
+  // For each sprint, compute throughput per dev (by tasks and by hours)
   const tasksWithSprint = tasks.filter(t => t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint));
   const ordered = [...sprintMetadata].sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
   const perSprintThroughputPerDev: number[] = [];
   const sprintData: SprintThroughputData[] = [];
+  const perSprintThroughputPerDevHours: number[] = [];
+  const sprintDataHours: SprintThroughputHoursData[] = [];
 
   // Get current date to filter only completed sprints
   const now = new Date();
@@ -1577,14 +1625,43 @@ export function calculateCapacityRecommendation(
       ? completed.filter(t => t.responsavel && selectedDevs.has(t.responsavel))
       : completed;
     
+    // For tasks analysis: use completed tasks
     const devs = new Set<string>(filteredCompleted.map(t => t.responsavel).filter(Boolean));
     const devCount = devs.size || 1; // avoid division by zero
     const completedCount = filteredCompleted.length;
     const throughput = completedCount / devCount;
     
-    perSprintThroughputPerDev.push(throughput);
+    // For hours analysis: use 40 hours per developer per sprint (30h for interns)
+    // Get unique developers who worked in this sprint
+    const allSprintTasks = selectedDevs && selectedDevs.size > 0
+      ? sprintTasks.filter(t => t.responsavel && selectedDevs.has(t.responsavel))
+      : sprintTasks;
     
-    // Store detailed sprint data
+    const allDevs = new Set<string>(allSprintTasks.map(t => t.responsavel).filter(Boolean));
+    const allDevCount = allDevs.size || 1;
+    
+    // Get intern developers list
+    const internDevelopers = getInternDevelopers();
+    const HOURS_PER_DEV_PER_SPRINT = 40;
+    const HOURS_PER_INTERN_PER_SPRINT = 30;
+    
+    // Calculate total hours: 40h for regular devs, 30h for interns
+    let totalHours = 0;
+    Array.from(allDevs).forEach(dev => {
+      if (internDevelopers.includes(dev)) {
+        totalHours += HOURS_PER_INTERN_PER_SPRINT;
+      } else {
+        totalHours += HOURS_PER_DEV_PER_SPRINT;
+      }
+    });
+    
+    // Average throughput per dev
+    const throughputHours = allDevCount > 0 ? totalHours / allDevCount : 0;
+    
+    perSprintThroughputPerDev.push(throughput);
+    perSprintThroughputPerDevHours.push(throughputHours);
+    
+    // Store detailed sprint data (tasks)
     sprintData.push({
       sprintName: meta.sprint,
       throughputPerDev: throughput,
@@ -1593,21 +1670,38 @@ export function calculateCapacityRecommendation(
       dateInicio: meta.dataInicio,
       dateFim: meta.dataFim,
     });
+    
+    // Store detailed sprint data (hours)
+    sprintDataHours.push({
+      sprintName: meta.sprint,
+      throughputPerDevHours: throughputHours,
+      completedHours: totalHours, // Total hours worked, not just completed tasks
+      devCount: allDevCount, // All devs who worked, not just those who completed
+      dateInicio: meta.dataInicio,
+      dateFim: meta.dataFim,
+    });
   }
 
   const sorted = perSprintThroughputPerDev.slice().sort((a, b) => a - b);
-  const percentile = (p: number) => {
-    if (sorted.length === 0) return 0;
-    const idx = Math.ceil(p * sorted.length) - 1;
-    return sorted[Math.max(0, Math.min(idx, sorted.length - 1))];
+  const sortedHours = perSprintThroughputPerDevHours.slice().sort((a, b) => a - b);
+  const percentile = (p: number, sortedArray: number[]) => {
+    if (sortedArray.length === 0) return 0;
+    const idx = Math.ceil(p * sortedArray.length) - 1;
+    return sortedArray[Math.max(0, Math.min(idx, sortedArray.length - 1))];
   };
 
-  const thetaP50 = percentile(0.5);
-  const thetaP80 = percentile(0.8);
+  const thetaP50 = percentile(0.5, sorted);
+  const thetaP80 = percentile(0.8, sorted);
+  const thetaP50Hours = percentile(0.5, sortedHours);
+  const thetaP80Hours = percentile(0.8, sortedHours);
 
-  // Calculate total devs needed
+  // Calculate total devs needed (by tasks)
   const totalDevsNeededP50 = thetaP50 > 0 ? Math.ceil(avgInflow / thetaP50) : 0;
   const totalDevsNeededP80 = thetaP80 > 0 ? Math.ceil(avgInflow / thetaP80) : 0;
+  
+  // Calculate total devs needed (by hours)
+  const totalDevsNeededP50Hours = thetaP50Hours > 0 ? Math.ceil(avgInflowHours / thetaP50Hours) : 0;
+  const totalDevsNeededP80Hours = thetaP80Hours > 0 ? Math.ceil(avgInflowHours / thetaP80Hours) : 0;
 
   // Calculate current devs: if devs are selected, use that count; otherwise, calculate from recent sprints
   let avgCurrentDevs: number;
@@ -1639,6 +1733,8 @@ export function calculateCapacityRecommendation(
   // Calculate additional devs needed (total needed - current)
   const suggestedDevsP50 = Math.max(0, totalDevsNeededP50 - avgCurrentDevs);
   const suggestedDevsP80 = Math.max(0, totalDevsNeededP80 - avgCurrentDevs);
+  const suggestedDevsP50Hours = Math.max(0, totalDevsNeededP50Hours - avgCurrentDevs);
+  const suggestedDevsP80Hours = Math.max(0, totalDevsNeededP80Hours - avgCurrentDevs);
 
   return {
     suggestedDevsP50,
@@ -1650,6 +1746,15 @@ export function calculateCapacityRecommendation(
     totalDevsNeededP50, // Add this for display
     totalDevsNeededP80, // Add this for display
     sprintData, // Detailed data per sprint
+    // Hours-based analysis
+    suggestedDevsP50Hours,
+    suggestedDevsP80Hours,
+    throughputPerDevP50Hours: thetaP50Hours,
+    throughputPerDevP80Hours: thetaP80Hours,
+    avgInflowHours,
+    totalDevsNeededP50Hours,
+    totalDevsNeededP80Hours,
+    sprintDataHours,
   };
 }
 

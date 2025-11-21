@@ -7,10 +7,12 @@ const STORAGE_KEY = 'sprint-analysis-config';
 
 export interface AppConfig {
   defaultSelectedDevelopers: string[]; // Developer names or IDs that should be selected by default
+  internDevelopers: string[]; // Developer names or IDs that are interns (30h/week instead of 40h)
 }
 
 const defaultConfig: AppConfig = {
   defaultSelectedDevelopers: [],
+  internDevelopers: [],
 };
 
 /**
@@ -97,5 +99,28 @@ export function getAllDevelopersFromWorklogs(worklogs: any[], tasks: any[]): str
   });
   
   return Array.from(devSet).sort();
+}
+
+/**
+ * Get list of intern developers
+ */
+export function getInternDevelopers(): string[] {
+  const config = loadConfig();
+  return config.internDevelopers || [];
+}
+
+/**
+ * Set list of intern developers
+ */
+export function setInternDevelopers(developers: string[]): void {
+  saveConfig({ internDevelopers: developers });
+}
+
+/**
+ * Check if a developer is an intern
+ */
+export function isInternDeveloper(developerName: string): boolean {
+  const interns = getInternDevelopers();
+  return interns.includes(developerName);
 }
 

@@ -468,7 +468,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
   const [searchClient, setSearchClient] = useState<string>('');
   const [, setSelectedFilter] = useState<{ type: 'status' | 'client' | 'sprint'; value: string } | null>(null);
-  const [taskListFilter, setTaskListFilter] = useState<'dataLimite' | 'previsao' | 'todas'>('todas');
+  const [taskListFilter, setTaskListFilter] = useState<'dataLimite' | 'previsao' | 'todas' | null>(null); // Começa como null para não mostrar tarefas inicialmente
   const [topClients, setTopClients] = useState<string>('20'); // Filtro top N clientes (default: Top 20)
   
   // Filtros para a lista de tarefas
@@ -740,6 +740,12 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
   
   // Calcular tarefas filtradas usando useMemo para recalcular quando os filtros mudarem
   const filteredTasksList = useMemo(() => {
+    // Se taskListFilter for null, não mostrar nenhuma tarefa (estado inicial)
+    // Quando o usuário clicar em um card ou aplicar filtros, taskListFilter será definido
+    if (taskListFilter === null) {
+      return [];
+    }
+    
     let filtered: DeliveryTask[] = [];
     
     if (taskListFilter === 'dataLimite') {

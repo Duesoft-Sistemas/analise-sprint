@@ -25,9 +25,10 @@ type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'qualit
 
 interface DashboardProps {
   onViewLabelChange?: (label: string) => void;
+  onReturnToHome?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = () => {
+export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
   const clearData = useSprintStore((state) => state.clearData);
@@ -313,6 +314,9 @@ export const Dashboard: React.FC<DashboardProps> = () => {
           onClearData={() => {
             clearData();
             setShowSettings(false);
+            if (onReturnToHome) {
+              onReturnToHome();
+            }
           }}
         />
 
