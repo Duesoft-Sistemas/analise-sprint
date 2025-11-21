@@ -14,12 +14,16 @@ import {
   TrendingUp,
   Filter,
   Clock,
+  Info,
+  X,
+  Download,
 } from 'lucide-react';
 import { FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
-import { Package, User, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
-import { formatHours, normalizeForComparison, isCompletedStatus, isAuxilioTask, isNeutralTask, taskHasCategory } from '../utils/calculations';
+import { Package, User, Calendar as CalendarIcon, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { formatHours, normalizeForComparison, isCompletedStatus, isAuxilioTask, isNeutralTask, isTestesTask, hasImpedimentoTrabalho, taskHasCategory, compareTicketCodes } from '../utils/calculations';
 import { TaskItem } from '../types';
 import { AnalyticsChart } from './AnalyticsCharts';
 
@@ -62,6 +66,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
   const [viewScope, setViewScope] = useState<'backlog' | 'pendingAll'>('pendingAll'); // default: all pending tasks
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
+  const [showTotalTasksInfo, setShowTotalTasksInfo] = useState(false);
 
   // Extract filter values from activeFilter for backward compatibility
   const filterType = activeFilter?.type === 'type' ? (activeFilter.value as string) : null;
@@ -113,6 +118,9 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     switch (activeFilter.type) {
       case 'type':
         const typeValue = activeFilter.value as string;
+        if (typeValue === 'all') {
+          return { label: 'Todas as Tarefas', icon: <Inbox className="w-4 h-4" />, color: 'gray' };
+        }
         const typeLabels: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
           'bugs': { label: 'Bugs Reais', icon: <Bug className="w-4 h-4" />, color: 'red' },
           'dubidasOcultas': { label: 'Dúvidas Ocultas', icon: <HelpCircle className="w-4 h-4" />, color: 'yellow' },
@@ -147,13 +155,18 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     }
   };
 
+  // Function to show all backlog tasks
+  const showAllBacklogTasks = () => {
+    setActiveFilter({ type: 'type', value: 'all' });
+  };
+
   // Calculate analytics based on scope
   const analytics: BacklogAnalyticsType = useMemo(() => {
     // Helper to build analytics from a given subset of tasks (no worklog, only estimativa)
     // Used for "pendingAll" scope which doesn't have all advanced analyses
     const buildAnalyticsFromTasks = (taskSubset: TaskItem[]) => {
-      // Exclude neutral (reunião/treinamento) and auxilio tasks from the analysis
-      const pendingTasks = taskSubset.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t));
+      // Exclude neutral (reunião/treinamento), auxilio, testes and impedimento trabalho tasks from the analysis
+      const pendingTasks = taskSubset.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t) && !isTestesTask(t) && !hasImpedimentoTrabalho(t));
 
       // Helpers
       const isDuvidaOcultaTaskLocal = (t: TaskItem) => {
@@ -271,6 +284,9 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     if (!activeFilter) {
       // No filter active - return empty array (list only shows when filter is selected)
       return [];
+    } else if (activeFilter.type === 'type' && activeFilter.value === 'all') {
+      // Show all backlog tasks (no additional filtering)
+      // filtered already contains all analytics.tasks
     } else if (activeFilter.type === 'type' && activeFilter.value && activeFilter.value !== 'all') {
       const type = activeFilter.value as string;
       if (type === 'bugs') {
@@ -315,12 +331,8 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
       return true;
     });
 
-    // Sort by task code (chave) - ascending order
-    filtered = filtered.sort((a, b) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    });
+    // Sort by task code (chave) - ascending order, ignoring "DM-" prefix
+    filtered = filtered.sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
 
     return filtered;
   }, [analytics.tasks, activeFilter]);
@@ -394,6 +406,12 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           value={analytics.summary.totalTasks.toString()}
           subtitle="tarefas em backlog"
           color="gray"
+          onClick={() => showAllBacklogTasks()}
+          isActive={activeFilter?.type === 'type' && activeFilter.value === 'all'}
+          onInfoClick={(e) => {
+            e?.stopPropagation();
+            setShowTotalTasksInfo(true);
+          }}
         />
         <SummaryCard
           icon={<Clock className="w-5 h-5" />}
@@ -770,11 +788,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Tarefas Mais Antigas (Top 5)</p>
               <div className="space-y-2">
-                {[...analytics.ageAnalysis.oldestTasks].sort((a, b) => {
-                  const codeA = (a.chave || a.id || '').toUpperCase();
-                  const codeB = (b.chave || b.id || '').toUpperCase();
-                  return codeA.localeCompare(codeB);
-                }).slice(0, 5).map((task) => {
+                {[...analytics.ageAnalysis.oldestTasks].sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id)).slice(0, 5).map((task) => {
                   const ageDays = task.criado && !isNaN(task.criado.getTime())
                     ? Math.floor((new Date().getTime() - task.criado.getTime()) / (1000 * 60 * 60 * 24))
                     : null;
@@ -908,11 +922,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Tarefas de Alto Risco (Top 10)</p>
               <div className="space-y-2">
-                {[...analytics.riskAnalysis.highRiskTasks].sort((a, b) => {
-                  const codeA = (a.task.chave || a.task.id || '').toUpperCase();
-                  const codeB = (b.task.chave || b.task.id || '').toUpperCase();
-                  return codeA.localeCompare(codeB);
-                }).slice(0, 10).map((riskItem) => (
+                {[...analytics.riskAnalysis.highRiskTasks].sort((a, b) => compareTicketCodes(a.task.chave || a.task.id, b.task.chave || b.task.id)).slice(0, 10).map((riskItem) => (
                   <div key={riskItem.task.id || riskItem.task.chave} className="flex items-start justify-between py-2 px-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -1249,8 +1259,57 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
               • {filteredTasks.length} {filteredTasks.length === 1 ? 'tarefa' : 'tarefas'}
             </span>
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Sem métricas de horas — apenas leitura/planejamento
+          <div className="flex items-center gap-3">
+            {filteredTasks.length > 0 && (
+              <button
+                onClick={() => {
+                  // Preparar dados para exportação
+                  const exportData = filteredTasks.map((task) => ({
+                    'Chave': task.chave || task.id || '',
+                    'ID': task.id || '',
+                    'Resumo': task.resumo || '',
+                    'Tipo': task.tipo || '',
+                    'Status': task.status || '',
+                    'Sprint': task.sprint || '',
+                    'Feature': (task.feature && task.feature.length > 0) ? task.feature.join(', ') : '',
+                    'Módulo': task.modulo || '',
+                    'Cliente': (task.categorias && task.categorias.length > 0) ? task.categorias.join(', ') : '',
+                    'Responsável': task.responsavel || '',
+                    'Estimativa (h)': task.estimativa || 0,
+                    'Complexidade': task.complexidade || '',
+                    'Criado': task.criado && !isNaN(task.criado.getTime()) 
+                      ? task.criado.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : '',
+                    'Detalhes Ocultos': (task.detalhesOcultos && task.detalhesOcultos.length > 0) ? task.detalhesOcultos.join(', ') : '',
+                  }));
+
+                  // Criar workbook e worksheet
+                  const worksheet = XLSX.utils.json_to_sheet(exportData);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, 'Tarefas');
+
+                  // Gerar nome do arquivo com data/hora
+                  const now = new Date();
+                  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+                  const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, '');
+                  const scopeLabel = viewScope === 'pendingAll' ? 'Pendentes' : 'Backlog';
+                  const filterInfo = activeFilter ? getFilterLabel() : null;
+                  const filterLabel = filterInfo ? `_${filterInfo.label.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+                  const fileName = `Lista_Tarefas_${scopeLabel}${filterLabel}_${dateStr}_${timeStr}.xlsx`;
+
+                  // Fazer download
+                  XLSX.writeFile(workbook, fileName);
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 rounded-lg transition-colors flex items-center gap-1.5"
+                title="Exportar lista de tarefas para Excel"
+              >
+                <Download className="w-4 h-4" />
+                Exportar Excel
+              </button>
+            )}
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Sem métricas de horas — apenas leitura/planejamento
+            </div>
           </div>
         </div>
 
@@ -1346,6 +1405,145 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal de Informação sobre Tarefas Excluídas */}
+      {showTotalTasksInfo && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowTotalTasksInfo(false)}>
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-gray-200 dark:border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Tarefas Excluídas do Cálculo
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTotalTasksInfo(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Fechar"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                O total de tarefas no backlog <strong>não inclui</strong> as seguintes categorias de tarefas, que são excluídas da análise:
+              </p>
+
+              <div className="space-y-3">
+                {/* Tarefas Neutras */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-gray-200 dark:bg-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        Tarefas Neutras
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Tarefas marcadas com <strong>"Reunião"</strong> ou <strong>"Treinamento"</strong> nos Detalhes Ocultos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tarefas de Auxílio */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-blue-200 dark:bg-blue-800">
+                      <HelpCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        Tarefas de Auxílio
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Tarefas marcadas com <strong>"Auxílio"</strong> ou <strong>"Auxilio"</strong> nos Detalhes Ocultos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tarefas de Testes */}
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-yellow-200 dark:bg-yellow-800">
+                      <CheckSquare className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        Tarefas de Testes
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Tarefas marcadas com <strong>"Testes"</strong> nos Detalhes Ocultos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tarefas com Impedimento de Trabalho */}
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-orange-200 dark:bg-orange-800">
+                      <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        Tarefas com Impedimento de Trabalho
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Tarefas marcadas com <strong>"ImpedimentoTrabalho"</strong>, <strong>"ImpediimentoTrabalho"</strong> ou <strong>"Impedimento de Trabalho"</strong> nos Detalhes Ocultos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Excluídos (apenas no modo Pendentes) */}
+                {viewScope === 'pendingAll' && (
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-indigo-200 dark:bg-indigo-800">
+                        <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                          Tarefas com Status Concluído
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          No modo <strong>"Pendentes (todos)"</strong>, tarefas com os seguintes status são excluídas da análise:
+                        </p>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1 ml-2">
+                          <li><strong>Teste</strong> - Tarefas em fase de teste</li>
+                          <li><strong>Teste Dev</strong> - Tarefas em teste de desenvolvimento</li>
+                          <li><strong>Teste Gap</strong> - Tarefas em teste de gap</li>
+                          <li><strong>Compilar</strong> - Tarefas prontas para compilação/deploy</li>
+                          <li><strong>Concluído/Concluido</strong> - Tarefas finalizadas</li>
+                        </ul>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                          Nota: No modo "Backlog", todas as tarefas sem sprint são incluídas, independente do status.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <strong>💡 Nota:</strong> Estas tarefas são excluídas porque não representam trabalho de desenvolvimento ativo no backlog, sendo atividades administrativas, de suporte ou impedimentos que não devem ser contabilizados no planejamento de sprints.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1358,9 +1556,10 @@ interface SummaryCardProps {
   color: 'gray' | 'blue' | 'red' | 'yellow' | 'green' | 'purple';
   onClick?: () => void;
   isActive?: boolean;
+  onInfoClick?: (e?: React.MouseEvent) => void;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle, color, onClick, isActive }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle, color, onClick, isActive, onInfoClick }) => {
   const colorClasses = {
     gray: 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600',
     blue: 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
@@ -1374,12 +1573,26 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ icon, label, value, subtitle,
 
   return (
     <div 
-      className={`rounded-xl border-2 ${colorClasses[color]} p-4 hover:shadow-lg transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${activeClasses}`}
+      className={`rounded-xl border-2 ${colorClasses[color]} p-4 hover:shadow-lg transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${activeClasses} relative`}
       onClick={onClick}
     >
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <p className="text-xs font-medium opacity-80">{label}</p>
+        <p className="text-xs font-medium opacity-80 flex-1">{label}</p>
+        {onInfoClick && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onInfoClick) {
+                onInfoClick(e);
+              }
+            }}
+            className="p-1 hover:bg-white/20 dark:hover:bg-black/20 rounded transition-colors"
+            title="Informações sobre tarefas excluídas"
+          >
+            <Info className="w-4 h-4 opacity-70 hover:opacity-100" />
+          </button>
+        )}
       </div>
       <p className="text-2xl font-bold mb-1">{value}</p>
       <p className="text-xs opacity-70">{subtitle}</p>

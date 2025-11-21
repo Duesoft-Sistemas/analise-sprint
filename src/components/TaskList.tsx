@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Filter as FilterIcon, RotateCw } from 'lucide-react';
 import { TaskItem } from '../types';
 import { useSprintStore } from '../store/useSprintStore';
-import { formatHours, isCompletedStatus, normalizeForComparison, taskHasCategory } from '../utils/calculations';
+import { formatHours, isCompletedStatus, normalizeForComparison, taskHasCategory, compareTicketCodes } from '../utils/calculations';
 import { TaskFilters } from './TaskFilters';
 
 const getDetalheTagColor = (detalhe: string) => {
@@ -20,6 +20,17 @@ const getDetalheTagColor = (detalhe: string) => {
     return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
   }
   return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+};
+
+const abbreviateName = (fullName: string): string => {
+  if (!fullName || fullName.trim() === '') return '-';
+  
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 0) return '-';
+  if (parts.length === 1) return parts[0];
+  
+  // Primeiro nome + primeira letra do segundo nome + ponto
+  return `${parts[0]} ${parts[1][0]}.`;
 };
 
 export const TaskList: React.FC = () => {
@@ -161,8 +172,8 @@ export const TaskList: React.FC = () => {
       }
     }
 
-    // Sort by task code (chave)
-    result = result.sort((a, b) => a.chave.localeCompare(b.chave));
+    // Sort by task code (chave) - ignoring "DM-" prefix
+    result = result.sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
 
     return result;
   }, [baseFilteredTasks, searchTerm, filterFeature, filterModule, filterClient, filterStatus, filterNoEstimate, filterDelayed, filterAhead, analyticsFilter, filterType, filterTestNote]);
@@ -368,9 +379,6 @@ export const TaskList: React.FC = () => {
                     Resumo
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Sprint
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Responsável
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -403,7 +411,7 @@ export const TaskList: React.FC = () => {
               </tbody>
               <tfoot className="bg-gray-100 dark:bg-gray-900/70 border-t-2 border-gray-300 dark:border-gray-600">
                 <tr className="font-semibold">
-                  <td colSpan={6} className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                  <td colSpan={5} className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
                     Total ({totals.count} tarefa{totals.count !== 1 ? 's' : ''})
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -511,7 +519,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
   return (
     <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isOverTime ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{task.chave}</td>
-      <td className="px-4 py-3 text-sm max-w-md">
+      <td className="px-4 py-3 text-sm max-w-xl">
         <div className="text-gray-700 dark:text-gray-300 truncate" title={task.resumo}>
           {task.resumo}
         </div>
@@ -525,10 +533,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
           </div>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-        {task.sprint || '-'}
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{task.responsavel || '-'}</td>
+      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{abbreviateName(task.responsavel)}</td>
       <td className="px-4 py-3">
         <span
           className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${

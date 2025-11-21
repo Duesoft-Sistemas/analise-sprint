@@ -262,6 +262,37 @@ export function isAuxilioTask(task: { detalhesOcultos?: string[] }): boolean {
 }
 
 /**
+ * Check if a task is a testes task (should be excluded from backlog)
+ */
+export function isTestesTask(task: { detalhesOcultos?: string[] }): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => normalizeForComparison(d) === 'testes');
+}
+
+/**
+ * Check if a task has ImpedimentoTrabalho in detalhes ocultos (should be excluded from backlog)
+ * This checks only the detalhes ocultos, regardless of task type
+ * Handles variations like "ImpedimentoTrabalho", "ImpediimentoTrabalho" (typo with double 'i'), etc.
+ */
+export function hasImpedimentoTrabalho(task: { detalhesOcultos?: string[] }): boolean {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
+  return task.detalhesOcultos.some(d => {
+    if (!d) return false;
+    const dStr = String(d).trim();
+    if (dStr === '') return false;
+    
+    // Normalize: remove accents, convert to lowercase, and remove all spaces
+    let normalized = normalizeForComparison(dStr).replace(/\s+/g, '');
+    
+    // Normalize multiple consecutive 'i' to single 'i' to handle typos like "ImpediimentoTrabalho"
+    normalized = normalized.replace(/i+/g, 'i');
+    
+    // Check for "ImpedimentoTrabalho" - exact match after normalization
+    return normalized === 'impedimentotrabalho';
+  });
+}
+
+/**
  * Check if a task is an impedimento trabalho task
  * These tasks are imported for hour tracking but excluded from performance/score calculations
  * Criteria: detalhesOcultos contains "ImpedimentoTrabalho" AND tipo === "Testes"
@@ -270,8 +301,22 @@ export function isAuxilioTask(task: { detalhesOcultos?: string[] }): boolean {
  */
 export function isImpedimentoTrabalhoTask(task: { detalhesOcultos?: string[]; tipo?: string }): boolean {
   // Check detalhesOcultos for "ImpedimentoTrabalho" first (more specific)
+  // Handles variations like "ImpedimentoTrabalho", "ImpediimentoTrabalho" (typo with double 'i'), etc.
   if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) return false;
-  const hasImpedimento = task.detalhesOcultos.some(d => normalizeForComparison(d) === 'impedimentotrabalho');
+  const hasImpedimento = task.detalhesOcultos.some(d => {
+    if (!d) return false;
+    const dStr = String(d).trim();
+    if (dStr === '') return false;
+    
+    // Normalize: remove accents, convert to lowercase, and remove all spaces
+    let normalized = normalizeForComparison(dStr).replace(/\s+/g, '');
+    
+    // Normalize multiple consecutive 'i' to single 'i' to handle typos like "ImpediimentoTrabalho"
+    normalized = normalized.replace(/i+/g, 'i');
+    
+    // Check for "ImpedimentoTrabalho" - exact match after normalization
+    return normalized === 'impedimentotrabalho';
+  });
   if (!hasImpedimento) return false;
   
   // If has ImpedimentoTrabalho, check if tipo is "Outro" (which "Testes" normalizes to)
@@ -343,5 +388,39 @@ export function isBacklogSprintValue(sprint: string | null | undefined): boolean
     'undefined',
   ]);
   return backlogAliases.has(normalized);
+}
+
+/**
+ * Compare ticket codes for sorting, ignoring the "DM-" prefix.
+ * This ensures that "DM-2" comes before "DM-10" in sorted lists.
+ * 
+ * @param codeA First ticket code (e.g., "DM-10", "PROJ-101")
+ * @param codeB Second ticket code (e.g., "DM-2", "PROJ-20")
+ * @returns Negative if codeA < codeB, positive if codeA > codeB, 0 if equal
+ */
+export function compareTicketCodes(codeA: string | null | undefined, codeB: string | null | undefined): number {
+  // Handle null/undefined cases
+  if (!codeA && !codeB) return 0;
+  if (!codeA) return -1;
+  if (!codeB) return 1;
+
+  const strA = String(codeA).trim().toUpperCase();
+  const strB = String(codeB).trim().toUpperCase();
+
+  // Remove "DM-" prefix (case-insensitive) from both codes
+  const normalizedA = strA.replace(/^DM-/, '');
+  const normalizedB = strB.replace(/^DM-/, '');
+
+  // Try numeric comparison if both are pure numbers
+  const numA = parseInt(normalizedA, 10);
+  const numB = parseInt(normalizedB, 10);
+  
+  if (!isNaN(numA) && !isNaN(numB) && normalizedA === String(numA) && normalizedB === String(numB)) {
+    // Both are pure numbers, compare numerically
+    return numA - numB;
+  }
+
+  // Fallback to string comparison
+  return normalizedA.localeCompare(normalizedB);
 }
 

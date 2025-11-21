@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, SprintPeriod } from '../types';
-import { formatHours, isCompletedStatus, isBacklogSprintValue } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isBacklogSprintValue, compareTicketCodes } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -819,12 +819,8 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
       });
     }
     
-    // Ordenar por código
-    filtered.sort((a, b) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    });
+    // Ordenar por código, ignorando prefixo "DM-"
+    filtered.sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
     
     return filtered;
   }, [
@@ -1083,11 +1079,7 @@ export const DeliveryDashboard: React.FC<DeliveryDashboardProps> = ({
       pdf.setFont('helvetica', 'normal');
 
       const backlogTableData = [...unplannedTasks]
-        .sort((a, b) => {
-          const codeA = (a.chave || a.id || '').toUpperCase();
-          const codeB = (b.chave || b.id || '').toUpperCase();
-          return codeA.localeCompare(codeB);
-        })
+        .sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id))
         .map(task => [
           task.chave || task.id || '-',
           task.resumo || '',

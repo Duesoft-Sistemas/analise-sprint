@@ -328,7 +328,7 @@ Percentual de tarefas onde o tempo gasto ficou dentro de ±20% da estimativa.
 - Campo "Detalhes Ocultos" = "ImpedimentoTrabalho" (normalização case-insensitive, sem acentos)
 - Campo "Tipo de item" = "Testes" (normalizado para "Outro" no sistema)
 - Identificação: normalização NFD + lowercase compara "impedimentotrabalho" e verifica se tipo é "Outro" ou "Testes"
-- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho", etc. (todos reconhecidos)
+- Variantes aceitas: "ImpedimentoTrabalho", "ImpediimentoTrabalho" (com dois 'i'), "impedimentotrabalho", etc. (todos reconhecidos após normalização que trata múltiplos 'i' consecutivos)
 - ✅ **Horas são contabilizadas normalmente:** As horas trabalhadas aparecem no worklog e nas análises de horas totais
 - ❌ **EXCLUÍDAS de Performance Score:** Não afetam nenhum cálculo de performance, eficiência, qualidade ou score
 - ❌ **EXCLUÍDAS de análises de capacidade:** Não são consideradas em análises de capacidade, planejamento de sprints ou recomendações de alocação

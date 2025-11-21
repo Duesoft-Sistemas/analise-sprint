@@ -17,6 +17,8 @@ import {
   isNeutralTask,
   isAuxilioTask,
   isImpedimentoTrabalhoTask,
+  isTestesTask,
+  hasImpedimentoTrabalho,
 } from '../utils/calculations';
 import { isBacklogSprintValue } from '../utils/calculations';
 
@@ -955,8 +957,8 @@ function calculateBacklogRiskAnalysis(
 export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   // Filter only backlog tasks (without sprint)
   const backlogTasks = tasks.filter((t) => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
-  // Exclude neutral (meeting/training) and auxilio tasks from backlog analysis
-  const backlogFiltered = backlogTasks.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t));
+  // Exclude neutral (meeting/training), auxilio, testes and impedimento trabalho tasks from backlog analysis
+  const backlogFiltered = backlogTasks.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t) && !isTestesTask(t) && !hasImpedimentoTrabalho(t));
 
   // Summary
   const isFolha = (t: TaskItem) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');

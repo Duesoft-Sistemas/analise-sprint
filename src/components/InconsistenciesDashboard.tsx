@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, Clock, FileWarning, User, CheckCircle2, Calendar, Hash, Star } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, WorklogEntry, SprintMetadata } from '../types';
-import { formatHours, isCompletedStatus, isNeutralTask, isAuxilioTask, shouldExcludeFromInconsistencies } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isNeutralTask, isAuxilioTask, shouldExcludeFromInconsistencies, compareTicketCodes } from '../utils/calculations';
 import { isDateInSprint } from '../services/hybridCalculations';
 
 interface Inconsistency {
@@ -266,7 +266,7 @@ export const InconsistenciesDashboard: React.FC = () => {
         category: 'Worklog',
         severity: 'high',
         title: 'Tarefas Concluídas sem Worklog',
-        description: 'Tarefas com status "concluído" mas sem nenhum registro de worklog. Indica possível falta de registro de tempo. Tarefas com "ImpedimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
+        description: 'Tarefas com status "concluído" mas sem nenhum registro de worklog. Indica possível falta de registro de tempo. Tarefas com "ImpedimentoTrabalho", "ImpediimentoTrabalho" ou "Testes" em Detalhes Ocultos são excluídas desta verificação.',
         count: tasksWithoutWorklog.length,
         items: tasksWithoutWorklog,
       });
@@ -671,12 +671,10 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
   if (type === 'invalid-dates') {
     // items is { tasks, worklogs, sprints }
     const { tasks, worklogs, sprints } = items as any;
-    // Sort tasks by code (chave) - ascending order
-    const sortedTasks = tasks ? [...tasks].sort((a: { task: TaskItem }, b: { task: TaskItem }) => {
-      const codeA = (a.task.chave || a.task.id || '').toUpperCase();
-      const codeB = (b.task.chave || b.task.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    }) : [];
+    // Sort tasks by code (chave) - ascending order, ignoring "DM-" prefix
+    const sortedTasks = tasks ? [...tasks].sort((a: { task: TaskItem }, b: { task: TaskItem }) => 
+      compareTicketCodes(a.task.chave || a.task.id, b.task.chave || b.task.id)
+    ) : [];
     return (
       <div className="space-y-4">
         {sortedTasks && sortedTasks.length > 0 && (
@@ -741,12 +739,10 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
   if (type === 'missing-required-fields') {
     // items is { tasks, worklogs }
     const { tasks, worklogs } = items as any;
-    // Sort tasks by code (chave) - ascending order
-    const sortedTasks = tasks ? [...tasks].sort((a: TaskItem, b: TaskItem) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    }) : [];
+    // Sort tasks by code (chave) - ascending order, ignoring "DM-" prefix
+    const sortedTasks = tasks ? [...tasks].sort((a: TaskItem, b: TaskItem) => 
+      compareTicketCodes(a.chave || a.id, b.chave || b.id)
+    ) : [];
     return (
       <div className="space-y-4">
         {sortedTasks && sortedTasks.length > 0 && (
@@ -801,12 +797,10 @@ const InconsistencyItems: React.FC<{ inconsistency: Inconsistency }> = ({ incons
 
   if (isTaskItems) {
     const taskItems = items as TaskItem[];
-    // Sort tasks by code (chave) - ascending order
-    const sortedTaskItems = [...taskItems].sort((a, b) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    });
+    // Sort tasks by code (chave) - ascending order, ignoring "DM-" prefix
+    const sortedTaskItems = [...taskItems].sort((a, b) => 
+      compareTicketCodes(a.chave || a.id, b.chave || b.id)
+    );
     return (
       <div className="space-y-3">
         {sortedTaskItems.slice(0, 20).map((task) => (

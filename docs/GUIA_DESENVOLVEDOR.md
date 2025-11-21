@@ -238,7 +238,7 @@ Performance Score: 118 pontos 🏆 Excepcional!
 - Métricas de utilização/conclusão (apenas informativas)
 
 **📝 Sobre Detalhes Ocultos:**
-- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "Treinamento", "DuvidaOculta", "ImpedimentoTrabalho"
+- Você pode marcar tarefas com múltiplos valores: "Auxilio", "Reunião", "Treinamento", "DuvidaOculta", "ImpedimentoTrabalho" ou "ImpediimentoTrabalho" (ambas as variações são aceitas)
 - Valores podem ser separados por vírgula na mesma célula: "Auxilio, Reunião"
 - **IMPORTANTE:** Tarefas com "ImpedimentoTrabalho" e tipo "Testes" são importadas para contabilização de horas, mas são EXCLUÍDAS de todos os cálculos de performance/score
 - Sistema suporta múltiplas colunas de "Detalhes Ocultos" (similar a Features e Categorias)

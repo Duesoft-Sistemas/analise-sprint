@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Calculator, Info } from 'lucide-react';
 import { DeveloperMetrics, TaskItem } from '../types';
-import { formatHours, isCompletedStatus } from '../utils/calculations';
+import { formatHours, isCompletedStatus, compareTicketCodes } from '../utils/calculations';
 
 interface AvailableHoursBreakdownModalProps {
   developer: DeveloperMetrics;
@@ -37,12 +37,8 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
     );
   };
 
-  // Sort tasks by code (chave) before creating breakdown
-  const sortedTasks = [...developer.tasks].sort((a, b) => {
-    const codeA = (a.chave || a.id || '').toUpperCase();
-    const codeB = (b.chave || b.id || '').toUpperCase();
-    return codeA.localeCompare(codeB);
-  });
+  // Sort tasks by code (chave) before creating breakdown, ignoring "DM-" prefix
+  const sortedTasks = [...developer.tasks].sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
 
   const tasksBreakdown: TaskBreakdown[] = sortedTasks.map(task => ({
     task,

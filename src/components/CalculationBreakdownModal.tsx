@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Calculator, Info, Award, Target } from 'lucide-react';
 import { SprintPerformanceMetrics, TaskItem } from '../types';
-import { formatHours, isCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
+import { formatHours, isCompletedStatus, normalizeForComparison, isNeutralTask, compareTicketCodes } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
 // Helper functions for task types
@@ -505,11 +505,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
                       <div className="mt-3 space-y-2">
                         <div className="text-xs font-semibold mb-2">Tarefas Contribuindo:</div>
                         <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {[...item.tasks].sort((a, b) => {
-                            const codeA = (a.taskKey || '').toUpperCase();
-                            const codeB = (b.taskKey || '').toUpperCase();
-                            return codeA.localeCompare(codeB);
-                          }).map((task, taskIdx) => (
+                          {[...item.tasks].sort((a, b) => compareTicketCodes(a.taskKey, b.taskKey)).map((task, taskIdx) => (
                             <div
                               key={taskIdx}
                               className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs border border-gray-200 dark:border-gray-700"

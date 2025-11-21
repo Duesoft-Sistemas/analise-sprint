@@ -7,7 +7,7 @@ import {
 import { AutocompleteSelect } from './AutocompleteSelect';
 import { useSprintStore } from '../store/useSprintStore';
 import { TaskItem, SprintPeriod } from '../types';
-import { formatHours, isCompletedStatus, isBacklogSprintValue } from '../utils/calculations';
+import { formatHours, isCompletedStatus, isBacklogSprintValue, compareTicketCodes } from '../utils/calculations';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -329,12 +329,8 @@ export const TasksDashboard: React.FC = () => {
       }
     }
     
-    // Ordenar por código
-    filtered.sort((a, b) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    });
+    // Ordenar por código, ignorando prefixo "DM-"
+    filtered.sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
     
     return filtered;
   }, [

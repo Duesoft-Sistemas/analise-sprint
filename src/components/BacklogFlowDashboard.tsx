@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateBacklogFlowBySprint, calculateCapacityRecommendation } from '../services/analytics';
 import { Inbox, CheckSquare, TrendingUp, BarChart3, Clock, X, List, Calendar, Info, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
-import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask, isImpedimentoTrabalhoTask } from '../utils/calculations';
+import { formatHours, isBacklogSprintValue, isCompletedStatus, isAuxilioTask, isNeutralTask, isImpedimentoTrabalhoTask, isTestesTask, hasImpedimentoTrabalho, compareTicketCodes } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TaskItem } from '../types';
 import { getDefaultSelectedDevelopers } from '../services/configService';
@@ -1119,13 +1119,9 @@ const TaskFilterList: React.FC<TaskFilterListProps> = ({ filter, backlogFlow }) 
     return tasks;
   }, [filterKey, filter, backlogFlow]);
 
-  // Sort tasks by code (chave) - ascending order
+  // Sort tasks by code (chave) - ascending order, ignoring "DM-" prefix
   const sortedTasks = useMemo(() => {
-    return [...filteredTasks].sort((a, b) => {
-      const codeA = (a.chave || a.id || '').toUpperCase();
-      const codeB = (b.chave || b.id || '').toUpperCase();
-      return codeA.localeCompare(codeB);
-    });
+    return [...filteredTasks].sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
   }, [filteredTasks]);
 
   if (!filter) return null;
@@ -1404,9 +1400,15 @@ const AllocationDetailsView: React.FC<AllocationDetailsViewProps> = ({ filter, b
     if (filter.type === 'currentBacklog') {
       // Backlog atual: APENAS tarefas sem sprint (backlog tradicional)
       // Tarefas alocadas a sprints (atuais ou futuros) NÃO devem entrar no backlog atual
-      // Excluir tarefas de auxílio, reunião e treinamento
+      // Excluir tarefas de auxílio, reunião, treinamento, testes e impedimento trabalho
       const backlogTasks = filteredTasks.filter(t => !t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint));
-      const pendingBacklogTasks = backlogTasks.filter(t => !isCompletedStatus(t.status));
+      const pendingBacklogTasks = backlogTasks.filter(t => 
+        !isCompletedStatus(t.status) && 
+        !isNeutralTask(t) && 
+        !isAuxilioTask(t) && 
+        !isTestesTask(t) &&
+        !hasImpedimentoTrabalho(t)
+      );
       
       return pendingBacklogTasks;
     } else if (filter.type === 'allocation') {
@@ -1440,11 +1442,7 @@ const AllocationDetailsView: React.FC<AllocationDetailsViewProps> = ({ filter, b
   };
 
   const resultTasks = getTasks();
-  const sortedTasks = [...resultTasks].sort((a, b) => {
-    const codeA = (a.chave || a.id || '').toUpperCase();
-    const codeB = (b.chave || b.id || '').toUpperCase();
-    return codeA.localeCompare(codeB);
-  });
+  const sortedTasks = [...resultTasks].sort((a, b) => compareTicketCodes(a.chave || a.id, b.chave || b.id));
 
   if (sortedTasks.length === 0) {
     return (

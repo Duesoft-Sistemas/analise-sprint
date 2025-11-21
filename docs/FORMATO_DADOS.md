@@ -170,14 +170,14 @@ Sistema aceita os seguintes formatos para campos de tempo:
 - Não afeta Performance Score diretamente
 - Aparece separadamente nas métricas de problemas (bugs vs dúvidas ocultas)
 
-#### "ImpedimentoTrabalho"
+#### "ImpedimentoTrabalho" / "ImpediimentoTrabalho"
 
 **Propósito:** Identificar tarefas de impedimento de trabalho que devem ser importadas para contabilização de horas, mas não devem ser usadas para cálculos de performance ou score.
 
 **Identificação:**
 - Campo "Detalhes Ocultos" = "ImpedimentoTrabalho" (case-insensitive, normalizado)
 - Campo "Tipo de item" = "Testes" (normalizado para "Outro" no sistema)
-- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho", etc.
+- Variantes aceitas: "ImpedimentoTrabalho", "ImpediimentoTrabalho" (com dois 'i'), "impedimentotrabalho", etc. (todos reconhecidos após normalização)
 
 **Impacto:**
 - ✅ **Horas são contabilizadas normalmente:** As horas trabalhadas em tarefas de impedimento são contabilizadas no worklog e aparecem nas análises de horas totais trabalhadas
@@ -226,7 +226,7 @@ Sistema corrige automaticamente problemas de encoding UTF-8 mal interpretado.
 - Variantes aceitas: "Reunião", "Reuniao", "reunião", "reuniao" → todos reconhecidos
 - Variantes aceitas: "DuvidaOculta", "Dúvida Oculta", "duvidaoculta" → todos reconhecidos como "duvidaoculta"
 - Variantes aceitas: "Treinamento", "treinamento" → todos reconhecidos como "treinamento"
-- Variantes aceitas: "ImpedimentoTrabalho", "impedimentotrabalho" → todos reconhecidos como "impedimentotrabalho"
+- Variantes aceitas: "ImpedimentoTrabalho", "ImpediimentoTrabalho" (com dois 'i'), "impedimentotrabalho" → todos reconhecidos como "impedimentotrabalho" após normalização
 - Valores podem ser combinados: uma tarefa pode ter múltiplos valores separados por vírgula/ponto-e-vírgula
 
 ### Status Considerados "Concluídos"
