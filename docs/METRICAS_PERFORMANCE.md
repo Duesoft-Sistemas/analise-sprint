@@ -29,14 +29,15 @@ Sistema fornece três níveis de análise:
 
 Apenas tarefas que atendem TODOS os critérios são consideradas nos cálculos de performance:
 
-1. Status concluído: `teste`, `teste dev`, `teste gap`, `compilar`, `concluído`, `concluido`
+1. **Status totalmente concluído:** Apenas `concluído` ou `concluido` são considerados. Status intermediários como `teste`, `teste dev`, `teste gap` e `compilar` **NÃO** são contabilizados na análise de performance.
+   - **Nota Importante:** A análise de performance usa um critério mais restritivo que outras áreas do sistema. Enquanto o "Sprint Ativo" e outras funcionalidades consideram tarefas em status intermediários (teste, compilar, etc.) como concluídas, a análise de performance exige que a tarefa esteja realmente finalizada (status "concluído" ou "concluido").
 2. Sprint definido: Tarefa deve ter sprint não vazio. Tarefas sem sprint = backlog, não contam
 3. Estimativa presente: Tarefa deve ter estimativa > 0
 4. Worklog presente: Para cálculo de tempo gasto (se ausente, tempo gasto = 0)
 
 **Exclusões:**
 - Tarefas de backlog (sem sprint): NÃO interferem em métricas de performance, mesmo que tenham worklog e estejam concluídas
-- Tarefas em progresso (status diferente de concluído)
+- Tarefas em progresso ou status intermediários (status diferente de "concluído" ou "concluido"): Tarefas em "teste", "teste dev", "teste gap" ou "compilar" não são contabilizadas na análise de performance
 - Tarefas marcadas como "Reunião" (neutras, não afetam score)
 - Tarefas marcadas como "ImpedimentoTrabalho" com tipo "Testes": Importadas para contabilização de horas, mas EXCLUÍDAS de todos os cálculos de performance/score
 - Tarefas sem estimativa (aparecem apenas em métricas informativas)
@@ -163,11 +164,11 @@ Score Máximo: 130
 
 | Complexidade | Zona Eficiente (horas) | Zona Aceitável (horas) | Zona Ineficiente |
 |--------------|----------------------|----------------------|------------------|
-| 1 | ≤ 2h | 2h < x ≤ 4h | > 4h |
-| 2 | ≤ 4h | 4h < x ≤ 8h | > 8h |
-| 3 | ≤ 8h | 8h < x ≤ 16h | > 16h |
-| 4 | ≤ 16h | 16h < x ≤ 32h | > 32h |
-| 5 | ≤ 32h | 32h < x ≤ 40h | > 40h |
+| 1 | ≤ 1.5h | 1.5h < x ≤ 3h | > 3h |
+| 2 | ≤ 3h | 3h < x ≤ 5h | > 5h |
+| 3 | ≤ 5h | 5h < x ≤ 9h | > 9h |
+| 4 | ≤ 9h | 9h < x ≤ 17h | > 17h |
+| 5 | ≤ 17h | 17h < x ≤ 30h | > 30h |
 
 **Cálculo de eficiência para Bugs:**
 - Se horas gastas ≤ maxEfficientHours: **Eficiente = 1.0 ponto** (zona eficiente)
@@ -177,10 +178,10 @@ Score Máximo: 130
 **IMPORTANTE:** A "Zona Aceitável" agora concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para o bônus de Senioridade, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
 
 **Exemplo:**
-- Bug complexidade 1 gastou 2h = ✅ eficiente (1.0 pt)
-- Bug complexidade 1 gastou 3h = ⚠️ aceitável (0.5 pts)
-- Bug complexidade 5 gastou 30h = ✅ eficiente (1.0 pt)
-- Bug complexidade 5 gastou 35h = ⚠️ aceitável (0.5 pts)
+- Bug complexidade 1 gastou 1.5h = ✅ eficiente (1.0 pt)
+- Bug complexidade 1 gastou 2.5h = ⚠️ aceitável (0.5 pts)
+- Bug complexidade 5 gastou 16h = ✅ eficiente (1.0 pt)
+- Bug complexidade 5 gastou 25h = ⚠️ aceitável (0.5 pts)
 
 **FEATURES/OUTROS (Todas complexidades):**
 - Usa desvio percentual entre estimativa original vs tempo gasto total
@@ -192,24 +193,24 @@ Score Máximo: 130
 
 image.png| Complexidade | Limite Inferior (atraso permitido) |
 |--------------|----------------------------------|
-| 1            | -20%                             |
-| 2            | -25%                             |
-| 3            | -30%                             |
-| 4            | -35%                             |
-| 5            | -40%                             |
+| 1            | -15%                             |
+| 2            | -20%                             |
+| 3            | -25%                             |
+| 4            | -30%                             |
+| 5            | -35%                             |
 
 **Cálculo de eficiência para Features:**
 - Se desvio > 0 (executou mais rápido): Eficiente = **1.0 ponto**
-- Se desvio ≤ 0 e desvio >= limite inferior (ex: -30% para complexidade 3): Eficiente = **1.0 ponto**
+- Se desvio ≤ 0 e desvio >= limite inferior (ex: -25% para complexidade 3): Eficiente = **1.0 ponto**
 - Se desvio < limite inferior: Ineficiente = **0 pontos**
 
 **Regra:** Executar mais rápido que o estimado é sempre considerado eficiente. Apenas o atraso além da tolerância é ineficiente.
 
 **Exemplo:**
 - Feature complexidade 1: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.0 pt)
-- Feature complexidade 1: estimou 10h, gastou 12h = -20% (≥-20%) = ✅ eficiente (1.0 pt)
-- Feature complexidade 1: estimou 10h, gastou 12.5h = -25% (< -20%) = ❌ ineficiente (0 pts)
-- Feature complexidade 5: estimou 30h, gastou 42h = -40% (≥-40%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 11.5h = -15% (≥-15%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 12h = -20% (< -15%) = ❌ ineficiente (0 pts)
+- Feature complexidade 5: estimou 30h, gastou 40.5h = -35% (≥-35%) = ✅ eficiente (1.0 pt)
 
 ### Taxa de Conclusão
 

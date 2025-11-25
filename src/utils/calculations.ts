@@ -97,6 +97,19 @@ export function isCompletedStatus(status: string): boolean {
   );
 }
 
+// Check if status indicates task is fully completed (only "concluído" or "concluido")
+// Used specifically for performance analysis, which requires tasks to be truly finished
+// Other areas of the system use isCompletedStatus which includes intermediate statuses
+export function isFullyCompletedStatus(status: string): boolean {
+  const fullyCompletedStatuses = [
+    'concluído',    // Completed (with accent)
+    'concluido'     // Completed (without accent)
+  ];
+  return fullyCompletedStatuses.some(s => 
+    status.toLowerCase().includes(s.toLowerCase())
+  );
+}
+
 // Check if status indicates task is blocked
 export function isBlockedStatus(status: string): boolean {
   const blockedStatuses = ['bloqueada', 'bloqueado', 'blocked'];
@@ -118,8 +131,8 @@ export function determineTaskType(chave: string, resumo: string): 'Bug' | 'Taref
 
 // Calculate risk level based on utilization
 export function calculateRiskLevel(utilizationPercent: number): 'low' | 'medium' | 'high' {
-  if (utilizationPercent >= 90) return 'high';
-  if (utilizationPercent >= 70) return 'medium';
+  if (utilizationPercent >= 75) return 'high';
+  if (utilizationPercent >= 50) return 'medium';
   return 'low';
 }
 
@@ -422,5 +435,31 @@ export function compareTicketCodes(codeA: string | null | undefined, codeB: stri
 
   // Fallback to string comparison
   return normalizedA.localeCompare(normalizedB);
+}
+
+/**
+ * Get hours per developer for a sprint from metadata
+ * Returns the hours specified in the sprint metadata, or 40 as default fallback
+ */
+export function getSprintHoursPerDeveloper(
+  sprintName: string,
+  sprintMetadata: { sprint: string; horasPorDesenvolvedor?: number }[]
+): number {
+  const metadata = sprintMetadata.find(m => m.sprint === sprintName);
+  return metadata?.horasPorDesenvolvedor ?? 40;
+}
+
+/**
+ * Get hours per developer for an intern in a sprint
+ * Calculates proportionally: if sprint has 32h, intern gets 32 * (30/40) = 24h
+ * Formula: horasEstagiario = horasSprint * (30/40)
+ */
+export function getSprintHoursForIntern(
+  sprintName: string,
+  sprintMetadata: { sprint: string; horasPorDesenvolvedor?: number }[]
+): number {
+  const sprintHours = getSprintHoursPerDeveloper(sprintName, sprintMetadata);
+  // Calculate proportion: 30/40 = 0.75
+  return sprintHours * (30 / 40);
 }
 

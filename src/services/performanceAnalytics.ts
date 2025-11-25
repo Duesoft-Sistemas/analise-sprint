@@ -11,7 +11,8 @@ import {
   WorklogEntry,
   SprintMetadata,
 } from '../types';
-import { isCompletedStatus, isNeutralTask, isAuxilioTask, isImpedimentoTrabalhoTask, formatHours } from '../utils/calculations';
+import { isCompletedStatus, isFullyCompletedStatus, isNeutralTask, isAuxilioTask, isImpedimentoTrabalhoTask, formatHours, getSprintHoursPerDeveloper, getSprintHoursForIntern } from '../utils/calculations';
+import { isInternDeveloper } from '../services/configService';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
@@ -36,8 +37,8 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   accuracyRate: {
     formula: '(Tarefas eficientes / Total) × 100. Avaliação separada: Bugs usam zona de eficiência (todas complexidades), Features usam apenas desvio percentual',
     description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-5 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
-    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 3h = ✅ eficiente (≤4h aceitável). Complexidade 5 gastou 14h = ✅ eficiente (≤16h). FEATURES: Complexidade 1 estimou 10h, gastou 12h (-20%) = ❌ ineficiente (limite -15%). Complexidade 5 estimou 30h, gastou 35h (-16%) = ✅ eficiente (limite -40%).',
-    example: 'Bug complexidade 1 gastou 3h = ✅ eficiente (zona: ≤4h aceitável). Bug complexidade 5 gastou 14h = ✅ eficiente (zona: ≤16h). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Feature complexidade 4 estimou 10h, gastou 15h (-50%) = ❌ ineficiente (limite -30%).',
+    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 1.5h = ✅ eficiente (≤1.5h eficiente, ≤3h aceitável). Complexidade 5 gastou 16h = ✅ eficiente (≤17h eficiente, ≤30h aceitável). FEATURES: Complexidade 1 estimou 10h, gastou 11.5h (-15%) = ✅ eficiente (limite -15%). Complexidade 5 estimou 30h, gastou 40.5h (-35%) = ✅ eficiente (limite -35%).',
+    example: 'Bug complexidade 1 gastou 1.5h = ✅ eficiente (zona: ≤1.5h eficiente, ≤3h aceitável). Bug complexidade 5 gastou 16h = ✅ eficiente (zona: ≤17h eficiente, ≤30h aceitável). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Feature complexidade 4 estimou 10h, gastou 13h (-30%) = ❌ ineficiente (limite -30%).',
   },
   
   bugRate: {
@@ -316,7 +317,9 @@ export function calculateSprintPerformance(
     .filter(t => !isImpedimentoTrabalhoTask(t))
     .map(t => calculateTaskMetrics(t, false));
   
-  const completedTasks = workTasks.filter(t => isCompletedStatus(t.status));
+  // IMPORTANT: Performance analysis only considers fully completed tasks (status "concluído" or "concluido")
+  // This is more restrictive than other areas which use isCompletedStatus (includes teste, compilar, etc.)
+  const completedTasks = workTasks.filter(t => isFullyCompletedStatus(t.status));
   const completedMetrics = completedTasks.map(t => calculateTaskMetrics(t, false));
   
   const totalHoursWorked = devTasks.reduce((sum, t) => sum + (t.tempoGastoNoSprint ?? 0), 0);
@@ -400,7 +403,12 @@ export function calculateSprintPerformance(
   const testScore = testNotes.length > 0 ? Math.max(0, Math.min(100, avgTestNote * 20)) : 0;
   const qualityScore = testScore;
   
-  const utilizationRate = (totalHoursWorked / 40) * 100;
+  // Get hours per developer for this sprint (considering if developer is intern)
+  const isIntern = isInternDeveloper(developerName);
+  const sprintHours = isIntern
+    ? getSprintHoursForIntern(sprintName, sprintMetadata || [])
+    : getSprintHoursPerDeveloper(sprintName, sprintMetadata || []);
+  const utilizationRate = (totalHoursWorked / sprintHours) * 100;
   
   const completionRate = tasksStarted > 0 ? (tasksCompleted / tasksStarted) * 100 : 0;
   

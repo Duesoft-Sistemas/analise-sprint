@@ -87,6 +87,7 @@ export interface SprintAnalytics {
   byFeature: Totalizer[];
   byModule: Totalizer[];
   byClient: Totalizer[];
+  isHistorical?: boolean; // Flag indicating this is a historical analysis (completed sprint)
 }
 
 // Problem analysis (bugs reais e dúvidas ocultas)
@@ -385,6 +386,7 @@ export interface SprintMetadata {
   sprint: string; // Sprint name/ID (e.g., "OUT25 - Semana 4")
   dataInicio: Date; // Start date
   dataFim: Date; // End date
+  horasPorDesenvolvedor?: number; // Hours per developer for this sprint (default: 40 if not specified)
 }
 
 // Custom period with multiple selected sprints
@@ -557,7 +559,10 @@ export type ViewMode =
   | 'quality'
   | 'inconsistencies'
   | 'backlog'
-  | 'backlogFlow';
+  | 'backlogFlow'
+  | 'worklog'
+  | 'delivery'
+  | 'tasks';
 
 export type SprintPresentationSection =
   | 'summary'
@@ -597,7 +602,6 @@ export type DeliveryPresentationSection =
   | 'taskList';
 
 export type WorklogPresentationSection =
-  | 'overview'
   | 'daily'
   | 'developers';
 

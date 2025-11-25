@@ -330,11 +330,12 @@ Arquivo Excel definindo os períodos de cada sprint. Necessário para análise h
 
 ### Estrutura
 
-| Coluna | Tipo | Descrição | Exemplo |
-|--------|------|-----------|---------|
-| Sprint | String | Nome do sprint | OUT25 - Semana 4 |
-| Data Início | Date | Data de início do sprint | 28/10/2025 |
-| Data Fim | Date | Data de fim do sprint | 01/11/2025 |
+| Coluna | Tipo | Obrigatório | Descrição | Exemplo |
+|--------|------|-------------|-----------|---------|
+| Sprint | String | Sim | Nome do sprint | OUT25 - Semana 4 |
+| Data Início | Date | Sim | Data de início do sprint | 28/10/2025 |
+| Data Fim | Date | Sim | Data de fim do sprint | 01/11/2025 |
+| Horas | Number | Não | Horas por desenvolvedor no sprint (padrão: 40h se não informado) | 32, 40 |
 
 ### Reconhecimento de Colunas
 
@@ -346,6 +347,12 @@ Arquivo Excel definindo os períodos de cada sprint. Necessário para análise h
 
 **Coluna Data Fim:**
 - `Data Fim`, `Data fim`, `End Date`, `Data Final`, `Data final`, `Fim`
+
+**Coluna Horas (Opcional):**
+- `Horas`, `horas`, `Horas do Sprint`, `Horas por Desenvolvedor`, `Hours`, `hours`
+- Se não informada, o sistema usa 40 horas como padrão
+- Permite sprints com diferentes capacidades (ex: 32h quando há dias de não trabalho)
+- Para estagiários, o sistema calcula proporcionalmente: se o sprint tem 32h, o estagiário terá 24h (32 * 30/40)
 
 ### Formatos de Data Aceitos
 
@@ -369,8 +376,15 @@ Arquivo Excel definindo os períodos de cada sprint. Necessário para análise h
    - Parse do nome do sprint (trim whitespace)
    - Parse da data de início (00:00:00 no início do dia)
    - Parse da data de fim (23:59:59.999 no fim do dia)
+   - Parse das horas por desenvolvedor (opcional, número positivo)
    - Valida que data início < data fim
 4. Armazena metadados do sprint para processamento híbrido
+
+**Comportamento da Coluna Horas:**
+- Se a coluna "Horas" não estiver presente ou o valor for inválido, o sistema usa 40 horas como padrão
+- O valor informado representa as horas disponíveis por desenvolvedor no sprint
+- Estagiários têm suas horas calculadas proporcionalmente: `horasEstagiario = horasSprint * (30/40)`
+- Exemplo: Sprint com 32h → Desenvolvedor regular = 32h, Estagiário = 24h
 
 **Comportamento:**
 - Se período do sprint não definido, usa semana atual (segunda a sexta) como padrão

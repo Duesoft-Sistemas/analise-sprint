@@ -17,6 +17,7 @@ const SPRINTS_COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'Sprint': ['Sprint', 'sprint', 'Nome do Sprint', 'Sprint Name', 'ID'],
   'Data Início': ['Data Início', 'Data Inicio', 'Data início', 'Data inicio', 'Data Inicial', 'Data inicial', 'Start Date', 'Início', 'Inicio'],
   'Data Fim': ['Data Fim', 'Data fim', 'Data Final', 'Data final', 'End Date', 'Fim'],
+  'Horas': ['Horas', 'horas', 'Horas do Sprint', 'Horas por Desenvolvedor', 'Hours', 'hours'],
 };
 
 /**
@@ -32,6 +33,31 @@ function getSprintsColumnValue(row: SprintsRow, columnName: string): string {
   }
   
   return '';
+}
+
+/**
+ * Get numeric column value trying different encoding variations
+ * Returns the raw numeric value or parsed number from string
+ */
+function getSprintsNumericValue(row: SprintsRow, columnName: string): number | undefined {
+  const variations = SPRINTS_COLUMN_MAPPINGS[columnName] || [columnName];
+  
+  for (const variation of variations) {
+    if (row[variation] !== undefined && row[variation] !== null) {
+      const value = row[variation];
+      // If already a number, return it
+      if (typeof value === 'number') {
+        return value > 0 ? value : undefined;
+      }
+      // Try to parse as number
+      const numValue = parseFloat(String(value));
+      if (!isNaN(numValue) && numValue > 0) {
+        return numValue;
+      }
+    }
+  }
+  
+  return undefined;
 }
 
 /**
@@ -114,10 +140,14 @@ function parseSprintsData(rows: SprintsRow[]): SprintMetadata[] {
       const dataFim = parseDate(dataFimRaw);
       dataFim.setHours(23, 59, 59, 999);
 
+      // Parse horas por desenvolvedor (optional)
+      const horasPorDesenvolvedor = getSprintsNumericValue(row, 'Horas');
+
       const sprintMetadata: SprintMetadata = {
         sprint: sprint.trim(),
         dataInicio,
         dataFim,
+        ...(horasPorDesenvolvedor !== undefined && { horasPorDesenvolvedor }),
       };
 
       sprints.push(sprintMetadata);

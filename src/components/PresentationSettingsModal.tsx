@@ -11,8 +11,8 @@ interface Props {
 const DEFAULT_STEPS: PresentationStep[] = [
   // Sprint sections
   { view: 'sprint', section: 'summary' },
-  { view: 'sprint', section: 'byFeature' },
   { view: 'sprint', section: 'byClient' },
+  { view: 'sprint', section: 'byFeature' },
   { view: 'sprint', section: 'developers' },
   // Multi-Sprint sections
   { view: 'multiSprint', multiSection: 'sprintDistribution' },
@@ -36,7 +36,6 @@ const DEFAULT_STEPS: PresentationStep[] = [
   { view: 'backlogFlow', backlogFlowSection: 'capacity' },
   { view: 'backlogFlow', backlogFlowSection: 'help' },
   // Worklog sections
-  { view: 'worklog', worklogSection: 'overview' },
   { view: 'worklog', worklogSection: 'daily' },
   { view: 'worklog', worklogSection: 'developers' },
   // Delivery sections
@@ -314,14 +313,6 @@ export const PresentationSettingsModal: React.FC<Props> = ({ isOpen, onClose }) 
                 Ajuda
               </label>
               <div className="col-span-2 text-xs uppercase text-gray-500 dark:text-gray-400 mt-1">Worklogs</div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                <input
-                  type="checkbox"
-                  checked={stepChecked((s) => s.view === 'worklog' && s.worklogSection === 'overview')}
-                  onChange={() => toggleStep({ view: 'worklog', worklogSection: 'overview' })}
-                />
-                Visão Geral
-              </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Users, Square } from 'lucide-react';
+import { BarChart3, Users, Square, Info } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { TotalizerCards } from './TotalizerCards';
@@ -79,7 +79,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
   const deliveryTaskListRef = useRef<HTMLDivElement | null>(null);
   // Refs para seções de worklog
   const worklogRef = useRef<HTMLDivElement | null>(null);
-  const worklogOverviewRef = useRef<HTMLDivElement | null>(null);
   const worklogDailyRef = useRef<HTMLDivElement | null>(null);
   const worklogDevelopersRef = useRef<HTMLDivElement | null>(null);
 
@@ -161,8 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
         else if (currentStep.deliverySection === 'taskList') scrollTo(deliveryTaskListRef.current || deliveryRef.current);
         else scrollTo(deliveryRef.current);
       } else if (currentStep.view === 'worklog') {
-        if (currentStep.worklogSection === 'overview') scrollTo(worklogOverviewRef.current || worklogRef.current);
-        else if (currentStep.worklogSection === 'daily') scrollTo(worklogDailyRef.current || worklogRef.current);
+        if (currentStep.worklogSection === 'daily') scrollTo(worklogDailyRef.current || worklogRef.current);
         else if (currentStep.worklogSection === 'developers') scrollTo(worklogDevelopersRef.current || worklogRef.current);
         else scrollTo(worklogRef.current);
       }
@@ -241,7 +239,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       chartHours: 'Gráfico (Horas)',
       capacity: 'Recomendação de Capacidade',
       help: 'Ajuda',
-      overview: 'Visão Geral',
       daily: 'Análise Diária',
       dataLimite: 'Tarefas com Data Limite',
       previsao: 'Tarefas com Previsão',
@@ -378,7 +375,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       ) : viewMode === 'worklog' ? (
         <div ref={worklogRef}>
           <WorklogDashboard
-            overviewRef={worklogOverviewRef}
             dailyRef={worklogDailyRef}
             developersRef={worklogDevelopersRef}
           />
@@ -441,8 +437,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
               Sprint Ativo • Desenvolvedores
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {sprintAnalytics.isHistorical && (
+                <div className="col-span-full mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <p className="text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    <span>
+                      <strong>Sprint concluído:</strong> Esta visualização mostra apenas as tarefas que estão alocadas a este sprint. O tempo gasto é calculado com base nos worklogs registrados no período do sprint.
+                    </span>
+                  </p>
+                </div>
+              )}
               {sprintAnalytics.developers.map((dev) => (
-                <DeveloperCard key={dev.name} developer={dev} />
+                <DeveloperCard key={dev.name} developer={dev} isHistorical={sprintAnalytics.isHistorical} />
               ))}
             </div>
           </div>

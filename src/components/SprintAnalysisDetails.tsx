@@ -32,7 +32,7 @@ const SprintAnalysisDetails: React.FC<SprintAnalysisDetailsProps> = ({ analytics
   const showClient = !focusSection || focusSection === 'client';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
       {showClient && (
       <div ref={clientAnchorRef}>
         <div className="flex items-center justify-between mb-3">

@@ -8,13 +8,13 @@ Sistema requer configuração de períodos de sprints para análise híbrida pre
 
 ### Estrutura da Planilha de Sprints
 
-Arquivo Excel (`sprints.xlsx`) com 3 colunas obrigatórias:
+Arquivo Excel (`sprints.xlsx`) com 3 colunas obrigatórias e 1 opcional:
 
-| Sprint | Data Início | Data Fim |
-|--------|-------------|----------|
-| OUT25 - Semana 4 | 28/10/2025 | 01/11/2025 |
-| NOV25 - Semana 1 | 04/11/2025 | 08/11/2025 |
-| NOV25 - Semana 2 | 11/11/2025 | 15/11/2025 |
+| Sprint | Data Início | Data Fim | Horas |
+|--------|-------------|----------|-------|
+| OUT25 - Semana 4 | 28/10/2025 | 01/11/2025 | 40 |
+| NOV25 - Semana 1 | 04/11/2025 | 08/11/2025 | 32 |
+| NOV25 - Semana 2 | 11/11/2025 | 15/11/2025 | 40 |
 
 ### Reconhecimento de Colunas
 
@@ -28,6 +28,12 @@ Sistema reconhece automaticamente as seguintes variações de nomes de colunas:
 
 **Coluna Data Fim:**
 - `Data Fim`, `Data fim`, `End Date`, `Data Final`, `Data final`, `Fim`
+
+**Coluna Horas (Opcional):**
+- `Horas`, `horas`, `Horas do Sprint`, `Horas por Desenvolvedor`, `Hours`, `hours`
+- Se não informada, o sistema usa 40 horas como padrão
+- Permite sprints com diferentes capacidades (ex: 32h quando há dias de não trabalho)
+- Para estagiários, o sistema calcula proporcionalmente: se o sprint tem 32h, o estagiário terá 24h (32 * 30/40)
 
 ### Formatos de Data Aceitos
 
@@ -168,7 +174,7 @@ estimativaRestante = max(0, 15h - 5h) = 10h
 **Resultado para métricas:**
 - Alocação (sprint atual): `estimativaRestante = 10h`
 - Gasto (sprint atual): `tempoGastoNoSprint = 10h`
-- Disponível: `40h - 10h = 30h`
+- Disponível: `horasSprint - 10h` (horas do sprint menos horas consumidas)
 - Performance (histórico): `estimativa = 15h`, `tempoGastoTotal = 15h`, Acurácia = 0%
 
 ### Comportamento do Sistema

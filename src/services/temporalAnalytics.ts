@@ -9,7 +9,7 @@ import {
   WorklogEntry,
 } from '../types';
 import { calculatePerformanceAnalytics, calculateCustomPeriodPerformance } from './performanceAnalytics';
-import { isCompletedStatus, isNeutralTask } from '../utils/calculations';
+import { isCompletedStatus, isFullyCompletedStatus, isNeutralTask } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 
 /**
@@ -196,7 +196,8 @@ function calculatePeriodMetrics(
   const allTasksMetrics = customMetrics.sprints.flatMap(sprint => sprint.tasks);
 
   // Calculate aggregated metrics based on aggregated tasks (same logic as PerformanceDashboard)
-  const completedTasks = allTasksMetrics.filter(t => isCompletedStatus(t.task.status));
+  // IMPORTANT: Performance analysis only considers fully completed tasks (status "concluído" or "concluido")
+  const completedTasks = allTasksMetrics.filter(t => isFullyCompletedStatus(t.task.status));
   const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
 
   // Separate bugs and features

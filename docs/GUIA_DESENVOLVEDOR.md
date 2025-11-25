@@ -57,22 +57,22 @@ Mede se você **entregou conforme esperado**. O sistema funciona diferente para 
 - Compara: **estimativa original** vs **tempo gasto total** (de todos os sprints)
 - **Qualquer tempo mais rápido** = sempre eficiente! ✅
 - **Se gastou mais que estimado**, tolerância por complexidade:
-  - Complexidade 1: até +20% (ex: estimou 10h, gastou até 12h = OK)
-  - Complexidade 2: até +25% (ex: estimou 10h, gastou até 12.5h = OK)
-  - Complexidade 3: até +30% (ex: estimou 10h, gastou até 13h = OK)
-  - Complexidade 4: até +35% (ex: estimou 10h, gastou até 13.5h = OK)
-  - Complexidade 5: até +40% (ex: estimou 10h, gastou até 14h = OK)
+  - Complexidade 1: até -15% (ex: estimou 10h, gastou até 11.5h = OK)
+  - Complexidade 2: até -20% (ex: estimou 10h, gastou até 12h = OK)
+  - Complexidade 3: até -25% (ex: estimou 10h, gastou até 12.5h = OK)
+  - Complexidade 4: até -30% (ex: estimou 10h, gastou até 13h = OK)
+  - Complexidade 5: até -35% (ex: estimou 10h, gastou até 13.5h = OK)
 
 **🐛 Bugs:**
 Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa estimativa):
 
 | Complexidade | Zona Eficiente ✅ | Zona Aceitável ⚠️ | Zona Ineficiente ❌ |
 |--------------|-------------------|-------------------|---------------------|
-| 1 | até 2h | 2h a 4h | acima de 4h |
-| 2 | até 4h | 4h a 8h | acima de 8h |
-| 3 | até 8h | 8h a 16h | acima de 16h |
-| 4 | até 16h | 16h a 32h | acima de 32h |
-| 5 | até 32h | 32h a 40h | acima de 40h |
+| 1 | até 1.5h | 1.5h a 3h | acima de 3h |
+| 2 | até 3h | 3h a 5h | acima de 5h |
+| 3 | até 5h | 5h a 9h | acima de 9h |
+| 4 | até 9h | 9h a 17h | acima de 17h |
+| 5 | até 17h | 17h a 30h | acima de 30h |
 
 **💡 Importante sobre Bugs:**
 - **Zona Eficiente** = **1.0 ponto** para o cálculo da sua eficiência.
@@ -115,7 +115,7 @@ João fez 5 tarefas neste sprint (1 complexa nível 4-5):
 - Estimou 8h, gastou 8h ✅ (eficiente!)
 - Estimou 6h, gastou 5h ✅ (fez mais rápido!)
 - Estimou 4h, gastou 4.5h ✅ (dentro do limite!)
-- Estimou 10h, gastou 12h ✅ (assumindo complexidade 2, desvio de -20%, dentro do limite de -25%!)
+- Estimou 10h, gastou 12h ✅ (assumindo complexidade 2, desvio de -20%, dentro do limite de -20%!)
 - Estimou 2h, gastou 1h ✅ (fez mais rápido!)
 
 Cálculo:
@@ -149,7 +149,7 @@ Performance Score: 91.25 pontos ⭐⭐⭐⭐
 Pedro fez 6 features complexas (nível 4-5):
 - Todas executadas com alta eficiência ✅
 - Nota média: 4.67
-- Exemplo: Tarefa complexidade 4, estimou 15h, gastou 16h ✅ (dentro de -35%)
+- Exemplo: Tarefa complexidade 4, estimou 15h, gastou 16h ✅ (dentro de -30%)
 
 Cálculo:
 → Qualidade: 93.3 pontos (nota 4.67 média)
@@ -195,7 +195,7 @@ Sempre registre seu tempo no worklog! ⏱️
 ```
 Lucas fez neste sprint:
 - 2 Bugs simples (1.5h e 2h) → ✅ eficientes
-- 1 Bug complexidade 3 (7h) → ✅ eficiente (dentro de ≤8h)
+- 1 Bug complexidade 3 (4.5h) → ✅ eficiente (dentro de ≤5h)
 - 2 Features complexidade 2 (estimou 6h/4h, gastou 5h/3h) → ✅ eficientes
 - 1 História complexidade 4 (estimou 15h, gastou 16h) → ✅ altamente eficiente
 - 2h de auxílio 🤝

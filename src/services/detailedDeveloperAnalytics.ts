@@ -1,5 +1,5 @@
 import { TaskItem, TaskPerformanceMetrics } from '../types';
-import { isCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
+import { isCompletedStatus, isFullyCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 import { calculateTaskMetrics } from './performanceAnalytics';
 
@@ -149,8 +149,9 @@ function calculateFeatureModulePerformance(
     );
     
     // Reworked accuracy calculation
+    // IMPORTANT: Performance analysis only considers fully completed tasks (status "concluído" or "concluido")
     const taskMetrics = taskList.map(t => calculateTaskMetrics(t, false));
-    const completedMetrics = taskMetrics.filter(t => isCompletedStatus(t.task.status) && t.hoursEstimated > 0);
+    const completedMetrics = taskMetrics.filter(t => isFullyCompletedStatus(t.task.status) && t.hoursEstimated > 0);
 
     const bugs = completedMetrics.filter(t => t.task.tipo === 'Bug');
     const features = completedMetrics.filter(t => t.task.tipo !== 'Bug');
@@ -200,8 +201,8 @@ function calculateFeatureModulePerformance(
     
     const avgComplexity = taskList.reduce((sum, t) => sum + t.complexidade, 0) / taskList.length;
     
-    // IMPORTANT: Only completed tasks are considered for performance calculations
-    const completed = taskList.filter(t => isCompletedStatus(t.status)).length;
+    // IMPORTANT: Only fully completed tasks are considered for performance calculations (status "concluído" or "concluido")
+    const completed = taskList.filter(t => isFullyCompletedStatus(t.status)).length;
     const completionRate = taskList.length > 0 ? (completed / taskList.length) * 100 : 0;
     
     results.push({
@@ -274,8 +275,9 @@ function calculateComplexityDetailedAnalysis(
     const avgHoursPerTask = totalHoursWorked / taskList.length;
 
     // Reworked accuracy calculation
+    // IMPORTANT: Performance analysis only considers fully completed tasks (status "concluído" or "concluido")
     const taskMetrics = taskList.map(t => calculateTaskMetrics(t, false));
-    const completedMetrics = taskMetrics.filter(t => isCompletedStatus(t.task.status) && t.hoursEstimated > 0);
+    const completedMetrics = taskMetrics.filter(t => isFullyCompletedStatus(t.task.status) && t.hoursEstimated > 0);
 
     const bugs = completedMetrics.filter(t => t.task.tipo === 'Bug');
     const features = completedMetrics.filter(t => t.task.tipo !== 'Bug');

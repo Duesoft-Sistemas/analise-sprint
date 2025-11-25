@@ -54,6 +54,10 @@ interface SprintStore {
   // State for breakdown modal
   isBreakdownModalOpen: boolean;
   developerForBreakdown: DeveloperMetrics | null;
+  
+  // State for worklog developer details modal
+  isWorklogDeveloperModalOpen: boolean;
+  worklogDeveloperName: string | null;
 
   // Presentation mode
   presentation: PresentationConfig;
@@ -76,6 +80,8 @@ interface SprintStore {
   setAnalyticsFilter: (filter: { type: 'feature' | 'client'; value: string } | null) => void;
   openBreakdownModal: (developer: DeveloperMetrics) => void;
   closeBreakdownModal: () => void;
+  openWorklogDeveloperModal: (developerName: string) => void;
+  closeWorklogDeveloperModal: () => void;
 
   // Presentation actions
   setPresentationConfig: (update: Partial<PresentationConfig>) => void;
@@ -119,8 +125,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     currentStepIndex: 0,
     steps: [
       { view: 'sprint', section: 'summary' },
-      { view: 'sprint', section: 'byFeature' },
       { view: 'sprint', section: 'byClient' },
+      { view: 'sprint', section: 'byFeature' },
       { view: 'sprint', section: 'developers' },
       { view: 'multiSprint', multiSection: 'sprintDistribution' },
       { view: 'multiSprint', multiSection: 'developerAllocation' },
@@ -216,13 +222,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -318,13 +324,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -416,13 +422,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     
     const { selectedSprint } = get();
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -478,13 +484,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     const worklogFileNames = fileName ? [fileName] : [];
@@ -548,13 +554,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -614,13 +620,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     }
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -686,13 +692,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         : sprints[0] || null;
 
     const sprintAnalytics = newSelected
-      ? calculateSprintAnalytics(processedTasks, newSelected)
+      ? calculateSprintAnalytics(processedTasks, newSelected, metadata || [], worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = newSelected
-      ? calculateRiskAlerts(processedTasks, newSelected)
+      ? calculateRiskAlerts(processedTasks, newSelected, metadata || [])
       : [];
 
     set({
@@ -763,13 +769,13 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
         : sprints[0] || null;
 
     const sprintAnalytics = newSelected
-      ? calculateSprintAnalytics(processedTasks, newSelected)
+      ? calculateSprintAnalytics(processedTasks, newSelected, combinedMetadata, worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = newSelected
-      ? calculateRiskAlerts(processedTasks, newSelected)
+      ? calculateRiskAlerts(processedTasks, newSelected, combinedMetadata)
       : [];
 
     set({
@@ -798,15 +804,15 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     
     const sprints = getAllSprints(processedTasks);
     const newSelected = sprints.length > 0 ? sprints[0] : null;
-    
+
     const sprintAnalytics = newSelected
-      ? calculateSprintAnalytics(processedTasks, newSelected)
+      ? calculateSprintAnalytics(processedTasks, newSelected, [], worklogs)
       : null;
     
     const crossSprintAnalytics = calculateCrossSprintAnalytics(processedTasks);
     
     const riskAlerts = newSelected
-      ? calculateRiskAlerts(processedTasks, newSelected)
+      ? calculateRiskAlerts(processedTasks, newSelected, [])
       : [];
 
     set({
@@ -822,7 +828,7 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   },
 
   setSprintPeriod: (period: SprintPeriod | null) => {
-    const { tasks, worklogs, selectedSprint } = get();
+    const { tasks, worklogs, selectedSprint, sprintMetadata } = get();
     
     // Recalculate hybrid metrics with new sprint period
     const processedTasks = worklogs.length > 0
@@ -830,11 +836,11 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       : tasks;
     
     const sprintAnalytics = selectedSprint
-      ? calculateSprintAnalytics(processedTasks, selectedSprint)
+      ? calculateSprintAnalytics(processedTasks, selectedSprint, sprintMetadata, worklogs)
       : null;
     
     const riskAlerts = selectedSprint
-      ? calculateRiskAlerts(processedTasks, selectedSprint)
+      ? calculateRiskAlerts(processedTasks, selectedSprint, sprintMetadata)
       : [];
 
     set({
@@ -846,9 +852,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   },
 
   setSelectedSprint: (sprint: string) => {
-    const { tasks } = get();
-    const sprintAnalytics = calculateSprintAnalytics(tasks, sprint);
-    const riskAlerts = calculateRiskAlerts(tasks, sprint);
+    const { tasks, worklogs, sprintMetadata } = get();
+    const sprintAnalytics = calculateSprintAnalytics(tasks, sprint, sprintMetadata, worklogs);
+    const riskAlerts = calculateRiskAlerts(tasks, sprint, sprintMetadata);
 
     set({
       selectedSprint: sprint,
@@ -910,6 +916,8 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       analyticsFilter: null,
       isBreakdownModalOpen: false,
       developerForBreakdown: null,
+      isWorklogDeveloperModalOpen: false,
+      worklogDeveloperName: null,
     });
   },
 
@@ -919,6 +927,14 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
 
   closeBreakdownModal: () => {
     set({ isBreakdownModalOpen: false, developerForBreakdown: null });
+  },
+
+  openWorklogDeveloperModal: (developerName: string) => {
+    set({ isWorklogDeveloperModalOpen: true, worklogDeveloperName: developerName });
+  },
+
+  closeWorklogDeveloperModal: () => {
+    set({ isWorklogDeveloperModalOpen: false, worklogDeveloperName: null });
   },
 
   // Presentation actions

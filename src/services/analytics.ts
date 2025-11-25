@@ -20,8 +20,9 @@ import {
   isTestesTask,
   hasImpedimentoTrabalho,
 } from '../utils/calculations';
-import { isBacklogSprintValue } from '../utils/calculations';
+import { isBacklogSprintValue, getSprintHoursPerDeveloper, getSprintHoursForIntern } from '../utils/calculations';
 import { getInternDevelopers } from '../services/configService';
+import { calculateTaskHybridMetrics } from './hybridCalculations';
 
 // Helper function to compare dates without time (only date part)
 function compareDateOnly(date1: Date, date2: Date): number {
@@ -51,12 +52,44 @@ function isDuvidaOcultaTask(task: TaskItem): boolean {
 // IMPORTANT: Time spent is ALWAYS from worklog (tempoGastoNoSprint), never from sprint spreadsheet
 export function calculateSprintAnalytics(
   tasks: TaskItem[],
-  sprintName: string
+  sprintName: string,
+  sprintMetadata?: SprintMetadata[],
+  worklogs?: WorklogEntry[]
 ): SprintAnalytics {
-  // IMPORTANT: Explicitly exclude tasks without sprint (backlog) - they don't interfere in sprint analytics
-  const sprintTasks = tasks.filter(
+  // Get sprint metadata to check if sprint is completed
+  const metadata = sprintMetadata?.find(m => m.sprint === sprintName);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  // Check if sprint is completed (end date has passed)
+  const isSprintCompleted = metadata && metadata.dataFim 
+    ? (() => {
+        const sprintEnd = new Date(metadata.dataFim);
+        sprintEnd.setHours(23, 59, 59, 999);
+        return sprintEnd.getTime() < now.getTime();
+      })()
+    : false;
+
+  // ALWAYS filter only tasks allocated to this sprint, regardless of sprint status (active or completed)
+  // This ensures consistency: sprint analytics shows ONLY tasks assigned to the sprint
+  let sprintTasks = tasks.filter(
     (t) => t.sprint === sprintName && t.sprint && t.sprint.trim() !== '' && !isBacklogSprintValue(t.sprint)
   );
+
+  // For completed sprints: recalculate tempoGastoNoSprint based on worklogs in the sprint period
+  // This ensures time spent shown is from worklogs within the sprint period
+  if (isSprintCompleted && worklogs && worklogs.length > 0 && metadata) {
+    const sprintPeriod = {
+      sprintName,
+      startDate: metadata.dataInicio,
+      endDate: metadata.dataFim,
+    };
+
+    // Recalculate tempoGastoNoSprint for the sprint period for tasks allocated to this sprint
+    sprintTasks = sprintTasks.map(task => {
+      return calculateTaskHybridMetrics(task, worklogs, sprintPeriod);
+    });
+  }
 
   const completedTasks = sprintTasks.filter((t) => isCompletedStatus(t.status));
   
@@ -81,16 +114,21 @@ export function calculateSprintAnalytics(
     totalEstimatedHours,
     completedTasks: completedTasks.length,
     completedHours,
-    developers: calculateDeveloperMetrics(sprintTasks),
+    developers: calculateDeveloperMetrics(sprintTasks, sprintName, sprintMetadata),
     byType: calculateTypeMetrics(sprintTasks),
     byFeature: calculateDimensionMetrics(sprintTasks, 'feature'),
     byModule: calculateDimensionMetrics(sprintTasks, 'modulo'),
     byClient: calculateClientMetrics(sprintTasks),
+    isHistorical: isSprintCompleted, // Flag to indicate this is historical analysis
   };
 }
 
 // Calculate metrics per developer
-function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
+function calculateDeveloperMetrics(
+  tasks: TaskItem[],
+  sprintName: string,
+  sprintMetadata?: SprintMetadata[]
+): DeveloperMetrics[] {
   const devMap = new Map<string, TaskItem[]>();
 
   for (const task of tasks) {
@@ -103,12 +141,20 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
   }
 
   const developers: DeveloperMetrics[] = [];
+  const internDevelopers = getInternDevelopers();
+  const metadata = sprintMetadata || [];
 
   for (const [name, devTasks] of devMap.entries()) {
     // HYBRID APPROACH:
     // - For capacity allocation: use estimativaRestante (what's left for THIS sprint)
     // - For time spent in sprint: use tempoGastoNoSprint (time logged in THIS sprint) - ALWAYS from worklog
     // Note: This function receives tasks already filtered by sprint (from calculateSprintAnalytics)
+    
+    // Get hours per developer for this sprint (considering if developer is intern)
+    const isIntern = internDevelopers.includes(name);
+    const sprintHours = isIntern
+      ? getSprintHoursForIntern(sprintName, metadata)
+      : getSprintHoursPerDeveloper(sprintName, metadata);
     
     // Capacity/Allocation metrics (for "can they finish the sprint?")
     const totalAllocatedHours = devTasks.reduce(
@@ -132,13 +178,13 @@ function calculateDeveloperMetrics(tasks: TaskItem[]): DeveloperMetrics[] {
         t.tempoGastoNoSprint ?? 0
       );
     }, 0);
-    const availableHours = 40 - totalConsumedHours;
+    const availableHours = sprintHours - totalConsumedHours;
     
     // Performance metrics (for accuracy analysis)
     const estimatedHours = devTasks.reduce((sum, t) => sum + t.estimativa, 0);
     
     // Utilization based on current sprint allocation
-    const utilizationPercent = calculatePercentage(totalAllocatedHours, 40); // 40h work week
+    const utilizationPercent = calculatePercentage(totalAllocatedHours, sprintHours);
 
     developers.push({
       name,
@@ -385,7 +431,8 @@ export function calculateCrossSprintAnalytics(
 // Calculate risk alerts
 export function calculateRiskAlerts(
   tasks: TaskItem[],
-  sprintName: string
+  sprintName: string,
+  sprintMetadata?: SprintMetadata[]
 ): RiskAlert[] {
   const alerts: RiskAlert[] = [];
   const sprintTasks = tasks.filter((t) => t.sprint === sprintName);
@@ -424,7 +471,7 @@ export function calculateRiskAlerts(
   }
 
   // Over-allocated developers
-  const devMetrics = calculateDeveloperMetrics(sprintTasks);
+  const devMetrics = calculateDeveloperMetrics(sprintTasks, sprintName, sprintMetadata);
   for (const dev of devMetrics) {
     if (dev.utilizationPercent > 100) {
       alerts.push({
@@ -1631,7 +1678,7 @@ export function calculateCapacityRecommendation(
     const completedCount = filteredCompleted.length;
     const throughput = completedCount / devCount;
     
-    // For hours analysis: use 40 hours per developer per sprint (30h for interns)
+    // For hours analysis: use hours from sprint metadata (proportional for interns)
     // Get unique developers who worked in this sprint
     const allSprintTasks = selectedDevs && selectedDevs.size > 0
       ? sprintTasks.filter(t => t.responsavel && selectedDevs.has(t.responsavel))
@@ -1642,16 +1689,16 @@ export function calculateCapacityRecommendation(
     
     // Get intern developers list
     const internDevelopers = getInternDevelopers();
-    const HOURS_PER_DEV_PER_SPRINT = 40;
-    const HOURS_PER_INTERN_PER_SPRINT = 30;
     
-    // Calculate total hours: 40h for regular devs, 30h for interns
+    // Calculate total hours using sprint metadata (proportional for interns)
     let totalHours = 0;
+    const sprintHoursPerDev = getSprintHoursPerDeveloper(meta.sprint, sprintMetadata);
     Array.from(allDevs).forEach(dev => {
       if (internDevelopers.includes(dev)) {
-        totalHours += HOURS_PER_INTERN_PER_SPRINT;
+        // Calculate proportionally: if sprint has 32h, intern gets 32 * (30/40) = 24h
+        totalHours += getSprintHoursForIntern(meta.sprint, sprintMetadata);
       } else {
-        totalHours += HOURS_PER_DEV_PER_SPRINT;
+        totalHours += sprintHoursPerDev;
       }
     });
     

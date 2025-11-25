@@ -4,6 +4,7 @@ import { useSprintStore } from './store/useSprintStore';
 import { XlsUploader } from './components/XlsUploader';
 import { Dashboard } from './components/Dashboard';
 import { AvailableHoursBreakdownModal } from './components/AvailableHoursBreakdownModal';
+import { WorklogDeveloperDetailsModal } from './components/WorklogDeveloperDetailsModal';
 
 function App() {
   const tasks = useSprintStore((state) => state.tasks);
@@ -19,6 +20,11 @@ function App() {
   const isBreakdownModalOpen = useSprintStore((state) => state.isBreakdownModalOpen);
   const developerForBreakdown = useSprintStore((state) => state.developerForBreakdown);
   const closeBreakdownModal = useSprintStore((state) => state.closeBreakdownModal);
+  
+  // State for worklog developer modal
+  const isWorklogDeveloperModalOpen = useSprintStore((state) => state.isWorklogDeveloperModalOpen);
+  const worklogDeveloperName = useSprintStore((state) => state.worklogDeveloperName);
+  const closeWorklogDeveloperModal = useSprintStore((state) => state.closeWorklogDeveloperModal);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 flex flex-col">
@@ -70,12 +76,20 @@ function App() {
         </footer>
       )}
 
-      {/* Global Modal */}
+      {/* Global Modals */}
       {developerForBreakdown && (
         <AvailableHoursBreakdownModal
           isOpen={isBreakdownModalOpen}
           onClose={closeBreakdownModal}
           developer={developerForBreakdown}
+        />
+      )}
+      
+      {worklogDeveloperName && (
+        <WorklogDeveloperDetailsModal
+          isOpen={isWorklogDeveloperModalOpen}
+          onClose={closeWorklogDeveloperModal}
+          developerName={worklogDeveloperName}
         />
       )}
     </div>

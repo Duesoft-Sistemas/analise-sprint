@@ -55,7 +55,7 @@ export const TotalizerCards: React.FC<TotalizerCardsProps> = ({ analytics }) => 
         <StatCard
           icon={<CheckCircle className="w-5 h-5" />}
           label="Progresso"
-          value={`${Math.round((analytics.completedTasks / analytics.totalTasks) * 100)}%`}
+          value={`${analytics.totalTasks > 0 ? Math.round((analytics.completedTasks / analytics.totalTasks) * 100) : 0}%`}
           subtitle={`${analytics.completedTasks}/${analytics.totalTasks} tarefas`}
           color="green"
         />
@@ -63,7 +63,7 @@ export const TotalizerCards: React.FC<TotalizerCardsProps> = ({ analytics }) => 
           icon={<Clock className="w-5 h-5" />}
           label="Horas Concluídas"
           value={formatHours(analytics.completedHours)}
-          subtitle={`${Math.round((analytics.completedHours / analytics.totalHours) * 100)}% do tempo`}
+          subtitle={`${analytics.totalHours > 0 ? Math.round((analytics.completedHours / analytics.totalHours) * 100) : 0}% do tempo`}
           color="indigo"
         />
         <StatCard

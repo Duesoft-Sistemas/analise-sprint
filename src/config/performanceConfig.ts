@@ -34,32 +34,32 @@ export const COMPLEXITY_EFFICIENCY_ZONES: ComplexityEfficiencyZone[] = [
   {
     complexity: 1,
     name: 'Muito Simples',
-    maxEfficientHours: 2,
-    maxAcceptableHours: 4,
+    maxEfficientHours: 1.5,
+    maxAcceptableHours: 3,
   },
   {
     complexity: 2,
     name: 'Simples',
-    maxEfficientHours: 4,
-    maxAcceptableHours: 8,
+    maxEfficientHours: 3,
+    maxAcceptableHours: 5,
   },
     {
       complexity: 3,
       name: 'Média',
-      maxEfficientHours: 8,
-      maxAcceptableHours: 16,
+      maxEfficientHours: 5,
+      maxAcceptableHours: 9,
     },
   {
     complexity: 4,
     name: 'Complexa',
-    maxEfficientHours: 16,
-    maxAcceptableHours: 32,
+    maxEfficientHours: 9,
+    maxAcceptableHours: 17,
   },
   {
     complexity: 5,
     name: 'Muito Complexa',
-    maxEfficientHours: 32,
-    maxAcceptableHours: 40,
+    maxEfficientHours: 17,
+    maxAcceptableHours: 30,
   },
 ];
 
@@ -86,11 +86,11 @@ export interface EfficiencyThreshold {
 }
 
 export const EFFICIENCY_THRESHOLDS: EfficiencyThreshold[] = [
-  { complexity: 1, faster: Infinity, slower: -20 },
-  { complexity: 2, faster: Infinity, slower: -25 },
-  { complexity: 3, faster: Infinity, slower: -30 },
-  { complexity: 4, faster: Infinity, slower: -35 },
-  { complexity: 5, faster: Infinity, slower: -40 },
+  { complexity: 1, faster: Infinity, slower: -15 },
+  { complexity: 2, faster: Infinity, slower: -20 },
+  { complexity: 3, faster: Infinity, slower: -25 },
+  { complexity: 4, faster: Infinity, slower: -30 },
+  { complexity: 5, faster: Infinity, slower: -35 },
 ];
 
 // Função auxiliar para obter o threshold de uma complexidade

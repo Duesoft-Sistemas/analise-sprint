@@ -306,7 +306,7 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                         • <strong>Features:</strong> Eficiente dentro dos limites de desvio percentual = peso 1.0
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 text-xs italic">
-                        • <strong>Bugs:</strong> Zona eficiente (ex: Complexidade 4 gastou ≤16h) = peso 1.0
+                        • <strong>Bugs:</strong> Zona eficiente (ex: Complexidade 4 gastou ≤9h) = peso 1.0
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 text-xs italic">
                         • <strong>Importante:</strong> Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
@@ -319,10 +319,10 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                         • Você fez 3 tarefas complexas (nível 4): 2 features + 1 bug
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • 2 tarefas executadas com alta eficiência (1 feature dentro do limite + 1 bug na zona eficiente ≤16h) = 2 × 1.0 = 2.0
+                        • 2 tarefas executadas com alta eficiência (1 feature dentro do limite + 1 bug na zona eficiente ≤9h) = 2 × 1.0 = 2.0
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • 1 bug na zona aceitável (≤32h) = não conta (0)
+                        • 1 bug na zona aceitável (≤17h) = não conta (0)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
                         • Eficiência: 2.0 / 3 tarefas = 67% de eficiência
@@ -473,7 +473,7 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 <p className="font-medium mb-2">📗 Tarefa Média (nível 3) estimada em 10h:</p>
                 <ul className="ml-4 space-y-1">
                   <li>✅ Gastou 5h-10h → <strong>EFICIENTE!</strong> (até 50% mais rápido é excelente)</li>
-                  <li>✅ Gastou 11h-12h (até -20% de atraso) → <strong>Aceitável</strong></li>
+                  <li>✅ Gastou 11h-12.5h (até -25% de atraso) → <strong>Aceitável</strong></li>
                   <li>❌ Gastou 13h+ → <strong>Ineficiente</strong></li>
                 </ul>
               </div>
@@ -482,8 +482,8 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                 <p className="font-medium mb-2">📕 Tarefa Complexa (nível 4-5) estimada em 10h:</p>
                 <ul className="ml-4 space-y-1">
                   <li>✅ Gastou 5h-10h → <strong>EFICIENTE!</strong> (até 50% mais rápido é excelente)</li>
-                  <li>✅ Gastou 11h-14h (até -40% de atraso) → <strong>Aceitável</strong> 🏆</li>
-                  <li>❌ Gastou 15h+ → <strong>Ineficiente</strong></li>
+                  <li>✅ Gastou 11h-13.5h (até -35% de atraso) → <strong>Aceitável</strong> 🏆</li>
+                  <li>❌ Gastou 14h+ → <strong>Ineficiente</strong></li>
                 </ul>
                 <p className="mt-2 text-xs italic text-blue-700 dark:text-blue-300">
                   💡 Tarefas complexas têm mais tolerância porque imprevistos são mais comuns!

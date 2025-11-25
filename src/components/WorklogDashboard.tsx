@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Clock, TrendingUp, Calendar, Users, BarChart3, PieChart, Activity, Filter, Download } from 'lucide-react';
+import { Clock, TrendingUp, Calendar, Users, Activity } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { formatHours, getLocalDateKey, parseDate } from '../utils/calculations';
-import { WorklogEntry, TaskItem } from '../types';
+import { WorklogEntry } from '../types';
 import { isDateInSprint } from '../services/hybridCalculations';
 import { getDefaultSelectedDevelopers } from '../services/configService';
 
@@ -30,56 +30,41 @@ interface DailyWorklogData {
 }
 
 interface WorklogDashboardProps {
-  overviewRef?: React.RefObject<HTMLDivElement>;
   dailyRef?: React.RefObject<HTMLDivElement>;
   developersRef?: React.RefObject<HTMLDivElement>;
 }
 
-export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef, dailyRef, developersRef }) => {
+export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ dailyRef, developersRef }) => {
   const worklogs = useSprintStore((state) => state.worklogs);
   const tasks = useSprintStore((state) => state.tasks);
-  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
   const selectedSprint = useSprintStore((state) => state.selectedSprint);
   const sprints = useSprintStore((state) => state.sprints);
   const getSprintPeriod = useSprintStore((state) => state.getSprintPeriod);
   const presentation = useSprintStore((state) => state.presentation);
+  const openWorklogDeveloperModal = useSprintStore((state) => state.openWorklogDeveloperModal);
 
-  const [filterPeriod, setFilterPeriod] = useState<'sprint' | 'all'>('sprint');
   const [selectedDevelopers, setSelectedDevelopers] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'overview' | 'daily' | 'developers' | 'tasks'>('overview');
+  const [viewMode, setViewMode] = useState<'daily' | 'developers' | 'tasks'>('developers');
 
   // Sync viewMode with presentation step
   useEffect(() => {
     if (presentation.isActive && presentation.steps.length > 0) {
       const currentStep = presentation.steps[presentation.currentStepIndex];
-      if (currentStep && currentStep.view === 'worklog' && currentStep.worklogSection) {
+      if (currentStep && 'worklogSection' in currentStep && currentStep.worklogSection) {
         setViewMode(currentStep.worklogSection);
       }
     }
   }, [presentation.isActive, presentation.currentStepIndex, presentation.steps]);
 
-  // Calcular período de análise
+  // Calcular período de análise - sempre usar sprint selecionado
   const analysisPeriod = useMemo(() => {
-    if (filterPeriod === 'sprint' && selectedSprint) {
+    if (selectedSprint) {
       const period = getSprintPeriod(selectedSprint);
       if (period) return period;
     }
     
-    if (worklogs.length === 0) return null;
-    
-    // Se não há sprint selecionado ou período custom, usar range de todos os worklogs
-    const dates = worklogs.map(w => w.data.getTime());
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    minDate.setHours(0, 0, 0, 0);
-    maxDate.setHours(23, 59, 59, 999);
-    
-    return {
-      sprintName: 'Todos os Períodos',
-      startDate: minDate,
-      endDate: maxDate,
-    };
-  }, [filterPeriod, selectedSprint, getSprintPeriod, worklogs]);
+    return null;
+  }, [selectedSprint, getSprintPeriod]);
 
   // Filtrar worklogs pelo período
   const filteredWorklogs = useMemo(() => {
@@ -276,50 +261,26 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef,
       </div>
 
       {/* Sprint Selector */}
-      {filterPeriod === 'sprint' && sprints.length > 0 && (
+      {sprints.length > 0 && (
         <div className="mb-4">
           <SprintSelector />
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</span>
-            <select
-              value={filterPeriod}
-              onChange={(e) => setFilterPeriod(e.target.value as any)}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="sprint">Sprint Selecionado</option>
-              <option value="all">Todos os Períodos</option>
-            </select>
+      {/* Período do Sprint */}
+      {analysisPeriod && selectedSprint && (
+        <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Calendar className="w-4 h-4" />
+            <span>
+              <span className="font-medium">{selectedSprint}</span>
+              {' • '}
+              {analysisPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} -{' '}
+              {analysisPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            </span>
           </div>
-          
-          {analysisPeriod && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <Calendar className="w-4 h-4" />
-              <span>
-                {filterPeriod === 'sprint' && selectedSprint ? (
-                  <>
-                    <span className="font-medium">{selectedSprint}</span>
-                    {' • '}
-                    {analysisPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} -{' '}
-                    {analysisPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  </>
-                ) : (
-                  <>
-                    {analysisPeriod.startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} -{' '}
-                    {analysisPeriod.endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  </>
-                )}
-              </span>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Estatísticas Gerais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -364,15 +325,15 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef,
       <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-wrap gap-2 mb-6">
           <button
-            onClick={() => setViewMode('overview')}
+            onClick={() => setViewMode('developers')}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              viewMode === 'overview'
+              viewMode === 'developers'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
-            <BarChart3 className="w-4 h-4 inline mr-2" />
-            Visão Geral
+            <Users className="w-4 h-4 inline mr-2" />
+            Por Desenvolvedor
           </button>
           <button
             onClick={() => setViewMode('daily')}
@@ -385,99 +346,7 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef,
             <Calendar className="w-4 h-4 inline mr-2" />
             Análise Diária
           </button>
-          <button
-            onClick={() => setViewMode('developers')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              viewMode === 'developers'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            <Users className="w-4 h-4 inline mr-2" />
-            Por Desenvolvedor
-          </button>
         </div>
-
-        {/* Visão Geral */}
-        {viewMode === 'overview' && (
-          <div ref={overviewRef}>
-          <div className="space-y-6">
-            {/* Gráfico de Distribuição por Desenvolvedor */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Distribuição de Horas por Desenvolvedor
-              </h3>
-              <div className="space-y-3">
-                {displayedDevelopers.map((dev) => {
-                  const percentage = overallStats.totalHours > 0
-                    ? (dev.totalHours / overallStats.totalHours) * 100
-                    : 0;
-                  const maxHours = Math.max(...developerStats.map(d => d.totalHours), 1);
-                  const barWidth = (dev.totalHours / maxHours) * 100;
-
-                  return (
-                    <div key={dev.developerName} className="space-y-1">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
-                          {dev.developerName}
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {formatHours(dev.totalHours)}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-500 w-16 text-right">
-                            {percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-500"
-                          style={{ width: `${barWidth}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-500">
-                        {dev.totalEntries} lançamentos • {dev.daysWithWork} dias • Média: {formatHours(dev.averageHoursPerDay)}/dia
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Gráfico de Pizza (Pie Chart) */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Participação por Desenvolvedor
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {displayedDevelopers.slice(0, 8).map((dev) => {
-                  const percentage = overallStats.totalHours > 0
-                    ? (dev.totalHours / overallStats.totalHours) * 100
-                    : 0;
-                  
-                  return (
-                    <div
-                      key={dev.developerName}
-                      className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800"
-                    >
-                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-                        {percentage.toFixed(1)}%
-                      </div>
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {dev.developerName}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {formatHours(dev.totalHours)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          </div>
-        )}
 
         {/* Análise Diária */}
         {viewMode === 'daily' && (
@@ -596,7 +465,8 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ overviewRef,
                 return (
                   <div
                     key={dev.developerName}
-                    className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800"
+                    onClick={() => openWorklogDeveloperModal(dev.developerName)}
+                    className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
                   >
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-bold text-gray-900 dark:text-white">

@@ -1,22 +1,34 @@
 import React, { useState } from 'react';
 import { User, TrendingUp, AlertTriangle, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
-import { DeveloperMetrics, TaskItem } from '../types';
-import { formatHours } from '../utils/calculations';
+import { DeveloperMetrics } from '../types';
+import { formatHours, getSprintHoursPerDeveloper, getSprintHoursForIntern } from '../utils/calculations';
 import { useSprintStore } from '../store/useSprintStore';
+import { isInternDeveloper } from '../services/configService';
 
 interface DeveloperCardProps {
   developer: DeveloperMetrics;
+  isHistorical?: boolean; // Flag indicating this is a historical analysis (completed sprint)
 }
 
-export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
+export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer, isHistorical = false }) => {
   const selectedDeveloper = useSprintStore((state) => state.selectedDeveloper);
   const setSelectedDeveloper = useSprintStore(
     (state) => state.setSelectedDeveloper
   );
   const openBreakdownModal = useSprintStore((state) => state.openBreakdownModal);
+  const selectedSprint = useSprintStore((state) => state.selectedSprint);
+  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
   const [isComplexityExpanded, setIsComplexityExpanded] = useState(false);
 
   const isSelected = selectedDeveloper === developer.name;
+
+  // Get hours per developer for this sprint (considering if developer is intern)
+  const isIntern = isInternDeveloper(developer.name);
+  const sprintHours = selectedSprint
+    ? (isIntern
+        ? getSprintHoursForIntern(selectedSprint, sprintMetadata)
+        : getSprintHoursPerDeveloper(selectedSprint, sprintMetadata))
+    : 40; // Fallback to 40 if no sprint selected
 
   const handleCardClick = () => {
     if (isSelected) {
@@ -83,75 +95,80 @@ export const DeveloperCard: React.FC<DeveloperCardProps> = ({ developer }) => {
         )}
       </div>
 
-      {/* Utilization Bar - Allocation for the current sprint */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-1">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Alocado no sprint</span>
-            <span className="text-[9px] opacity-60" title="Soma do que falta executar neste sprint (estimativa restante)">ⓘ</span>
+      {/* Utilization Bar - Allocation for the current sprint (only show for active sprints) */}
+      {!isHistorical && (
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Alocado no sprint</span>
+              <span className="text-[9px] opacity-60" title="Soma do que falta executar neste sprint (estimativa restante)">ⓘ</span>
+            </div>
+            <span className={`text-sm font-bold ${colors.text}`}>
+              {developer.utilizationPercent}%
+            </span>
           </div>
-          <span className={`text-sm font-bold ${colors.text}`}>
-            {developer.utilizationPercent}%
-          </span>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ${
+                developer.riskLevel === 'high'
+                  ? 'bg-gradient-to-r from-red-500 to-red-600'
+                  : developer.riskLevel === 'medium'
+                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                  : 'bg-gradient-to-r from-green-500 to-green-600'
+              }`}
+              style={{ width: `${Math.min(developer.utilizationPercent, 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+            {formatHours(developer.totalAllocatedHours)} de {formatHours(sprintHours)} (sprint)
+          </p>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-          <div
-            className={`h-2 rounded-full transition-all duration-500 ${
-              developer.riskLevel === 'high'
-                ? 'bg-gradient-to-r from-red-500 to-red-600'
-                : developer.riskLevel === 'medium'
-                ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
-                : 'bg-gradient-to-r from-green-500 to-green-600'
-            }`}
-            style={{ width: `${Math.min(developer.utilizationPercent, 100)}%` }}
-          />
-        </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-          {formatHours(developer.totalAllocatedHours)} de 40h (semanal)
-        </p>
-      </div>
+      )}
 
       {/* Sprint Current Status */}
-      <div className="space-y-2 text-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-            <TrendingUp className="w-4 h-4" />
-            <span>Gasto</span>
-            <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs">
-              ⓘ
+      {!isHistorical && (
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+              <TrendingUp className="w-4 h-4" />
+              <span>Gasto</span>
+              <span className="text-[9px] opacity-60" title="Tempo total registrado neste sprint através de worklogs">
+                ⓘ
+              </span>
+            </div>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {formatHours(developer.totalSpentHours)}
             </span>
           </div>
-          <span className="font-medium text-gray-900 dark:text-white">
-            {formatHours(developer.totalSpentHours)}
-          </span>
         </div>
-
-      </div>
+      )}
 
       {/* Available Hours */}
-      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
-            <span className="text-[9px] opacity-60" title="Capacidade restante da semana (40h). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa">
-              ⓘ
+      {!isHistorical && (
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Horas Disponíveis</span>
+              <span className="text-[9px] opacity-60" title={`Capacidade restante do sprint (${formatHours(sprintHours)}). Considera o maior valor entre estimativa restante e tempo gasto para cada tarefa`}>
+                ⓘ
+              </span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBreakdownModal(developer);
+                }}
+                className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                title="Ver detalhe do cálculo"
+              >
+                <Calculator className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+            <span className="text-sm font-medium text-gray-900 dark:text-white">
+              {formatHours(developer.totalAvailableHours)}
             </span>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                openBreakdownModal(developer);
-              }}
-              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-              title="Ver detalhe do cálculo"
-            >
-              <Calculator className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-            </button>
           </div>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
-            {formatHours(developer.totalAvailableHours)}
-          </span>
         </div>
-      </div>
+      )}
 
       {/* Complexity Distribution */}
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">

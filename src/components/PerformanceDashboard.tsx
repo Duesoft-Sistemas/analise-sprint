@@ -15,7 +15,7 @@ import { useSprintStore } from '../store/useSprintStore';
 import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCustomPeriodPerformance } from '../services/performanceAnalytics';
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
 import { SprintPerformanceMetrics, CustomPeriodMetrics, TaskItem } from '../types';
-import { isCompletedStatus, isNeutralTask } from '../utils/calculations';
+import { isCompletedStatus, isFullyCompletedStatus, isNeutralTask } from '../utils/calculations';
 import { getEfficiencyThreshold } from '../config/performanceConfig';
 import { getDefaultSelectedDevelopers } from '../services/configService';
 
@@ -146,11 +146,11 @@ export const PerformanceDashboard: React.FC = () => {
             sprintMetadata
           );
           
-          // Calculate bugsVsFeatures for the period - IMPORTANT: Only completed tasks
+          // Calculate bugsVsFeatures for the period - IMPORTANT: Only fully completed tasks (status "concluído" or "concluido")
           const periodTasks = tasks.filter(t => 
             t.idResponsavel === developerId && 
             selectedSprintView.includes(t.sprint) &&
-            isCompletedStatus(t.status)
+            isFullyCompletedStatus(t.status)
           );
           const bugTasks = periodTasks.filter(t => t.tipo === 'Bug').length;
           const featureTasks = periodTasks.filter(t => t.tipo === 'Tarefa' || t.tipo === 'História').length;
@@ -160,7 +160,8 @@ export const PerformanceDashboard: React.FC = () => {
           const allTasksMetrics = customMetrics.sprints.flatMap(sprint => sprint.tasks);
           
           // Calculate aggregated metrics based on aggregated tasks
-          const completedTasks = allTasksMetrics.filter(t => isCompletedStatus(t.task.status));
+          // IMPORTANT: Performance analysis only considers fully completed tasks (status "concluído" or "concluido")
+          const completedTasks = allTasksMetrics.filter(t => isFullyCompletedStatus(t.task.status));
           const completedWithEstimates = completedTasks.filter(t => t.hoursEstimated > 0);
           
           // Separate bugs and features

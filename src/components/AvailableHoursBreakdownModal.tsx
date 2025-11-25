@@ -1,7 +1,9 @@
 import React from 'react';
 import { X, Calculator, Info } from 'lucide-react';
 import { DeveloperMetrics, TaskItem } from '../types';
-import { formatHours, isCompletedStatus, compareTicketCodes } from '../utils/calculations';
+import { formatHours, isCompletedStatus, compareTicketCodes, getSprintHoursPerDeveloper, getSprintHoursForIntern } from '../utils/calculations';
+import { useSprintStore } from '../store/useSprintStore';
+import { isInternDeveloper } from '../services/configService';
 
 interface AvailableHoursBreakdownModalProps {
   developer: DeveloperMetrics;
@@ -21,8 +23,19 @@ export const AvailableHoursBreakdownModal: React.FC<AvailableHoursBreakdownModal
 }) => {
   if (!isOpen) return null;
 
+  // Get sprint metadata from store
+  const selectedSprint = useSprintStore((state) => state.selectedSprint);
+  const sprintMetadata = useSprintStore((state) => state.sprintMetadata);
+
+  // Get hours per developer for this sprint (considering if developer is intern)
+  const isIntern = isInternDeveloper(developer.name);
+  const weeklyCapacityHours = selectedSprint && sprintMetadata.length > 0
+    ? (isIntern
+        ? getSprintHoursForIntern(selectedSprint, sprintMetadata)
+        : getSprintHoursPerDeveloper(selectedSprint, sprintMetadata))
+    : 40; // Fallback to 40 if no sprint metadata
+
   // Capacity and contingency
-  const weeklyCapacityHours = 40; // Capacidade semanal padrão
   const contingencyPercent = 0.15; // 15% para testes, auxílios e reuniões
   const contingencyHours = weeklyCapacityHours * contingencyPercent;
 
