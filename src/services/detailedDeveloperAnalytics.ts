@@ -1,6 +1,6 @@
 import { TaskItem, TaskPerformanceMetrics } from '../types';
 import { isCompletedStatus, isFullyCompletedStatus, normalizeForComparison, isNeutralTask } from '../utils/calculations';
-import { getEfficiencyThreshold } from '../config/performanceConfig';
+import { getEfficiencyThreshold, calculateEfficiencyPoints } from '../config/performanceConfig';
 import { calculateTaskMetrics } from './performanceAnalytics';
 
 // =============================================================================
@@ -164,23 +164,18 @@ function calculateFeatureModulePerformance(
       ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
       : 0;
       
-    // NEW weighted calculation for overall accuracy
+    // NEW weighted calculation for overall accuracy using calculateEfficiencyPoints for bonuses
     let weightedEfficientScore = 0;
     completedMetrics.forEach(t => {
-      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
-        if (t.efficiencyImpact.zone === 'efficient') {
-          weightedEfficientScore += 1;
-        } else if (t.efficiencyImpact.zone === 'acceptable') {
-          weightedEfficientScore += 0.5;
-        }
-      } else {
-        const deviation = t.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(t.complexityScore);
-        const isEfficient = deviation > 0 ? true : deviation >= threshold.slower;
-        if (isEfficient) {
-          weightedEfficientScore += 1;
-        }
-      }
+      const points = calculateEfficiencyPoints(
+        t.task.tipo,
+        t.efficiencyImpact,
+        t.estimationAccuracy,
+        t.hoursSpent,
+        t.efficiencyImpact?.expectedMaxHours,
+        t.complexityScore
+      );
+      weightedEfficientScore += points;
     });
 
     const avgAccuracyRate = completedMetrics.length > 0
@@ -290,23 +285,18 @@ function calculateComplexityDetailedAnalysis(
       ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
       : 0;
     
-    // NEW weighted calculation for overall accuracy
+    // NEW weighted calculation for overall accuracy using calculateEfficiencyPoints for bonuses
     let weightedEfficientScore = 0;
     completedMetrics.forEach(t => {
-      if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
-        if (t.efficiencyImpact.zone === 'efficient') {
-          weightedEfficientScore += 1;
-        } else if (t.efficiencyImpact.zone === 'acceptable') {
-          weightedEfficientScore += 0.5;
-        }
-      } else {
-        const deviation = t.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(t.complexityScore);
-        const isEfficient = deviation > 0 ? true : deviation >= threshold.slower;
-        if (isEfficient) {
-          weightedEfficientScore += 1;
-        }
-      }
+      const points = calculateEfficiencyPoints(
+        t.task.tipo,
+        t.efficiencyImpact,
+        t.estimationAccuracy,
+        t.hoursSpent,
+        t.efficiencyImpact?.expectedMaxHours,
+        t.complexityScore
+      );
+      weightedEfficientScore += points;
     });
 
     const avgAccuracyRate = completedMetrics.length > 0

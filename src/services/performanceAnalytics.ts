@@ -16,6 +16,7 @@ import { isInternDeveloper } from '../services/configService';
 import {
   getEfficiencyThreshold as getThresholdFromConfig,
   checkComplexityZoneEfficiency,
+  calculateEfficiencyPoints,
   MAX_SENIORITY_EFFICIENCY_BONUS,
   MAX_COMPLEXITY_3_BONUS,
   AUXILIO_BONUS_SCALE,
@@ -35,10 +36,10 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   },
   
   accuracyRate: {
-    formula: '(Tarefas eficientes / Total) × 100. Avaliação separada: Bugs usam zona de eficiência (todas complexidades), Features usam apenas desvio percentual',
-    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-5 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). Representa 50% do seu Performance Score.',
-    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BUGS: Complexidade 1 gastou 1.5h = ✅ eficiente (≤1.5h eficiente, ≤3h aceitável). Complexidade 5 gastou 16h = ✅ eficiente (≤17h eficiente, ≤30h aceitável). FEATURES: Complexidade 1 estimou 10h, gastou 11.5h (-15%) = ✅ eficiente (limite -15%). Complexidade 5 estimou 30h, gastou 40.5h (-35%) = ✅ eficiente (limite -35%).',
-    example: 'Bug complexidade 1 gastou 1.5h = ✅ eficiente (zona: ≤1.5h eficiente, ≤3h aceitável). Bug complexidade 5 gastou 16h = ✅ eficiente (zona: ≤17h eficiente, ≤30h aceitável). Feature complexidade 1 estimou 10h, gastou 8h (+20%) = ✅ eficiente (≤+50% permitido). Feature complexidade 4 estimou 10h, gastou 13h (-30%) = ❌ ineficiente (limite -30%).',
+    formula: '(Pontos de Eficiência / Total) × 100. Avaliação separada: Bugs usam zona de eficiência (todas complexidades), Features usam apenas desvio percentual. Bonificação progressiva baseada em complexidade.',
+    description: '⭐ EFICIÊNCIA DE EXECUÇÃO: Percentual de tarefas executadas de forma eficiente. SISTEMA SEPARADO: BUGS - Complexidades 1-5 usam zona de eficiência (APENAS horas gastas). FEATURES - Todas usam desvio percentual (compara estimativa vs horas gastas). BONIFICAÇÃO: Complexidade 1-2 (máx 1.2 pts), Complexidade 3-5 (até 1.5 pts). Representa 50% do seu Performance Score.',
+    interpretation: 'Quanto maior, mais eficiente você é. IMPORTANTE: BUGS são avaliados por zona de complexidade (não penalizados por estimativa ruim). FEATURES são avaliadas por desvio percentual (dev deve executar conforme estimativa). BONIFICAÇÃO PROGRESSIVA: Tarefas muito eficientes ganham pontos extras. Complexidade 1-2: 25%+ eficiente = 1.2 pts (máximo). Complexidade 3-5: 25%+ = 1.2 pts, 50%+ = 1.5 pts (máximo). BUGS: Complexidade 1 gastou 1.0h = ✅ eficiente 1.2 pts (33% mais eficiente). Complexidade 5 gastou 8.5h = ✅ eficiente 1.5 pts (50% mais eficiente). FEATURES: Complexidade 1 estimou 10h, gastou 7.5h (+25%) = ✅ eficiente 1.2 pts. Complexidade 3 estimou 10h, gastou 4h (+60%) = ✅ eficiente 1.5 pts.',
+    example: 'Bug complexidade 1 gastou 1.0h = ✅ eficiente 1.2 pts (zona: ≤1.5h eficiente, 33% mais eficiente). Bug complexidade 5 gastou 8.5h = ✅ eficiente 1.5 pts (zona: ≤17h eficiente, 50% mais eficiente). Feature complexidade 1 estimou 10h, gastou 7.5h (+25%) = ✅ eficiente 1.2 pts. Feature complexidade 3 estimou 10h, gastou 4h (+60%) = ✅ eficiente 1.5 pts.',
   },
   
   bugRate: {
@@ -364,19 +365,18 @@ export function calculateSprintPerformance(
     completedWithEstimates.forEach(t => {
       if (t.efficiencyImpact && t.efficiencyImpact.type === 'complexity_zone') {
         tasksImpactedByComplexityZone++;
-        if (t.efficiencyImpact.zone === 'efficient') {
-          weightedEfficientScore += 1;
-        } else if (t.efficiencyImpact.zone === 'acceptable') {
-          weightedEfficientScore += 0.5;
-        }
-      } else {
-        const deviation = t.estimationAccuracy;
-        const threshold = getEfficiencyThreshold(t.complexityScore);
-        const isEfficient = deviation > 0 || (deviation >= threshold.slower && deviation <= 0);
-        if (isEfficient) {
-          weightedEfficientScore += 1;
-        }
       }
+      
+      // Calcular pontos com bonificação progressiva
+      const points = calculateEfficiencyPoints(
+        t.task.tipo,
+        t.efficiencyImpact,
+        t.estimationAccuracy,
+        t.hoursSpent,
+        t.efficiencyImpact?.expectedMaxHours,
+        t.complexityScore
+      );
+      weightedEfficientScore += points;
     });
 
     accuracyRate = (weightedEfficientScore / completedWithEstimates.length) * 100;

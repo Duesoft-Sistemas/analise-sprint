@@ -16,7 +16,7 @@ Este documento apresenta uma análise completa do sistema de análise de sprint,
 **Status:** ✅ **CORRETO**
 
 - **Base Score**: Calculado corretamente como média ponderada entre Quality (50%) e Efficiency (50%)
-- **Weighted Efficiency Score**: Bugs eficientes recebem 1.0, bugs aceitáveis recebem 0.5, conforme documentado
+- **Weighted Efficiency Score**: Bugs eficientes recebem 1.0-1.5 pts (com bonificação progressiva baseada em complexidade: 1-2 máx 1.2 pts, 3-5 até 1.5 pts), bugs aceitáveis recebem 0.5, conforme documentado
 - **Quality Score**: Calculado a partir da média de notas de teste (notaTeste × 20), excluindo tarefas de Auxilio, Neutral e ImpedimentoTrabalho
 
 **Código Validado:**

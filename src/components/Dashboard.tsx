@@ -16,12 +16,13 @@ import { BacklogFlowDashboard } from './BacklogFlowDashboard';
 import { WorklogDashboard } from './WorklogDashboard';
 import { DeliveryDashboard } from './DeliveryDashboard';
 import { TasksDashboard } from './TasksDashboard';
+import { EstimatesManagementDashboard } from './EstimatesManagementDashboard';
 import { SettingsPanel } from './SettingsPanel';
 import SprintAnalysisDetails from './SprintAnalysisDetails';
 import { PresentationSettingsModal } from './PresentationSettingsModal';
 import { SidebarNavigation } from './SidebarNavigation';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery' | 'tasks';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery' | 'tasks' | 'estimates';
 
 interface DashboardProps {
   onViewLabelChange?: (label: string) => void;
@@ -216,6 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       worklog: 'Worklogs',
       delivery: 'Gestão de Entregas',
       tasks: 'Tarefas',
+      estimates: 'Gerenciamento de Estimativas',
     };
 
     const sectionLabels: Record<string, string> = {
@@ -318,7 +320,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
       {/* Main Content */}
       <div ref={mainContentRef} className="flex-1 overflow-y-auto space-y-6 px-4 sm:px-6 py-4 lg:pl-6">
         {/* Sprint Selector - Only show when relevant */}
-        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && viewMode !== 'backlogFlow' && viewMode !== 'worklog' && viewMode !== 'delivery' && viewMode !== 'tasks' && (
+        {viewMode !== 'performance' && viewMode !== 'evolution' && viewMode !== 'quality' && viewMode !== 'inconsistencies' && viewMode !== 'multiSprint' && viewMode !== 'backlog' && viewMode !== 'backlogFlow' && viewMode !== 'worklog' && viewMode !== 'delivery' && viewMode !== 'tasks' && viewMode !== 'estimates' && (
           <div className="mb-4">
             <SprintSelector />
           </div>
@@ -390,6 +392,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReturnToHome }) => {
         </div>
       ) : viewMode === 'tasks' ? (
         <TasksDashboard />
+      ) : viewMode === 'estimates' ? (
+        <EstimatesManagementDashboard />
       ) : viewMode === 'multiSprint' ? (
         <CrossSprintAnalysis
           analytics={crossSprintAnalytics}

@@ -17,6 +17,17 @@ const WORKLOG_COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'ID da tarefa': ['ID da tarefa', 'Task ID', 'Chave', 'Chave da item', 'Issue Key', 'Issue'],
   'Tempo gasto': ['Tempo gasto', 'Time Spent', 'Time spent', 'Hours', 'Horas', 'Duration'],
   'Data': ['Data', 'Date', 'Data de registro', 'Log Date', 'Started'],
+  'Descrição': [
+    'Descrição',
+    'Description',
+    'Descrição do Worklog',
+    'Work Description',
+    'Work description',
+    'Comment',
+    'Comments',
+    'Comentário',
+    'Comentários',
+  ],
 };
 
 /**
@@ -106,6 +117,7 @@ function parseWorklogData(rows: WorklogRow[]): WorklogEntry[] {
       const taskId = getWorklogColumnValue(row, 'ID da tarefa');
       const tempoGastoRaw = getRawWorklogColumnValue(row, 'Tempo gasto');
       const dataRaw = getWorklogColumnValue(row, 'Data');
+      const descricaoRaw = getWorklogColumnValue(row, 'Descrição');
       
       // Skip empty rows
       if (!taskId) {
@@ -117,6 +129,7 @@ function parseWorklogData(rows: WorklogRow[]): WorklogEntry[] {
         responsavel: '', // Campo mantido para compatibilidade, mas não é mais obrigatório
         tempoGasto: parseTimeToHours(tempoGastoRaw),
         data: parseDate(dataRaw),
+        descricao: descricaoRaw?.trim() ? descricaoRaw.trim() : undefined,
       };
 
       worklogs.push(worklog);

@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Clock, TrendingUp, Calendar, Users, Activity } from 'lucide-react';
+import { Clock, TrendingUp, Calendar, Users, Activity, FileText } from 'lucide-react';
 import { useSprintStore } from '../store/useSprintStore';
 import { SprintSelector } from './SprintSelector';
 import { formatHours, getLocalDateKey, parseDate } from '../utils/calculations';
 import { WorklogEntry } from '../types';
 import { isDateInSprint } from '../services/hybridCalculations';
 import { getDefaultSelectedDevelopers } from '../services/configService';
+import { WorklogDescriptionsModal } from './WorklogDescriptionsModal';
 
 interface WorklogStats {
   totalHours: number;
@@ -45,6 +46,7 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ dailyRef, de
 
   const [selectedDevelopers, setSelectedDevelopers] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'daily' | 'developers' | 'tasks'>('developers');
+  const [descriptionModal, setDescriptionModal] = useState<{ developerName: string; worklogs: WorklogEntry[] } | null>(null);
 
   // Sync viewMode with presentation step
   useEffect(() => {
@@ -461,27 +463,57 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ dailyRef, de
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayedDevelopers.map((dev) => {
                 const maxDaily = Math.max(...dev.dailyBreakdown.map(d => d.hours), 1);
-                
+                const worklogsWithDescription = dev.worklogs.filter(
+                  (w) => w.descricao && w.descricao.trim().length > 0
+                );
+                const hasWorklogsWithDescription = worklogsWithDescription.length > 0;
+
                 return (
                   <div
                     key={dev.developerName}
                     onClick={() => openWorklogDeveloperModal(dev.developerName)}
                     className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {dev.developerName}
-                      </h4>
-                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                        {formatHours(dev.totalHours)}
+                    <div className="flex items-start justify-between mb-4 gap-3">
+                      <div>
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                          {dev.developerName}
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {dev.totalEntries} lançamento{dev.totalEntries !== 1 ? 's' : ''} • {formatHours(dev.totalHours)}
+                        </p>
                       </div>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (hasWorklogsWithDescription) {
+                            setDescriptionModal({
+                              developerName: dev.developerName,
+                              worklogs: dev.worklogs,
+                            });
+                          }
+                        }}
+                        disabled={!hasWorklogsWithDescription}
+                        title={
+                          hasWorklogsWithDescription
+                            ? 'Ver worklogs com descrição'
+                            : 'Nenhuma descrição registrada neste sprint'
+                        }
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition ${
+                          hasWorklogsWithDescription
+                            ? 'bg-white/80 dark:bg-gray-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-800/50'
+                            : 'cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>
+                          Descrições
+                          {hasWorklogsWithDescription ? ` (${worklogsWithDescription.length})` : ''}
+                        </span>
+                      </button>
                     </div>
                     
                     <div className="space-y-3 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Lançamentos:</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{dev.totalEntries}</span>
-                      </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">Dias trabalhados:</span>
                         <span className="font-medium text-gray-900 dark:text-white">{dev.daysWithWork}</span>
@@ -532,6 +564,16 @@ export const WorklogDashboard: React.FC<WorklogDashboardProps> = ({ dailyRef, de
           </div>
         )}
       </div>
+
+      {descriptionModal && (
+        <WorklogDescriptionsModal
+          isOpen={Boolean(descriptionModal)}
+          developerName={descriptionModal.developerName}
+          worklogs={descriptionModal.worklogs}
+          tasks={tasks}
+          onClose={() => setDescriptionModal(null)}
+        />
+      )}
     </div>
   );
 };

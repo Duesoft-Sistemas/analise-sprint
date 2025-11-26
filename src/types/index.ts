@@ -180,6 +180,7 @@ export interface TaskPerformanceMetrics {
     isEfficient: boolean;
     zone?: 'efficient' | 'acceptable' | 'inefficient';
     expectedMaxHours?: number;
+    efficiencyPoints?: number; // Pontos de eficiência calculados (com bonificação se aplicável)
   };
 }
 
@@ -372,6 +373,7 @@ export interface WorklogEntry {
   responsavel: string; // Developer who logged the time
   tempoGasto: number; // in hours
   data: Date; // Date when the time was logged
+  descricao?: string; // Optional worklog description/comment
 }
 
 // Sprint period for filtering worklogs
@@ -562,7 +564,8 @@ export type ViewMode =
   | 'backlogFlow'
   | 'worklog'
   | 'delivery'
-  | 'tasks';
+  | 'tasks'
+  | 'estimates';
 
 export type SprintPresentationSection =
   | 'summary'

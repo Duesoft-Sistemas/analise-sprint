@@ -68,6 +68,11 @@ export function getEfficiencyZone(complexity: number): ComplexityEfficiencyZone 
   return COMPLEXITY_EFFICIENCY_ZONES.find(z => z.complexity === complexity) || null;
 }
 
+// Função auxiliar para formatar horas com 2 casas decimais
+function formatHours(hours: number): string {
+  return hours.toFixed(2);
+}
+
 // =============================================================================
 // THRESHOLDS DE EFICIÊNCIA (Desvio Estimativa vs Tempo Gasto)
 // =============================================================================
@@ -180,6 +185,8 @@ export interface EfficiencyImpactReason {
   hoursSpent: number;
   /** Limite esperado para a complexidade */
   expectedMaxHours?: number;
+  /** Pontos de eficiência calculados (com bonificação se aplicável) */
+  efficiencyPoints?: number;
 }
 
 /**
@@ -232,7 +239,7 @@ export function checkComplexityZoneEfficiency(
   if (hoursSpent <= zone.maxEfficientHours) {
     return {
       type: 'complexity_zone',
-      description: `${hoursSpent}h gastas para complexidade ${complexity} está dentro da zona eficiente (máx ${zone.maxEfficientHours}h)`,
+      description: `${formatHours(hoursSpent)}h gastas para complexidade ${complexity} está dentro da zona eficiente (máx ${formatHours(zone.maxEfficientHours)}h)`,
       isEfficient: true,
       zone: 'efficient',
       hoursSpent,
@@ -241,7 +248,7 @@ export function checkComplexityZoneEfficiency(
   } else if (hoursSpent <= zone.maxAcceptableHours) {
     return {
       type: 'complexity_zone',
-      description: `${hoursSpent}h gastas para complexidade ${complexity} está na zona aceitável (máx ${zone.maxAcceptableHours}h)`,
+      description: `${formatHours(hoursSpent)}h gastas para complexidade ${complexity} está na zona aceitável (máx ${formatHours(zone.maxAcceptableHours)}h)`,
       isEfficient: false,
       zone: 'acceptable',
       hoursSpent,
@@ -250,12 +257,99 @@ export function checkComplexityZoneEfficiency(
   } else {
     return {
       type: 'complexity_zone',
-      description: `${hoursSpent}h gastas para complexidade ${complexity} excede o esperado (máx ${zone.maxAcceptableHours}h). Tempo gasto excessivo para a complexidade da tarefa.`,
+      description: `${formatHours(hoursSpent)}h gastas para complexidade ${complexity} excede o esperado (máx ${formatHours(zone.maxAcceptableHours)}h). Tempo gasto excessivo para a complexidade da tarefa.`,
       isEfficient: false,
       zone: 'inefficient',
       hoursSpent,
       expectedMaxHours: zone.maxAcceptableHours,
     };
   }
+}
+
+// =============================================================================
+// CÁLCULO DE PONTOS DE EFICIÊNCIA COM BONIFICAÇÃO
+// =============================================================================
+// Sistema de bonificação progressiva para tarefas muito eficientes:
+// - 25%+ mais eficiente: 1.2 pontos (ao invés de 1.0)
+// - 50%+ mais eficiente: 1.5 pontos (máximo para complexidade >= 3)
+// - Complexidade 1-2: máximo 1.2 pontos (não pode chegar a 1.5)
+// - Complexidade 3-5: pode chegar até 1.5 pontos
+// =============================================================================
+
+/**
+ * Calcula os pontos de eficiência com bonificação progressiva
+ * 
+ * Para Bugs (zona de complexidade):
+ * - Complexidade 1-2:
+ *   - Eficiência < 25%: 1.0 ponto
+ *   - Eficiência >= 25%: 1.2 pontos (máximo)
+ * - Complexidade 3-5:
+ *   - Eficiência < 25%: 1.0 ponto
+ *   - Eficiência >= 25% e < 50%: 1.2 pontos
+ *   - Eficiência >= 50%: 1.5 pontos (máximo)
+ * - Zona aceitável: sempre 0.5 pontos (sem bonificação)
+ * 
+ * Para Features (desvio percentual):
+ * - Complexidade 1-2:
+ *   - Desvio < 25%: 1.0 ponto
+ *   - Desvio >= 25%: 1.2 pontos (máximo)
+ * - Complexidade 3-5:
+ *   - Desvio < 25%: 1.0 ponto
+ *   - Desvio >= 25% e < 50%: 1.2 pontos
+ *   - Desvio >= 50%: 1.5 pontos (máximo)
+ * - Desvio negativo (dentro da tolerância): 1.0 ponto (sem bonificação)
+ */
+export function calculateEfficiencyPoints(
+  taskType: 'Bug' | 'Tarefa' | 'História' | 'Outro',
+  efficiencyImpact: EfficiencyImpactReason | undefined,
+  estimationAccuracy: number,
+  hoursSpent: number,
+  maxEfficientHours?: number,
+  complexity?: number
+): number {
+  const isLowComplexity = complexity !== undefined && complexity <= 2;
+  
+  // Bugs: usar zona de complexidade
+  if (taskType === 'Bug' && efficiencyImpact?.type === 'complexity_zone') {
+    if (efficiencyImpact.zone === 'efficient' && maxEfficientHours) {
+      // Calcular eficiência percentual: (maxEfficientHours - hoursSpent) / maxEfficientHours * 100
+      const efficiencyPercent = ((maxEfficientHours - hoursSpent) / maxEfficientHours) * 100;
+      
+      if (isLowComplexity) {
+        // Complexidade 1-2: máximo 1.2 pontos
+        if (efficiencyPercent >= 25) return 1.2;
+        return 1.0;
+      } else {
+        // Complexidade 3-5: pode chegar até 1.5 pontos
+        if (efficiencyPercent >= 50) return 1.5;
+        if (efficiencyPercent >= 25) return 1.2;
+        return 1.0;
+      }
+    }
+    if (efficiencyImpact.zone === 'acceptable') return 0.5;
+    return 0;
+  }
+  
+  // Features: usar desvio percentual
+  if (taskType !== 'Bug') {
+    if (estimationAccuracy > 0) {
+      // Desvio positivo = mais rápido que estimado
+      if (isLowComplexity) {
+        // Complexidade 1-2: máximo 1.2 pontos
+        if (estimationAccuracy >= 25) return 1.2;
+        return 1.0;
+      } else {
+        // Complexidade 3-5: pode chegar até 1.5 pontos
+        if (estimationAccuracy >= 50) return 1.5;
+        if (estimationAccuracy >= 25) return 1.2;
+        return 1.0;
+      }
+    }
+    // Desvio negativo dentro da tolerância = 1.0 (sem bonus)
+    // Fora da tolerância = 0 (já tratado no cálculo de isEfficient)
+    return 1.0;
+  }
+  
+  return 0;
 }
 

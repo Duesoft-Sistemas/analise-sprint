@@ -55,13 +55,20 @@ Mede se você **entregou conforme esperado**. O sistema funciona diferente para 
 
 **🚀 Features (Tarefas, Histórias):**
 - Compara: **estimativa original** vs **tempo gasto total** (de todos os sprints)
-- **Qualquer tempo mais rápido** = sempre eficiente! ✅
+- **Qualquer tempo mais rápido** = sempre eficiente! ✅ (com bonificação progressiva baseada na complexidade)
+  - **Complexidade 1-2:**
+    - Desvio < 25%: **1.0 ponto**
+    - Desvio >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+  - **Complexidade 3-5:**
+    - Desvio < 25%: **1.0 ponto**
+    - Desvio >= 25% e < 50%: **1.2 pontos** (bonificação!)
+    - Desvio >= 50%: **1.5 pontos** (bonificação máxima!)
 - **Se gastou mais que estimado**, tolerância por complexidade:
-  - Complexidade 1: até -15% (ex: estimou 10h, gastou até 11.5h = OK)
-  - Complexidade 2: até -20% (ex: estimou 10h, gastou até 12h = OK)
-  - Complexidade 3: até -25% (ex: estimou 10h, gastou até 12.5h = OK)
-  - Complexidade 4: até -30% (ex: estimou 10h, gastou até 13h = OK)
-  - Complexidade 5: até -35% (ex: estimou 10h, gastou até 13.5h = OK)
+  - Complexidade 1: até -15% (ex: estimou 10h, gastou até 11.5h = OK) = **1.0 ponto** (sem bonificação)
+  - Complexidade 2: até -20% (ex: estimou 10h, gastou até 12h = OK) = **1.0 ponto** (sem bonificação)
+  - Complexidade 3: até -25% (ex: estimou 10h, gastou até 12.5h = OK) = **1.0 ponto** (sem bonificação)
+  - Complexidade 4: até -30% (ex: estimou 10h, gastou até 13h = OK) = **1.0 ponto** (sem bonificação)
+  - Complexidade 5: até -35% (ex: estimou 10h, gastou até 13.5h = OK) = **1.0 ponto** (sem bonificação)
 
 **🐛 Bugs:**
 Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa estimativa):
@@ -75,11 +82,20 @@ Bugs são imprevisíveis! O sistema usa **apenas as horas gastas** (não usa est
 | 5 | até 17h | 17h a 30h | acima de 30h |
 
 **💡 Importante sobre Bugs:**
-- **Zona Eficiente** = **1.0 ponto** para o cálculo da sua eficiência.
-- **Zona Aceitável** = **0.5 pontos** (ainda contribui para a eficiência, mas com metade da pontuação).
+- **Zona Eficiente** = pontos variam conforme a eficiência e complexidade (com bonificação progressiva):
+  - **Complexidade 1-2:**
+    - Eficiência < 25%: **1.0 ponto**
+    - Eficiência >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+  - **Complexidade 3-5:**
+    - Eficiência < 25%: **1.0 ponto**
+    - Eficiência >= 25% e < 50%: **1.2 pontos** (bonificação!)
+    - Eficiência >= 50%: **1.5 pontos** (bonificação máxima!)
+  - Cálculo de eficiência: `(maxEfficientHours - hoursSpent) / maxEfficientHours × 100`
+- **Zona Aceitável** = **0.5 pontos** (ainda contribui para a eficiência, mas com metade da pontuação, sem bonificação).
 - **Zona Ineficiente** = **0 pontos**.
 - **Importante:** Para o **bônus** de Senioridade, apenas bugs na **Zona Eficiente** contam. A Zona Aceitável não contribui para os bônus.
 - **Por que diferente?** Bugs são imprevisíveis, então o sistema foca em se o tempo gasto foi razoável para a complexidade, sem penalizar por uma estimativa inicial ruim.
+- **Bonificação:** Quanto mais eficiente você for (gastar menos horas que o limite), mais pontos ganha! Tarefas simples (complexidade 1-2) têm limite de 1.2 pontos, enquanto tarefas mais complexas (3-5) podem chegar até 1.5 pontos! 🎯
 
 ### Os Bônus (0-50 pontos)
 
@@ -129,19 +145,21 @@ Performance Score: 100 pontos ⭐⭐⭐⭐⭐
 ### Exemplo 2: Maria - Trabalhando com Bugs 🐛
 ```
 Maria fez 8 bugs neste sprint:
-- 4 bugs ficaram na zona eficiente ✅ (4 x 1.0 = 4.0 pts)
+- 1 bug complexidade 1 muito eficiente (50%+ mais rápido) ✅ (1 x 1.2 = 1.2 pts - máx para complexidade 1!)
+- 1 bug complexidade 5 muito eficiente (50%+ mais rápido) ✅ (1 x 1.5 = 1.5 pts - bonificação máxima!)
+- 2 bugs complexidade 3 eficientes com bonificação (25-50% mais rápido) ✅ (2 x 1.2 = 2.4 pts)
+- 2 bugs eficientes normais (< 25% mais rápido) ✅ (2 x 1.0 = 2.0 pts)
 - 2 bugs ficaram na zona aceitável ⚠️ (2 x 0.5 = 1.0 pt)
-- 2 bugs na zona ineficiente ❌ (0 pts)
 - Nota média: 4.5
 
 Cálculo:
 → Qualidade: 90 pontos (nota 4.5 média)
-→ Pontos de Eficiência: 4.0 + 1.0 = 5.0
-→ Eficiência: (5.0 / 8) * 100 = 62.5 pontos
-→ Base: (90 * 0.5) + (62.5 * 0.5) = 45 + 31.25 = 76.25 pontos
-→ Bonus Senioridade: +15 pontos (2 bugs complexos eficientes)
+→ Pontos de Eficiência: 1.2 + 1.5 + 2.4 + 2.0 + 1.0 = 8.1 pts
+→ Eficiência: (8.1 / 8) * 100 = 101.25 pontos (bonificações aumentam o score!)
+→ Base: (90 * 0.5) + (101.25 * 0.5) = 45 + 50.625 = 95.625 pontos
+→ Bonus Senioridade: +15 pontos (bugs complexos muito eficientes)
 
-Performance Score: 91.25 pontos ⭐⭐⭐⭐
+Performance Score: 110.625 pontos 🏆 Excepcional!
 ```
 
 ### Exemplo 3: Pedro - Features Complexas 🏆
@@ -277,9 +295,27 @@ A: ❌ **NÃO!** Tarefas sem sprint (backlog) NÃO interferem em métricas de pe
 ## 🔢 Como É Calculado (Passo a Passo)
 
 1. **Qualidade:** Apenas para tarefas com nota. Média das notas × 20.
-2. **Eficiência:** Pontuação Ponderada de Eficiência
-   - Features: 1.0 pt se eficiente, 0 se ineficiente
-   - Bugs: 1.0 pt (zona eficiente), 0.5 pts (zona aceitável), 0 pts (ineficiente)
+2. **Eficiência:** Pontuação Ponderada de Eficiência (com bonificação progressiva baseada na complexidade)
+   - **Features:**
+     - **Complexidade 1-2:**
+       - Desvio positivo < 25%: 1.0 pt
+       - Desvio positivo >= 25%: 1.2 pts (bonificação máxima)
+     - **Complexidade 3-5:**
+       - Desvio positivo < 25%: 1.0 pt
+       - Desvio positivo >= 25% e < 50%: 1.2 pts (bonificação)
+       - Desvio positivo >= 50%: 1.5 pts (bonificação máxima)
+     - Desvio negativo dentro da tolerância: 1.0 pt (sem bonificação)
+     - Fora da tolerância: 0 pts
+   - **Bugs:**
+     - **Complexidade 1-2:**
+       - Zona eficiente < 25%: 1.0 pt
+       - Zona eficiente >= 25%: 1.2 pts (bonificação máxima)
+     - **Complexidade 3-5:**
+       - Zona eficiente < 25%: 1.0 pt
+       - Zona eficiente >= 25% e < 50%: 1.2 pts (bonificação)
+       - Zona eficiente >= 50%: 1.5 pts (bonificação máxima)
+     - Zona aceitável: 0.5 pts (sem bonificação)
+     - Zona ineficiente: 0 pts
 3. **Base:** (50% × Qualidade) + (50% × Eficiência)
 4. **Bônus de Senioridade:** Eficiência em tarefas de alta complexidade (4-5) com nota de teste ≥ 4 × 15.
 5. **Bônus de Competência:** Eficiência em tarefas de média complexidade (3) com nota de teste ≥ 4 × 5.

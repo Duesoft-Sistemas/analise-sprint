@@ -2,7 +2,7 @@ import React from 'react';
 import { X, Calculator, Info, Award, Target } from 'lucide-react';
 import { SprintPerformanceMetrics, TaskItem } from '../types';
 import { formatHours, isCompletedStatus, normalizeForComparison, isNeutralTask, compareTicketCodes } from '../utils/calculations';
-import { getEfficiencyThreshold } from '../config/performanceConfig';
+import { getEfficiencyThreshold, calculateEfficiencyPoints } from '../config/performanceConfig';
 
 // Helper functions for task types
 function isAuxilioTask(task: TaskItem): boolean {
@@ -84,7 +84,19 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
       return deviation > 0 ? true : deviation >= threshold.slower;
     });
 
-    const weightedScore = efficientBugs.length + (acceptableBugs.length * 0.5) + efficientFeatures.length;
+    // Calcular weightedScore usando calculateEfficiencyPoints para incluir bonificações
+    let weightedScore = 0;
+    completedWithEstimates.forEach(t => {
+      const points = calculateEfficiencyPoints(
+        t.task.tipo,
+        t.efficiencyImpact,
+        t.estimationAccuracy,
+        t.hoursSpent,
+        t.efficiencyImpact?.expectedMaxHours,
+        t.complexityScore
+      );
+      weightedScore += points;
+    });
 
     // 1. Eficiência de Execução
     sections.push({
@@ -95,13 +107,26 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
         {
           label: 'Eficiência Geral (para Performance Score)',
           value: `${(metrics.accuracyRate ?? 0).toFixed(1)}%`,
-          formula: `(Pontos de Eficiência / Total de Tarefas) × 100 = (${weightedScore} / ${completedWithEstimates.length}) × 100`,
-          explanation: 'Esta é a métrica de eficiência consolidada usada no cálculo do seu Performance Score. Bugs aceitáveis valem 0.5 pontos.',
+          formula: `(Pontos de Eficiência / Total de Tarefas) × 100 = (${weightedScore.toFixed(1)} / ${completedWithEstimates.length}) × 100`,
+          explanation: 'Esta é a métrica de eficiência consolidada usada no cálculo do seu Performance Score. Bugs aceitáveis valem 0.5 pontos. Tarefas muito eficientes recebem bonificação: Complexidade 1-2 (25%+ = 1.2 pts máx), Complexidade 3-5 (25%+ = 1.2 pts, 50%+ = 1.5 pts máx).',
           subItems: [
             {
               label: 'Bugs Eficientes',
               value: `${efficientBugs.length} de ${bugs.length}`,
-              formula: `(${efficientBugs.length} × 1.0) + (${acceptableBugs.length} × 0.5) = ${efficientBugs.length + (acceptableBugs.length * 0.5)} pts`
+              formula: (() => {
+                const efficientPoints = efficientBugs.reduce((sum, t) => {
+                  return sum + calculateEfficiencyPoints(
+                    t.task.tipo,
+                    t.efficiencyImpact,
+                    t.estimationAccuracy,
+                    t.hoursSpent,
+                    t.efficiencyImpact?.expectedMaxHours,
+                    t.complexityScore
+                  );
+                }, 0);
+                const acceptablePoints = acceptableBugs.length * 0.5;
+                return `Bugs eficientes: ${efficientPoints.toFixed(1)} pts + Bugs aceitáveis: ${acceptablePoints.toFixed(1)} pts = ${(efficientPoints + acceptablePoints).toFixed(1)} pts`;
+              })()
             },
             {
               label: 'Features Eficientes',
@@ -109,7 +134,7 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             },
             {
               label: 'Pontuação Total de Eficiência',
-              value: `${weightedScore} de ${completedWithEstimates.length}`,
+              value: `${weightedScore.toFixed(1)} de ${completedWithEstimates.length}`,
             },
             {
               label: 'Contribuição para Score Base',
@@ -127,15 +152,47 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             const isEfficient = efficientBugs.includes(t);
             const isAcceptable = acceptableBugs.includes(t);
             const zone = t.efficiencyImpact;
+            
+            // Calcular pontos com bonificação
+            const points = calculateEfficiencyPoints(
+              t.task.tipo,
+              t.efficiencyImpact,
+              t.estimationAccuracy,
+              t.hoursSpent,
+              t.efficiencyImpact?.expectedMaxHours,
+              t.complexityScore
+            );
+            
             let impact = '';
             
             if (zone && zone.type === 'complexity_zone') {
               let statusLabel = '';
               let statusIcon = '';
+              let efficiencyInfo = '';
+
+              // Calcular eficiência percentual para bugs na zona eficiente
+              if (zone.zone === 'efficient' && zone.expectedMaxHours) {
+                const efficiencyPercent = ((zone.expectedMaxHours - t.hoursSpent) / zone.expectedMaxHours) * 100;
+                const isLowComplexity = t.complexityScore <= 2;
+                
+                if (isLowComplexity) {
+                  // Complexidade 1-2: máximo 1.2 pontos
+                  if (efficiencyPercent >= 25) {
+                    efficiencyInfo = ` (${efficiencyPercent.toFixed(0)}% mais eficiente - Bônus! Máx 1.2 pts para complexidade ${t.complexityScore})`;
+                  }
+                } else {
+                  // Complexidade 3-5: pode chegar até 1.5 pontos
+                  if (efficiencyPercent >= 50) {
+                    efficiencyInfo = ` (${efficiencyPercent.toFixed(0)}% mais eficiente - Bônus máximo!)`;
+                  } else if (efficiencyPercent >= 25) {
+                    efficiencyInfo = ` (${efficiencyPercent.toFixed(0)}% mais eficiente - Bônus!)`;
+                  }
+                }
+              }
 
               switch (zone.zone) {
                 case 'efficient':
-                  statusLabel = 'Eficiente (1.0 pts)';
+                  statusLabel = `Eficiente (${points.toFixed(1)} pts${efficiencyInfo})`;
                   statusIcon = '✅';
                   break;
                 case 'acceptable':
@@ -184,16 +241,43 @@ export const CalculationBreakdownModal: React.FC<CalculationBreakdownModalProps>
             const threshold = getEfficiencyThreshold(t.complexityScore);
             const efficientLabel = '✅ Eficiente';
             const inefficientLabel = '❌ Não Eficiente';
+            
+            // Calcular pontos com bonificação
+            const points = calculateEfficiencyPoints(
+              t.task.tipo,
+              t.efficiencyImpact,
+              t.estimationAccuracy,
+              t.hoursSpent,
+              t.efficiencyImpact?.expectedMaxHours,
+              t.complexityScore
+            );
+            
             let impact = '';
             const deviation = t.estimationAccuracy;
             const complexity = t.task.complexidade;
 
             if (deviation >= 0) { // No prazo ou mais rápido
-              impact = `Desvio de +${deviation.toFixed(1)}% para complexidade ${complexity}. → ${efficientLabel}`;
+              const isLowComplexity = complexity <= 2;
+              let bonusInfo = '';
+              
+              if (isLowComplexity) {
+                // Complexidade 1-2: máximo 1.2 pontos
+                if (deviation >= 25) {
+                  bonusInfo = ` (${deviation.toFixed(0)}% mais rápido - Bônus! Máx 1.2 pts para complexidade ${complexity})`;
+                }
+              } else {
+                // Complexidade 3-5: pode chegar até 1.5 pontos
+                if (deviation >= 50) {
+                  bonusInfo = ` (${deviation.toFixed(0)}% mais rápido - Bônus máximo!)`;
+                } else if (deviation >= 25) {
+                  bonusInfo = ` (${deviation.toFixed(0)}% mais rápido - Bônus!)`;
+                }
+              }
+              impact = `Desvio de +${deviation.toFixed(1)}% para complexidade ${complexity}. → ${efficientLabel} (${points.toFixed(1)} pts${bonusInfo})`;
             } else { // Mais lento
               const limit = threshold.slower;
               if (isEfficient) {
-                impact = `Desvio de ${deviation.toFixed(1)}% para complexidade ${complexity} está dentro da tolerância (${limit}%). → ${efficientLabel}`;
+                impact = `Desvio de ${deviation.toFixed(1)}% para complexidade ${complexity} está dentro da tolerância (${limit}%). → ${efficientLabel} (${points.toFixed(1)} pts)`;
               } else {
                 impact = `Desvio de ${deviation.toFixed(1)}% para complexidade ${complexity} excede a tolerância de atraso (${limit}%). → ${inefficientLabel}`;
               }

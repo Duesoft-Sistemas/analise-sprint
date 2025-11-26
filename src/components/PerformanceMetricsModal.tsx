@@ -303,10 +303,13 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                         <strong>Bônus</strong> = (% de eficiência em tarefas complexas) × 15 pontos
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mt-2 text-xs italic">
-                        • <strong>Features:</strong> Eficiente dentro dos limites de desvio percentual = peso 1.0
+                        • <strong>Features:</strong> Eficiente dentro dos limites de desvio percentual = 1.0-1.5 pts (com bonificação por complexidade)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 text-xs italic">
-                        • <strong>Bugs:</strong> Zona eficiente (ex: Complexidade 4 gastou ≤9h) = peso 1.0
+                        • <strong>Bugs:</strong> Zona eficiente (ex: Complexidade 4 gastou ≤9h) = 1.0-1.5 pts (com bonificação por complexidade)
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 text-xs italic">
+                        • <strong>Bonificação:</strong> Complexidade 1-2: máx 1.2 pts (25%+ eficiente). Complexidade 3-5: até 1.5 pts (50%+ eficiente)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 text-xs italic">
                         • <strong>Importante:</strong> Apenas tarefas altamente eficientes contam (zona aceitável não conta mais)
@@ -319,13 +322,13 @@ export const PerformanceMetricsModal: React.FC<PerformanceMetricsModalProps> = (
                         • Você fez 3 tarefas complexas (nível 4): 2 features + 1 bug
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • 2 tarefas executadas com alta eficiência (1 feature dentro do limite + 1 bug na zona eficiente ≤9h) = 2 × 1.0 = 2.0
+                        • 2 tarefas executadas com alta eficiência (1 feature dentro do limite + 1 bug na zona eficiente ≤9h) = 1.0-1.5 pts cada (com bonificação por complexidade) = ~2.0-3.0 pts
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
                         • 1 bug na zona aceitável (≤17h) = não conta (0)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 mb-2">
-                        • Eficiência: 2.0 / 3 tarefas = 67% de eficiência
+                        • Eficiência: ~2.0-3.0 / 3 tarefas = 67-100% de eficiência (dependendo das bonificações)
                       </p>
                       <p className="text-gray-700 dark:text-gray-300 font-bold">
                         • Bonus = 67% × 15 = <strong>+10 pontos</strong> ⭐

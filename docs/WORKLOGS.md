@@ -195,6 +195,13 @@ Cada desenvolvedor possui um card com:
 - Colunas: Data, Horas, Registros
 - Ordenação por data ou por horas
 
+#### Descrições de Worklog (novo)
+
+- Botão **"Descrições"** disponível no canto superior direito do card, habilitado apenas quando existem worklogs com o campo *Work Description* preenchido no sprint atual.
+- Abre um modal dedicado que lista somente os worklogs descritos para o desenvolvedor filtrado pelo sprint vigente.
+- Cada linha do modal apresenta: **código da tarefa**, **data do lançamento**, **título (Resumo da tarefa)** e a **descrição digitada no worklog**.
+- O texto exibido é exatamente o importado da planilha, preservando o registro original para auditoria/contexto rápido.
+
 ### Ordenação
 
 **Padrão:**

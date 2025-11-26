@@ -384,9 +384,6 @@ export const TaskList: React.FC = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Tipo
-                  </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Complexidade
                   </th>
@@ -411,7 +408,7 @@ export const TaskList: React.FC = () => {
               </tbody>
               <tfoot className="bg-gray-100 dark:bg-gray-900/70 border-t-2 border-gray-300 dark:border-gray-600">
                 <tr className="font-semibold">
-                  <td colSpan={5} className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                  <td colSpan={4} className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
                     Total ({totals.count} tarefa{totals.count !== 1 ? 's' : ''})
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -516,8 +513,24 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     return 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300';
   };
 
+  const normalizedType = (task.tipo ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const rowTypeClass = normalizedType.includes('bug')
+    ? 'bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30'
+    : normalizedType.includes('tarefa') ||
+      normalizedType.includes('task') ||
+      normalizedType.includes('historia') ||
+      normalizedType.includes('story')
+    ? 'bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50';
+
+  const overtimeOutlineClass = isOverTime ? 'outline outline-2 outline-red-200 dark:outline-red-500/60' : '';
+
   return (
-    <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isOverTime ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
+    <tr className={`${rowTypeClass} transition-colors ${overtimeOutlineClass}`}>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{task.chave}</td>
       <td className="px-4 py-3 text-sm max-w-xl">
         <div className="text-gray-700 dark:text-gray-300 truncate" title={task.resumo}>
@@ -543,19 +556,6 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
           }`}
         >
           {task.status}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${
-            task.tipo === 'Bug'
-              ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
-              : task.tipo === 'História'
-              ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300'
-              : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-          }`}
-        >
-          {task.tipo}
         </span>
       </td>
       <td className="px-4 py-3 text-center">

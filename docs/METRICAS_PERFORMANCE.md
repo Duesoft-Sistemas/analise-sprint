@@ -68,9 +68,26 @@ Score Máximo: 130
 - Fórmula: `(Pontuação Ponderada de Eficiência / Total de Tarefas) × 100`
 - Range: 0-100 pontos
 - Sistema de avaliação separado para Bugs e Features (ver seção Eficiência de Execução)
-- **Pontuação Ponderada:**
-  - Tarefa Eficiente (Feature ou Bug na zona eficiente) = **1.0 ponto**
-  - Bug na Zona Aceitável = **0.5 pontos**
+- **Pontuação Ponderada (com bonificação progressiva):**
+  - **Bugs na Zona Eficiente:**
+    - **Complexidade 1-2:**
+      - Eficiência < 25%: **1.0 ponto**
+      - Eficiência >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+    - **Complexidade 3-5:**
+      - Eficiência < 25%: **1.0 ponto**
+      - Eficiência >= 25% e < 50%: **1.2 pontos** (bonificação)
+      - Eficiência >= 50%: **1.5 pontos** (bonificação máxima)
+    - Cálculo de eficiência: `(maxEfficientHours - hoursSpent) / maxEfficientHours × 100`
+  - **Features com Desvio Positivo (mais rápido que estimado):**
+    - **Complexidade 1-2:**
+      - Desvio < 25%: **1.0 ponto**
+      - Desvio >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+    - **Complexidade 3-5:**
+      - Desvio < 25%: **1.0 ponto**
+      - Desvio >= 25% e < 50%: **1.2 pontos** (bonificação)
+      - Desvio >= 50%: **1.5 pontos** (bonificação máxima)
+  - **Features com Desvio Negativo (dentro da tolerância):** **1.0 ponto** (sem bonificação)
+  - Bug na Zona Aceitável = **0.5 pontos** (sem bonificação)
   - Tarefa Ineficiente = **0 pontos**
 
 **3. Bônus de Senioridade (0-15):**
@@ -171,17 +188,29 @@ Score Máximo: 130
 | 5 | ≤ 17h | 17h < x ≤ 30h | > 30h |
 
 **Cálculo de eficiência para Bugs:**
-- Se horas gastas ≤ maxEfficientHours: **Eficiente = 1.0 ponto** (zona eficiente)
-- Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: **Aceitável = 0.5 pontos**
+- Se horas gastas ≤ maxEfficientHours: **Eficiente** (pontos variam conforme eficiência e complexidade)
+  - **Complexidade 1-2:**
+    - Eficiência < 25%: **1.0 ponto**
+    - Eficiência >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+  - **Complexidade 3-5:**
+    - Eficiência < 25%: **1.0 ponto**
+    - Eficiência >= 25% e < 50%: **1.2 pontos** (bonificação)
+    - Eficiência >= 50%: **1.5 pontos** (bonificação máxima)
+  - Cálculo de eficiência: `(maxEfficientHours - hoursSpent) / maxEfficientHours × 100`
+- Se horas gastas ≤ maxAcceptableHours e > maxEfficientHours: **Aceitável = 0.5 pontos** (sem bonificação)
 - Se horas gastas > maxAcceptableHours: **Ineficiente = 0 pontos**
 
-**IMPORTANTE:** A "Zona Aceitável" agora concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para o bônus de Senioridade, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
+**IMPORTANTE:** A "Zona Aceitável" concede **0.5 pontos** para o cálculo da Eficiência de Execução, refletindo uma contribuição parcial. No entanto, para o bônus de Senioridade, tarefas na zona aceitável ainda são consideradas **ineficientes** e não contribuem com pontos.
 
 **Exemplo:**
-- Bug complexidade 1 gastou 1.5h = ✅ eficiente (1.0 pt)
-- Bug complexidade 1 gastou 2.5h = ⚠️ aceitável (0.5 pts)
-- Bug complexidade 5 gastou 16h = ✅ eficiente (1.0 pt)
-- Bug complexidade 5 gastou 25h = ⚠️ aceitável (0.5 pts)
+- Bug complexidade 1 gastou 1.5h = ✅ eficiente (1.0 pt - no limite)
+- Bug complexidade 1 gastou 1.0h = ✅ eficiente (1.2 pts - 33% mais eficiente, bonificação! Máx para complexidade 1)
+- Bug complexidade 1 gastou 0.5h = ✅ eficiente (1.2 pts - 67% mais eficiente, mas máximo é 1.2 para complexidade 1)
+- Bug complexidade 1 gastou 2.5h = ⚠️ aceitável (0.5 pts - sem bonificação)
+- Bug complexidade 3 gastou 5h = ✅ eficiente (1.0 pt - no limite)
+- Bug complexidade 3 gastou 3h = ✅ eficiente (1.2 pts - 40% mais eficiente, bonificação!)
+- Bug complexidade 5 gastou 17h = ✅ eficiente (1.0 pt - no limite)
+- Bug complexidade 5 gastou 8.5h = ✅ eficiente (1.5 pts - 50% mais eficiente, bonificação máxima!)
 
 **FEATURES/OUTROS (Todas complexidades):**
 - Usa desvio percentual entre estimativa original vs tempo gasto total
@@ -200,17 +229,27 @@ image.png| Complexidade | Limite Inferior (atraso permitido) |
 | 5            | -35%                             |
 
 **Cálculo de eficiência para Features:**
-- Se desvio > 0 (executou mais rápido): Eficiente = **1.0 ponto**
-- Se desvio ≤ 0 e desvio >= limite inferior (ex: -25% para complexidade 3): Eficiente = **1.0 ponto**
+- Se desvio > 0 (executou mais rápido): Eficiente (pontos variam conforme desvio e complexidade)
+  - **Complexidade 1-2:**
+    - Desvio < 25%: **1.0 ponto**
+    - Desvio >= 25%: **1.2 pontos** (bonificação máxima para complexidade baixa)
+  - **Complexidade 3-5:**
+    - Desvio < 25%: **1.0 ponto**
+    - Desvio >= 25% e < 50%: **1.2 pontos** (bonificação)
+    - Desvio >= 50%: **1.5 pontos** (bonificação máxima)
+- Se desvio ≤ 0 e desvio >= limite inferior (ex: -25% para complexidade 3): Eficiente = **1.0 ponto** (sem bonificação)
 - Se desvio < limite inferior: Ineficiente = **0 pontos**
 
-**Regra:** Executar mais rápido que o estimado é sempre considerado eficiente. Apenas o atraso além da tolerância é ineficiente.
+**Regra:** Executar mais rápido que o estimado é sempre considerado eficiente, com bonificação progressiva baseada na complexidade. Apenas o atraso além da tolerância é ineficiente.
 
 **Exemplo:**
-- Feature complexidade 1: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.0 pt)
-- Feature complexidade 1: estimou 10h, gastou 11.5h = -15% (≥-15%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.2 pts - bonificação máxima para complexidade 1!)
+- Feature complexidade 1: estimou 10h, gastou 7.5h = +25% = ✅ eficiente (1.2 pts - bonificação!)
+- Feature complexidade 1: estimou 10h, gastou 9h = +10% = ✅ eficiente (1.0 pt)
+- Feature complexidade 1: estimou 10h, gastou 11.5h = -15% (≥-15%) = ✅ eficiente (1.0 pt - sem bonificação)
 - Feature complexidade 1: estimou 10h, gastou 12h = -20% (< -15%) = ❌ ineficiente (0 pts)
-- Feature complexidade 5: estimou 30h, gastou 40.5h = -35% (≥-35%) = ✅ eficiente (1.0 pt)
+- Feature complexidade 3: estimou 10h, gastou 4h = +60% = ✅ eficiente (1.5 pts - bonificação máxima!)
+- Feature complexidade 5: estimou 30h, gastou 40.5h = -35% (≥-35%) = ✅ eficiente (1.0 pt - sem bonificação)
 
 ### Taxa de Conclusão
 

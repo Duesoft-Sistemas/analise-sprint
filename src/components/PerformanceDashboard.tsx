@@ -16,7 +16,7 @@ import { calculatePerformanceAnalytics, generateComparativeInsights, calculateCu
 import { DeveloperPerformanceCard } from './DeveloperPerformanceCard';
 import { SprintPerformanceMetrics, CustomPeriodMetrics, TaskItem } from '../types';
 import { isCompletedStatus, isFullyCompletedStatus, isNeutralTask } from '../utils/calculations';
-import { getEfficiencyThreshold } from '../config/performanceConfig';
+import { getEfficiencyThreshold, calculateEfficiencyPoints } from '../config/performanceConfig';
 import { getDefaultSelectedDevelopers } from '../services/configService';
 
 type SortBy = 'overall' | 'accuracy' | 'quality' | 'productivity';
@@ -179,13 +179,19 @@ export const PerformanceDashboard: React.FC = () => {
             ? featureDeviations.reduce((sum, d) => sum + d, 0) / featureDeviations.length
             : 0;
           
-          // Calculate weighted accuracy rate
-          const weightedEfficientScore = efficientBugs + (acceptableBugs * 0.5) + 
-            features.filter(t => {
-              const deviation = t.estimationAccuracy;
-              const threshold = getEfficiencyThreshold(t.complexityScore);
-              return deviation > 0 ? true : deviation >= threshold.slower;
-            }).length;
+          // Calculate weighted accuracy rate using calculateEfficiencyPoints for bonuses
+          let weightedEfficientScore = 0;
+          completedWithEstimates.forEach(t => {
+            const points = calculateEfficiencyPoints(
+              t.task.tipo,
+              t.efficiencyImpact,
+              t.estimationAccuracy,
+              t.hoursSpent,
+              t.efficiencyImpact?.expectedMaxHours,
+              t.complexityScore
+            );
+            weightedEfficientScore += points;
+          });
           const accuracyRate = completedWithEstimates.length > 0
             ? (weightedEfficientScore / completedWithEstimates.length) * 100
             : 0;
