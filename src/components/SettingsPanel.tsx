@@ -14,6 +14,7 @@ import {
   Sun,
   Trash2,
   Users,
+  DollarSign,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSprintStore } from '../store/useSprintStore';
@@ -50,6 +51,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
   
   const tasks = useSprintStore((state) => state.tasks);
   const worklogs = useSprintStore((state) => state.worklogs);
+  const costData = useSprintStore((state) => state.costData);
   const [selectedDefaultDevelopers, setSelectedDefaultDevelopers] = useState<string[]>([]);
   const [selectedInternDevelopers, setSelectedInternDevelopers] = useState<string[]>([]);
 
@@ -619,6 +621,87 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
                         </p>
                       </div>
                     </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Custos e Valor da Hora */}
+            <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <button
+                onClick={() => toggleSection('costs')}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    Custos e Valor da Hora
+                  </span>
+                </div>
+                {expandedSections.has('costs') ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {expandedSections.has('costs') && (
+                <div className="p-4 bg-white dark:bg-gray-800">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Configuração de custos e cálculo do valor da hora por responsável.
+                  </p>
+                  
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 font-semibold mb-2">
+                      Fórmula de Cálculo do Valor da Hora:
+                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-200 font-mono">
+                      Valor da Hora = (Salário Bruto / 220) × 1.7
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                      Onde 220 são as horas trabalhadas por mês e 1.7 é o multiplicador para incluir encargos e benefícios.
+                    </p>
+                  </div>
+
+                  {costData.length === 0 ? (
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <Info className="w-4 h-4 inline mr-1" />
+                        Nenhum dado de custo encontrado. Carregue a planilha de custos primeiro.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-100 dark:bg-gray-700">
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Responsável</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right">Salário Bruto</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right">Valor da Hora</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {costData.map((cost) => (
+                            <tr key={cost.responsavel} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-medium text-gray-900 dark:text-white">
+                                {cost.responsavel}
+                              </td>
+                              <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right text-gray-700 dark:text-gray-300">
+                                {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                }).format(cost.salarioBruto)}
+                              </td>
+                              <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right font-semibold text-green-700 dark:text-green-400">
+                                {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                }).format(cost.valorHora)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}

@@ -17,6 +17,7 @@ const WORKLOG_COLUMN_MAPPINGS: { [key: string]: string[] } = {
   'ID da tarefa': ['ID da tarefa', 'Task ID', 'Chave', 'Chave da item', 'Issue Key', 'Issue'],
   'Tempo gasto': ['Tempo gasto', 'Time Spent', 'Time spent', 'Hours', 'Horas', 'Duration'],
   'Data': ['Data', 'Date', 'Data de registro', 'Log Date', 'Started'],
+  'Responsável': ['Responsável', 'Responsavel', 'ResponsÃ¡vel', 'Author', 'User', 'Desenvolvedor', 'Developer', 'Usuário', 'Usuario'],
   'Descrição': [
     'Descrição',
     'Description',
@@ -117,6 +118,7 @@ function parseWorklogData(rows: WorklogRow[]): WorklogEntry[] {
       const taskId = getWorklogColumnValue(row, 'ID da tarefa');
       const tempoGastoRaw = getRawWorklogColumnValue(row, 'Tempo gasto');
       const dataRaw = getWorklogColumnValue(row, 'Data');
+      const responsavelRaw = getWorklogColumnValue(row, 'Responsável');
       const descricaoRaw = getWorklogColumnValue(row, 'Descrição');
       
       // Skip empty rows
@@ -126,7 +128,7 @@ function parseWorklogData(rows: WorklogRow[]): WorklogEntry[] {
 
       const worklog: WorklogEntry = {
         taskId: taskId.trim(),
-        responsavel: '', // Campo mantido para compatibilidade, mas não é mais obrigatório
+        responsavel: responsavelRaw?.trim() || '', // Responsável do worklog (pode estar vazio)
         tempoGasto: parseTimeToHours(tempoGastoRaw),
         data: parseDate(dataRaw),
         descricao: descricaoRaw?.trim() ? descricaoRaw.trim() : undefined,

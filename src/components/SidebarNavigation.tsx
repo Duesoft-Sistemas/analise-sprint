@@ -16,9 +16,10 @@ import {
   Activity,
   Layers,
   Square,
+  DollarSign,
 } from 'lucide-react';
 
-type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery' | 'tasks' | 'estimates';
+type ViewMode = 'sprint' | 'multiSprint' | 'performance' | 'evolution' | 'quality' | 'inconsistencies' | 'backlog' | 'backlogFlow' | 'worklog' | 'delivery' | 'tasks' | 'estimates' | 'costs';
 
 interface SidebarNavigationProps {
   viewMode: ViewMode;
@@ -114,6 +115,13 @@ const navItems: NavItem[] = [
     icon: Target,
     gradient: 'from-orange-600 to-orange-500',
     hoverGradient: 'hover:from-orange-700 hover:to-orange-600',
+  },
+  {
+    id: 'costs',
+    label: 'Gerenciamento de Custos',
+    icon: DollarSign,
+    gradient: 'from-green-600 to-green-500',
+    hoverGradient: 'hover:from-green-700 hover:to-green-600',
   },
   {
     id: 'inconsistencies',

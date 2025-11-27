@@ -553,6 +553,72 @@ export interface TemporalEvolutionAnalytics {
 // Presentation mode (slides)
 // -----------------------------
 
+// Cost management types
+export interface CostData {
+  responsavel: string;
+  salarioBruto: number; // Salário bruto em R$
+  valorHora: number; // Valor da hora calculado: (salarioBruto / 220) * 1.7
+}
+
+export interface CostMetrics {
+  totalCost: number; // Custo total em R$
+  totalHours: number; // Total de horas
+  averageCostPerHour: number; // Custo médio por hora
+  taskCount: number; // Número de tarefas
+}
+
+export interface CostByClient {
+  client: string;
+  realCost: number; // Custo real (tarefas concluídas) em R$
+  estimatedCost: number; // Custo estimado (backlog) em R$
+  realHours: number; // Horas reais trabalhadas
+  estimatedHours: number; // Horas estimadas no backlog
+  taskCount: number; // Número de tarefas
+  completedTaskCount: number; // Número de tarefas concluídas
+  backlogTaskCount: number; // Número de tarefas no backlog
+}
+
+export interface CostByFeature {
+  feature: string;
+  realCost: number;
+  estimatedCost: number;
+  realHours: number;
+  estimatedHours: number;
+  taskCount: number;
+  completedTaskCount: number;
+  backlogTaskCount: number;
+}
+
+export interface CostByDeveloper {
+  developer: string;
+  totalCost: number;
+  totalHours: number;
+  averageCostPerHour: number;
+  taskCount: number;
+}
+
+export interface CostBySprint {
+  sprintName: string;
+  totalCost: number;
+  totalHours: number;
+  taskCount: number;
+  startDate: Date;
+  endDate: Date;
+}
+
+export interface CostAnalytics {
+  overall: CostMetrics;
+  byClient: CostByClient[];
+  byFeature: CostByFeature[];
+  byDeveloper: CostByDeveloper[];
+  bySprint: CostBySprint[];
+  period: {
+    startDate: Date;
+    endDate: Date;
+    selectedSprints: string[];
+  };
+}
+
 export type ViewMode =
   | 'sprint'
   | 'multiSprint'
@@ -565,7 +631,8 @@ export type ViewMode =
   | 'worklog'
   | 'delivery'
   | 'tasks'
-  | 'estimates';
+  | 'estimates'
+  | 'costs';
 
 export type SprintPresentationSection =
   | 'summary'

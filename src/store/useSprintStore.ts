@@ -11,6 +11,7 @@ import {
   DeveloperMetrics,
   PresentationConfig,
   PresentationStep,
+  CostData,
 } from '../types';
 import {
   calculateSprintAnalytics,
@@ -44,6 +45,11 @@ interface SprintStore {
   worklogFileName: string | null;
   worklogFileNames: string[]; // Array para múltiplos arquivos
   
+  // Cost data
+  costData: CostData[];
+  custosFileName: string | null;
+  custosFileNames: string[]; // Array para múltiplos arquivos
+  
   // Filters
   taskFilters: TaskFilters;
   
@@ -73,6 +79,9 @@ interface SprintStore {
   setSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => void;
   addSprintMetadata: (metadata: SprintMetadata[], fileName?: string) => void; // Adiciona metadados sem substituir
   removeSprintMetadataByFileName: (fileName: string) => void; // Remove metadados de um arquivo específico
+  setCostData: (costData: CostData[], fileName?: string) => void;
+  addCostData: (costData: CostData[], fileName?: string) => void; // Adiciona custos sem substituir
+  removeCostDataByFileName: (fileName: string) => void; // Remove custos de um arquivo específico
   setSelectedSprint: (sprint: string) => void;
   setTaskFilters: (filters: TaskFilters) => void;
   setSelectedDeveloper: (developer: string | null) => void;
@@ -113,6 +122,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
   layoutFileNames: [],
   worklogFileName: null,
   worklogFileNames: [],
+  costData: [],
+  custosFileName: null,
+  custosFileNames: [],
   taskFilters: {},
   selectedDeveloper: null,
   analyticsFilter: null,
@@ -827,6 +839,45 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
     });
   },
 
+  setCostData: (costData: CostData[], fileName?: string) => {
+    const custosFileNames = fileName ? [fileName] : [];
+    set({
+      costData,
+      custosFileName: fileName || null,
+      custosFileNames,
+    });
+  },
+
+  addCostData: (newCostData: CostData[], fileName?: string) => {
+    const { costData, custosFileNames } = get();
+    
+    // Combinar custos, evitando duplicatas por responsável
+    const existingResponsaveis = new Set(costData.map(c => c.responsavel));
+    const uniqueNewCosts = newCostData.filter(c => !existingResponsaveis.has(c.responsavel));
+    const combinedCosts = [...costData, ...uniqueNewCosts];
+    
+    // Adicionar nome do arquivo se fornecido e ainda não estiver na lista
+    const updatedFileNames = fileName && !custosFileNames.includes(fileName)
+      ? [...custosFileNames, fileName]
+      : custosFileNames;
+    
+    set({
+      costData: combinedCosts,
+      custosFileNames: updatedFileNames,
+      custosFileName: updatedFileNames.length > 0 ? updatedFileNames[updatedFileNames.length - 1] : null,
+    });
+  },
+
+  removeCostDataByFileName: (_fileName: string) => {
+    // Para custos, vamos simplesmente limpar tudo
+    // pois não há uma forma fácil de saber quais custos vieram de qual arquivo
+    set({
+      costData: [],
+      custosFileName: null,
+      custosFileNames: [],
+    });
+  },
+
   setSprintPeriod: (period: SprintPeriod | null) => {
     const { tasks, worklogs, selectedSprint, sprintMetadata } = get();
     
@@ -911,6 +962,9 @@ export const useSprintStore = create<SprintStore>((set, get) => ({
       layoutFileNames: [],
       worklogFileName: null,
       worklogFileNames: [],
+      costData: [],
+      custosFileName: null,
+      custosFileNames: [],
       taskFilters: {},
       selectedDeveloper: null,
       analyticsFilter: null,

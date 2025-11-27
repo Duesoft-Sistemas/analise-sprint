@@ -31,13 +31,13 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         {!showDashboard ? (
-          <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="max-w-2xl mx-auto animate-fade-in">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+            <div className="w-full animate-fade-in">
               <XlsUploader />
               
               {/* Analysis gating and alert */}
               {(layoutFileName || worklogFileName || sprintsFileName) && !canAnalyze && (
-                <div className="mt-6 max-w-2xl mx-auto p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-300">
+                <div className="mt-6 w-full p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-300">
                   <p className="font-medium">Não é possível iniciar a análise. Corrija os itens pendentes:</p>
                   <ul className="mt-2 list-disc pl-5 space-y-1">
                     {sprintMetadata.length === 0 && <li>Carregue a planilha de sprints válida.</li>}
