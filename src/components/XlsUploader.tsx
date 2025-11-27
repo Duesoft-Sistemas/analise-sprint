@@ -95,6 +95,25 @@ export const XlsUploader: React.FC = () => {
       const result = await parseXLSFile(file);
 
       if (result.success && result.data) {
+        // Validar sprints contra a planilha de sprints carregada
+        const sprintMetadata = useSprintStore.getState().sprintMetadata;
+        if (sprintMetadata.length > 0) {
+          const invalidSprints = new Set<string>();
+          result.data.forEach(task => {
+            if (task.sprint && task.sprint.trim() !== '') {
+              const sprintExists = sprintMetadata.some(m => m.sprint === task.sprint);
+              if (!sprintExists) {
+                invalidSprints.add(task.sprint);
+              }
+            }
+          });
+          
+          if (invalidSprints.size > 0) {
+            console.warn(`⚠️ Aviso: ${invalidSprints.size} sprint(s) não encontrado(s) na planilha de sprints:`, Array.from(invalidSprints));
+            // Não bloquear a importação, apenas avisar
+          }
+        }
+        
         // Verificar diretamente no store se já existem tarefas ou arquivos carregados
         // IMPORTANTE: Buscar o estado atualizado do store dentro da função para evitar race conditions
         const currentTasks = useSprintStore.getState().tasks;

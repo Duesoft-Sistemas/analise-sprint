@@ -162,9 +162,51 @@ Agrupa tarefas de backlog por Feature.
 
 ---
 
-### 4. Análise por Cliente
+### 4. Análise por Equipe
 
 **Localização:** Quarta seção
+
+**Funcionalidade:**
+Agrupa tarefas de backlog por Equipe, separando entre Equipe VB e Equipe Web.
+
+**Visualizações Disponíveis:**
+1. **Gráfico (padrão):** Gráfico de barras horizontal mostrando as equipes
+2. **Lista:** Cards individuais para cada equipe
+
+**Controles:**
+- **Toggle visualização:** Botão para alternar entre gráfico e lista
+
+**Métricas Exibidas (por equipe):**
+- **Quantidade de tarefas**
+- **Horas estimadas**
+- **Breakdown por tipo** (Bugs, Dúvidas Ocultas, Tarefas)
+
+**Interação:**
+- **Clique no gráfico/card:** Filtra lista de tarefas para mostrar apenas tarefas dessa equipe
+- **Clique no card de resumo:** Filtra análise completa para mostrar apenas dados da equipe
+
+**Regra de Identificação de Equipe:**
+- **Equipe Web:** Tarefas que possuem a etiqueta "EquipeWeb" nos Detalhes Ocultos (campo personalizado)
+- **Equipe VB:** Todas as outras tarefas (padrão quando não há etiqueta)
+
+**Observações:**
+- A identificação é baseada no campo "Campo personalizado (Detalhes Ocultos)" do layout.xlsx
+- A etiqueta "EquipeWeb" é verificada de forma case-insensitive e normalizada
+- Se uma tarefa não possui a etiqueta "EquipeWeb", ela pertence automaticamente à Equipe VB
+- O filtro de equipe pode ser combinado com outros filtros (Feature, Cliente, Complexidade, etc.)
+- Quando um filtro de equipe está ativo, todos os gráficos (Feature, Cliente, Complexidade, Status) mostram apenas os dados daquela equipe
+
+**Uso para Planejamento:**
+- Identifique a distribuição de trabalho entre as equipes
+- Use para planejar sprints focados em uma equipe específica
+- Balance trabalho entre Equipe VB e Equipe Web
+- Analise métricas específicas de cada equipe
+
+---
+
+### 5. Análise por Cliente
+
+**Localização:** Quinta seção
 
 **Funcionalidade:**
 Agrupa tarefas de backlog por Cliente.
@@ -199,9 +241,9 @@ Agrupa tarefas de backlog por Cliente.
 
 ---
 
-### 5. Análise por Status
+### 6. Análise por Status
 
-**Localização:** Quinta seção
+**Localização:** Sexta seção
 
 **Funcionalidade:**
 Agrupa tarefas de backlog por status atual.
@@ -232,9 +274,9 @@ Agrupa tarefas de backlog por status atual.
 
 ---
 
-### 6. Insights
+### 7. Insights
 
-**Localização:** Sexta seção
+**Localização:** Sétima seção
 
 **Funcionalidade:**
 Fornece insights automáticos baseados na análise do backlog.
@@ -266,7 +308,7 @@ Fornece insights automáticos baseados na análise do backlog.
 
 ---
 
-### 7. Lista de Tarefas
+### 8. Lista de Tarefas
 
 **Localização:** Última seção
 
@@ -327,8 +369,9 @@ Exibe lista completa e detalhada de todas as tarefas em backlog.
 1. **Tipo:** Bug, Tarefa, História, Folha, Dúvida Oculta
 2. **Feature:** Nome da feature
 3. **Cliente:** Nome do cliente
-4. **Complexidade:** Nível 1-5
-5. **Status:** Status da tarefa
+4. **Equipe:** Equipe VB ou Equipe Web
+5. **Complexidade:** Nível 1-5
+6. **Status:** Status da tarefa
 
 **Aplicação de Filtros:**
 - **Por clique:** Clique em gráfico/card na seção correspondente
@@ -400,10 +443,11 @@ A aba Backlog é totalmente compatível com o Modo Apresentação. As seções d
 1. **Resumo do Backlog** (`summary`)
 2. **Por Complexidade** (`byComplexity`)
 3. **Por Feature** (`byFeature`)
-4. **Por Cliente** (`byClient`)
-5. **Por Status** (`byStatus`)
-6. **Insights** (`insights`)
-7. **Lista de Tarefas** (`taskList`)
+4. **Por Equipe** (`byTeam`)
+5. **Por Cliente** (`byClient`)
+6. **Por Status** (`byStatus`)
+7. **Insights** (`insights`)
+8. **Lista de Tarefas** (`taskList`)
 
 **Configuração:**
 - Configure etapas de apresentação em "Apresentação" (ícone ▶)

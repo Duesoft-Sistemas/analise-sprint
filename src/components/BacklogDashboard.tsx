@@ -21,9 +21,9 @@ import {
 import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSprintStore } from '../store/useSprintStore';
-import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
-import { Package, User, Calendar as CalendarIcon, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { formatHours, normalizeForComparison, isCompletedStatus, isAuxilioTask, isNeutralTask, isTestesTask, hasImpedimentoTrabalho, taskHasCategory, compareTicketCodes } from '../utils/calculations';
+import { calculateBacklogAnalytics, calculateBacklogAnalysisByClient, calculateBacklogAnalysisByFeature, calculateBacklogAnalysisByTeam, BacklogAnalytics as BacklogAnalyticsType } from '../services/analytics';
+import { Package, User, Users, Calendar as CalendarIcon, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { formatHours, normalizeForComparison, isCompletedStatus, isAuxilioTask, isNeutralTask, isTestesTask, hasImpedimentoTrabalho, taskHasCategory, compareTicketCodes, getTaskTeam } from '../utils/calculations';
 import { TaskItem } from '../types';
 import { AnalyticsChart } from './AnalyticsCharts';
 
@@ -41,6 +41,7 @@ interface BacklogDashboardProps {
   summaryRef?: React.RefObject<HTMLDivElement>;
   byComplexityRef?: React.RefObject<HTMLDivElement>;
   byFeatureRef?: React.RefObject<HTMLDivElement>;
+  byTeamRef?: React.RefObject<HTMLDivElement>;
   byClientRef?: React.RefObject<HTMLDivElement>;
   byStatusRef?: React.RefObject<HTMLDivElement>;
   insightsRef?: React.RefObject<HTMLDivElement>;
@@ -51,6 +52,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
   summaryRef,
   byComplexityRef,
   byFeatureRef,
+  byTeamRef,
   byClientRef,
   byStatusRef,
   insightsRef,
@@ -59,13 +61,14 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
   const tasks = useSprintStore((state) => state.tasks);
   // Use a single state object to ensure atomic updates and prevent filter accumulation
   const [activeFilter, setActiveFilter] = useState<{
-    type: 'type' | 'feature' | 'client' | 'complexity' | null;
+    type: 'type' | 'feature' | 'client' | 'complexity' | 'team' | null;
     value: string | number | null;
   } | null>(null);
   const [topLimit, setTopLimit] = useState<number | null>(20);
   const [viewScope, setViewScope] = useState<'backlog' | 'pendingAll'>('pendingAll'); // default: all pending tasks
   const [featureViewMode, setFeatureViewMode] = useState<'chart' | 'list'>('chart');
   const [clientViewMode, setClientViewMode] = useState<'chart' | 'list'>('chart');
+  const [teamViewMode, setTeamViewMode] = useState<'chart' | 'list'>('chart');
   const [showTotalTasksInfo, setShowTotalTasksInfo] = useState(false);
 
   // Extract filter values from activeFilter for backward compatibility
@@ -111,6 +114,14 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     }
   };
 
+  const applyTeamFilter = (team: string | null) => {
+    if (team) {
+      setActiveFilter({ type: 'team', value: team });
+    } else {
+      setActiveFilter(null);
+    }
+  };
+
   // Helper function to get filter display label
   const getFilterLabel = (): { label: string; icon: React.ReactNode; color: string } | null => {
     if (!activeFilter) return null;
@@ -150,6 +161,13 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           color: 'orange'
         };
       
+      case 'team':
+        return {
+          label: `Equipe: ${activeFilter.value as string}`,
+          icon: <Users className="w-4 h-4" />,
+          color: activeFilter.value === 'Equipe Web' ? 'purple' : 'indigo'
+        };
+      
       default:
         return null;
     }
@@ -160,8 +178,106 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     setActiveFilter({ type: 'type', value: 'all' });
   };
 
-  // Calculate analytics based on scope
+  // Calculate unfiltered analytics for team cards (always show totals)
+  const unfilteredAnalytics: BacklogAnalyticsType = useMemo(() => {
+    if (viewScope === 'backlog') {
+      return calculateBacklogAnalytics(tasks);
+    }
+    const pendingTasks = tasks.filter((t) => !isCompletedStatus(t.status));
+    // Helper to build analytics from a given subset of tasks (no worklog, only estimativa)
+    const buildAnalyticsFromTasks = (taskSubset: TaskItem[]) => {
+      const pendingTasks = taskSubset.filter((t) => !isNeutralTask(t) && !isAuxilioTask(t) && !isTestesTask(t) && !hasImpedimentoTrabalho(t));
+      const isDuvidaOcultaTaskLocal = (t: TaskItem) => {
+        if (!t.detalhesOcultos || t.detalhesOcultos.length === 0) return false;
+        return t.detalhesOcultos.some(d => {
+          const normalized = normalizeForComparison(d);
+          return normalized === 'duvidaoculta' || normalized === 'duvida oculta';
+        });
+      };
+      const isFolha = (t: TaskItem) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
+      const bugs = pendingTasks.filter((t) => t.tipo === 'Bug' && !isDuvidaOcultaTaskLocal(t) && !isFolha(t));
+      const dubidasOcultas = pendingTasks.filter((t) => t.tipo === 'Bug' && isDuvidaOcultaTaskLocal(t) && !isFolha(t));
+      const folha = pendingTasks.filter((t) => (t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha')));
+      const tarefas = pendingTasks.filter(
+        (t) => !(t.tipo === 'Bug' && !isDuvidaOcultaTaskLocal(t) && !isFolha(t)) && 
+               !(t.tipo === 'Bug' && isDuvidaOcultaTaskLocal(t)) &&
+               !(t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha'))
+      );
+      const createTotalizer = (label: string, list: TaskItem[]) => ({
+        label,
+        count: list.length,
+        hours: 0,
+        estimatedHours: list.reduce((sum, x) => sum + (x.estimativa || 0), 0),
+      });
+      const complexityMap = new Map<number, TaskItem[]>();
+      pendingTasks.forEach((task) => {
+        const level = task.complexidade || 1;
+        if (!complexityMap.has(level)) complexityMap.set(level, []);
+        complexityMap.get(level)!.push(task);
+      });
+      const byComplexity = Array.from({ length: 5 }, (_, i) => createTotalizer(`Complexidade ${i + 1}`, complexityMap.get(i + 1) || []));
+      const byFeature = calculateBacklogAnalysisByFeature(pendingTasks);
+      const byClient = calculateBacklogAnalysisByClient(pendingTasks);
+      const byTeam = calculateBacklogAnalysisByTeam(pendingTasks);
+      const statusMap = new Map<string, TaskItem[]>();
+      pendingTasks.forEach((task) => {
+        const status = task.status || '(Sem Status)';
+        if (!statusMap.has(status)) statusMap.set(status, []);
+        statusMap.get(status)!.push(task);
+      });
+      const byStatus = Array.from(statusMap.entries()).map(([status, list]) => createTotalizer(status, list)).sort((a, b) => b.count - a.count);
+      return {
+        summary: {
+          totalTasks: pendingTasks.length,
+          totalEstimatedHours: pendingTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+          bugs: bugs.length,
+          dubidasOcultas: dubidasOcultas.length,
+          folha: folha.length,
+          tarefas: tarefas.length,
+        },
+        byType: {
+          bugs: createTotalizer('Bugs Reais', bugs),
+          dubidasOcultas: createTotalizer('Dúvidas Ocultas', dubidasOcultas),
+          folha: createTotalizer('Folha', folha),
+          tarefas: createTotalizer('Tarefas', tarefas),
+        },
+        byComplexity,
+        byFeature,
+        byClient,
+        byModule: [],
+        byStatus,
+        byResponsible: [],
+        byTeam,
+        ageAnalysis: {
+          averageAgeDays: 0,
+          ageDistribution: [],
+          oldestTasks: [],
+        },
+        estimateAnalysis: {
+          tasksWithoutEstimate: { count: 0, tasks: [] },
+          estimateDistribution: [],
+          averageEstimate: 0,
+          averageEstimateByType: { bugs: 0, dubidasOcultas: 0, folha: 0, tarefas: 0 },
+        },
+        riskAnalysis: {
+          highRiskTasks: [],
+          riskDistribution: [],
+        },
+        tasks: pendingTasks,
+      };
+    };
+    return buildAnalyticsFromTasks(pendingTasks);
+  }, [tasks, viewScope]);
+
+  // Calculate analytics based on scope (may be filtered by team)
   const analytics: BacklogAnalyticsType = useMemo(() => {
+    // Apply team filter if active (before calculating analytics, so graphs show filtered data)
+    let tasksToAnalyze = tasks;
+    if (activeFilter?.type === 'team' && activeFilter.value) {
+      const team = activeFilter.value as string;
+      tasksToAnalyze = tasks.filter(t => getTaskTeam(t) === team);
+    }
+
     // Helper to build analytics from a given subset of tasks (no worklog, only estimativa)
     // Used for "pendingAll" scope which doesn't have all advanced analyses
     const buildAnalyticsFromTasks = (taskSubset: TaskItem[]) => {
@@ -203,9 +319,10 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
       });
       const byComplexity = Array.from({ length: 5 }, (_, i) => createTotalizer(`Complexidade ${i + 1}`, complexityMap.get(i + 1) || []));
 
-      // Feature/Client reuse backlog helpers
+      // Feature/Client/Team reuse backlog helpers
       const byFeature = calculateBacklogAnalysisByFeature(pendingTasks);
       const byClient = calculateBacklogAnalysisByClient(pendingTasks);
+      const byTeam = calculateBacklogAnalysisByTeam(pendingTasks);
 
       // Status
       const statusMap = new Map<string, TaskItem[]>();
@@ -238,6 +355,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
         byModule: [], // Not available for pendingAll
         byStatus,
         byResponsible: [], // Not available for pendingAll
+        byTeam,
         ageAnalysis: {
           averageAgeDays: 0,
           ageDistribution: [],
@@ -260,13 +378,13 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     if (viewScope === 'backlog') {
       // Use the full calculateBacklogAnalytics function for backlog scope
       // This includes all new analyses (age, estimates, risk, module, responsible)
-      return calculateBacklogAnalytics(tasks);
+      return calculateBacklogAnalytics(tasksToAnalyze);
     }
 
     // pendingAll: consider all tasks not completed (including backlog), simple analysis (counts/estimates)
-    const pendingTasks = tasks.filter((t) => !isCompletedStatus(t.status));
+    const pendingTasks = tasksToAnalyze.filter((t) => !isCompletedStatus(t.status));
     return buildAnalyticsFromTasks(pendingTasks);
-  }, [tasks, viewScope]);
+  }, [tasks, viewScope, activeFilter]);
 
   // Helper to check if task is Folha
   const isFolhaTask = (t: TaskItem) => t.modulo === 'DSFolha' || (t.feature || []).includes('DSFolha');
@@ -314,6 +432,9 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
     } else if (activeFilter.type === 'complexity' && activeFilter.value !== null) {
       const complexity = activeFilter.value as number;
       filtered = filtered.filter((t) => (t.complexidade || 1) === complexity);
+    } else if (activeFilter.type === 'team' && activeFilter.value) {
+      const team = activeFilter.value as string;
+      filtered = filtered.filter((t) => getTaskTeam(t) === team);
     }
 
     // Remove duplicates based on id or chave (only if both exist)
@@ -399,7 +520,7 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
       </div>
 
       {/* Summary Cards */}
-      <div ref={summaryRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div ref={summaryRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         <SummaryCard
           icon={<Inbox className="w-5 h-5" />}
           label="Total de Tarefas"
@@ -456,6 +577,37 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           onClick={() => applyTypeFilter('Tarefa')}
           isActive={filterType === 'Tarefa'}
         />
+        {(() => {
+          // Use unfiltered analytics for team cards so they always show totals
+          const equipeVB = unfilteredAnalytics.byTeam?.find(t => t.label === 'Equipe VB');
+          const equipeWeb = unfilteredAnalytics.byTeam?.find(t => t.label === 'Equipe Web');
+          return (
+            <>
+              {equipeVB && (
+                <SummaryCard
+                  icon={<Users className="w-5 h-5" />}
+                  label="Equipe VB"
+                  value={equipeVB.count.toString()}
+                  subtitle={`${formatHours(equipeVB.estimatedHours)} estimadas`}
+                  color="indigo"
+                  onClick={() => applyTeamFilter('Equipe VB')}
+                  isActive={activeFilter?.type === 'team' && activeFilter.value === 'Equipe VB'}
+                />
+              )}
+              {equipeWeb && (
+                <SummaryCard
+                  icon={<Users className="w-5 h-5" />}
+                  label="Equipe Web"
+                  value={equipeWeb.count.toString()}
+                  subtitle={`${formatHours(equipeWeb.estimatedHours)} estimadas`}
+                  color="purple"
+                  onClick={() => applyTeamFilter('Equipe Web')}
+                  isActive={activeFilter?.type === 'team' && activeFilter.value === 'Equipe Web'}
+                />
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* (Removido) Distribuição por Tipo - redundante com os cards do topo */}
@@ -574,6 +726,151 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Analysis by Team */}
+      {analytics.byTeam && analytics.byTeam.length > 0 && (
+        <div ref={byTeamRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Users className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Por Equipe</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              ({analytics.byTeam.length} equipes)
+            </span>
+          </div>
+          
+          {/* Cards comparativos lado a lado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {analytics.byTeam.map((team) => {
+              const totalTeamHoursAll = analytics.byTeam.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+              const percentOfTotal = totalTeamHoursAll > 0 ? (team.estimatedHours / totalTeamHoursAll) * 100 : 0;
+              const isEquipeWeb = team.label === 'Equipe Web';
+              const isActive = activeFilter?.type === 'team' && activeFilter.value === team.label;
+              
+              const teamColors = isEquipeWeb 
+                ? {
+                    bgGradient: 'from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20',
+                    border: 'border-purple-300 dark:border-purple-700',
+                    iconBg: 'bg-purple-100 dark:bg-purple-800/50',
+                    icon: 'text-purple-600 dark:text-purple-400',
+                    text: 'text-purple-900 dark:text-purple-100',
+                    accent: 'text-purple-700 dark:text-purple-300',
+                    barGradient: 'from-purple-500 to-purple-600 dark:from-purple-400 dark:to-purple-500',
+                    hover: 'hover:shadow-purple-200/50 dark:hover:shadow-purple-900/30'
+                  }
+                : {
+                    bgGradient: 'from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20',
+                    border: 'border-indigo-300 dark:border-indigo-700',
+                    iconBg: 'bg-indigo-100 dark:bg-indigo-800/50',
+                    icon: 'text-indigo-600 dark:text-indigo-400',
+                    text: 'text-indigo-900 dark:text-indigo-100',
+                    accent: 'text-indigo-700 dark:text-indigo-300',
+                    barGradient: 'from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500',
+                    hover: 'hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30'
+                  };
+              
+              return (
+                <div
+                  key={team.label}
+                  className={`relative rounded-xl border-2 ${teamColors.border} bg-gradient-to-br ${teamColors.bgGradient} p-6 cursor-pointer transition-all duration-300 ${teamColors.hover} ${
+                    isActive ? 'ring-4 ring-offset-2 ' + (isEquipeWeb ? 'ring-purple-400 dark:ring-purple-600' : 'ring-indigo-400 dark:ring-indigo-600') + ' shadow-xl scale-105' : 'hover:shadow-lg'
+                  }`}
+                  onClick={() => applyTeamFilter(team.label)}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-xl ${teamColors.iconBg}`}>
+                        <Users className={`w-6 h-6 ${teamColors.icon}`} />
+                      </div>
+                      <div>
+                        <h4 className={`text-xl font-bold ${teamColors.text}`}>{team.label}</h4>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Equipe de desenvolvimento</p>
+                      </div>
+                    </div>
+                    {isActive && (
+                      <div className="px-3 py-1 rounded-full bg-white/80 dark:bg-gray-800/80 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        Filtrado
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Métricas principais */}
+                  <div className="space-y-4">
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-4xl font-bold ${teamColors.text}`}>
+                        {team.count}
+                      </span>
+                      <span className="text-lg text-gray-600 dark:text-gray-400">
+                        tarefa{team.count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Horas Estimadas</span>
+                        <span className={`text-lg font-semibold ${teamColors.accent}`}>
+                          {formatHours(team.estimatedHours)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Percentual do Total</span>
+                        <span className={`text-lg font-semibold ${teamColors.accent}`}>
+                          {percentOfTotal.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Barra de progresso */}
+                    <div className="pt-2">
+                      <div className="h-3 bg-white/50 dark:bg-gray-900/30 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${teamColors.barGradient} rounded-full transition-all duration-500 ease-out`}
+                          style={{ width: `${Math.min(percentOfTotal, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Breakdown por tipo (se disponível) */}
+                    {team.byType && (
+                      <div className="pt-3 border-t border-white/30 dark:border-gray-700/50">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">Distribuição por Tipo</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center">
+                            <div className="font-semibold text-gray-900 dark:text-white">{team.byType.bugs}</div>
+                            <div className="text-gray-600 dark:text-gray-400">Bugs</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-gray-900 dark:text-white">{team.byType.duvidasOcultas}</div>
+                            <div className="text-gray-600 dark:text-gray-400">D. Ocultas</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-gray-900 dark:text-white">{team.byType.tarefas}</div>
+                            <div className="text-gray-600 dark:text-gray-400">Tarefas</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Badge de clique */}
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="px-2 py-1 rounded-md bg-white/60 dark:bg-gray-800/60 text-xs text-gray-600 dark:text-gray-400">
+                      Clique para filtrar
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {analytics.byTeam.length === 0 && (
+            <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+              Nenhuma equipe encontrada
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Analysis by Client */}
       <div ref={byClientRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">

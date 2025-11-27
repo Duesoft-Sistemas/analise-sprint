@@ -163,6 +163,53 @@ function parseComplexidade(value: any): number {
   return Math.max(1, Math.min(5, num));
 }
 
+/**
+ * Obtém o sprint atual da última coluna de sprint preenchida
+ * Ordem de prioridade: Sprint_4, Sprint_3, Sprint_2, Sprint_1, Sprint (fallback)
+ */
+function getCurrentSprint(
+  rawRow: any[],
+  sprintColumnIndices: number[],
+  headers: string[],
+  defaultSprint: string
+): string {
+  // Se não houver colunas adicionais de sprint, retornar o sprint padrão
+  if (sprintColumnIndices.length === 0) {
+    return defaultSprint;
+  }
+  
+  // Criar array de objetos com índice e número do sprint extraído do nome da coluna
+  const sprintColumns = sprintColumnIndices
+    .map(index => {
+      const headerStr = String(headers[index] || '').trim();
+      const normalizedHeader = normalizeText(headerStr).toLowerCase();
+      
+      // Extrair número do sprint do nome da coluna (ex: "Sprint_4" -> 4, "Sprint 3" -> 3)
+      const match = normalizedHeader.match(/sprint[_\s]*(\d+)/);
+      const sprintNumber = match ? parseInt(match[1], 10) : null;
+      
+      return { index, sprintNumber };
+    })
+    .filter(col => col.sprintNumber !== null) as Array<{ index: number; sprintNumber: number }>;
+  
+  // Ordenar por número do sprint em ordem reversa (Sprint_4 primeiro, depois Sprint_3, etc.)
+  sprintColumns.sort((a, b) => b.sprintNumber - a.sprintNumber);
+  
+  // Iterar pelas colunas de sprint em ordem reversa
+  for (const { index } of sprintColumns) {
+    if (rawRow && rawRow[index] !== undefined && rawRow[index] !== null) {
+      const value = rawRow[index];
+      const valueStr = String(value).trim();
+      if (valueStr !== '' && valueStr !== 'undefined' && valueStr !== 'null') {
+        return normalizeText(valueStr);
+      }
+    }
+  }
+  
+  // Se nenhuma coluna adicional tiver valor, retornar o sprint padrão
+  return defaultSprint;
+}
+
 export async function parseXLSFile(file: File): Promise<ParseResult> {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -197,10 +244,11 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
         // Primeira linha são os cabeçalhos
         const headers = rawData[0] as string[];
         
-        // Encontrar todas as colunas que correspondem a Feature, Categorias e Detalhes Ocultos
+        // Encontrar todas as colunas que correspondem a Feature, Categorias, Detalhes Ocultos e Sprints adicionais
         const featureColumnIndices: number[] = [];
         const categoriasColumnIndices: number[] = [];
         const detalhesOcultosColumnIndices: number[] = [];
+        const sprintColumnIndices: number[] = [];
         
         headers.forEach((header, index) => {
           const headerStr = String(header || '').trim();
@@ -220,6 +268,12 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
           if (normalizedHeader.includes('detalhes ocultos') || normalizedHeader.includes('detalhesocultos')) {
             detalhesOcultosColumnIndices.push(index);
           }
+          
+          // Verificar se é uma coluna de Sprint adicional (Sprint_1, Sprint_2, Sprint_3, Sprint_4)
+          // Não incluir a coluna "Sprint" principal aqui, apenas as colunas numeradas
+          if (normalizedHeader.startsWith('sprint_') || /^sprint\s*\d+$/i.test(headerStr)) {
+            sprintColumnIndices.push(index);
+          }
         });
 
         // Converter para formato com objetos (para compatibilidade com código existente)
@@ -229,8 +283,8 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
           defval: '',
         });
 
-        // Processar dados linha por linha para capturar todas as colunas de features e categorias
-        const tasks = parseXlsDataWithMultipleColumns(jsonData, rawData, headers, featureColumnIndices, categoriasColumnIndices, detalhesOcultosColumnIndices);
+        // Processar dados linha por linha para capturar todas as colunas de features, categorias e sprints
+        const tasks = parseXlsDataWithMultipleColumns(jsonData, rawData, headers, featureColumnIndices, categoriasColumnIndices, detalhesOcultosColumnIndices, sprintColumnIndices);
         resolve({ success: true, data: tasks });
       } catch (error) {
         resolve({
@@ -253,7 +307,7 @@ export async function parseXLSFile(file: File): Promise<ParseResult> {
 
 
 /**
- * Processa dados Excel capturando todas as colunas de Features e Categorias,
+ * Processa dados Excel capturando todas as colunas de Features, Categorias e Sprints,
  * mesmo quando há colunas duplicadas com o mesmo nome
  */
 function parseXlsDataWithMultipleColumns(
@@ -262,7 +316,8 @@ function parseXlsDataWithMultipleColumns(
   _headers: string[],
   featureColumnIndices: number[],
   categoriasColumnIndices: number[],
-  detalhesOcultosColumnIndices: number[]
+  detalhesOcultosColumnIndices: number[],
+  sprintColumnIndices: number[]
 ): TaskItem[] {
   const tasks: TaskItem[] = [];
 
@@ -285,7 +340,9 @@ function parseXlsDataWithMultipleColumns(
 
       const resumo = normalizeText(getColumnValue(jsonRow, 'Resumo'));
       const tempoGasto = getRawColumnValue(jsonRow, 'Tempo gasto'); // Manter como número se for segundos
-      const sprint = normalizeText(getColumnValue(jsonRow, 'Sprint'));
+      const defaultSprint = normalizeText(getColumnValue(jsonRow, 'Sprint'));
+      // Obter sprint atual da última coluna preenchida (Sprint_4, Sprint_3, Sprint_2, Sprint_1, ou Sprint)
+      const sprint = getCurrentSprint(rawRow, sprintColumnIndices, _headers, defaultSprint);
       const criado = getColumnValue(jsonRow, 'Criado');
       const estimativa = getRawColumnValue(jsonRow, 'Estimativa original'); // Manter como número se for segundos
       const responsavel = normalizeText(getColumnValue(jsonRow, 'Responsável'));

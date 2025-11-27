@@ -19,6 +19,7 @@ import {
   isImpedimentoTrabalhoTask,
   isTestesTask,
   hasImpedimentoTrabalho,
+  getTaskTeam,
 } from '../utils/calculations';
 import { isBacklogSprintValue, getSprintHoursPerDeveloper, getSprintHoursForIntern } from '../utils/calculations';
 import { getInternDevelopers } from '../services/configService';
@@ -691,6 +692,60 @@ export function calculateBacklogAnalysisByClient(backlogTasks: TaskItem[]): Tota
   return totalizers.sort((a, b) => b.estimatedHours - a.estimatedHours);
 }
 
+// Calculate backlog analysis by team
+// IMPORTANT: Backlog tasks are NOT processed for hybrid metrics, so we use only estimativa
+export function calculateBacklogAnalysisByTeam(backlogTasks: TaskItem[]): Totalizer[] {
+  const teamMap = new Map<string, TaskItem[]>();
+
+  // Agrupar tarefas de backlog por equipe
+  // Cada tarefa pertence a apenas uma equipe (Equipe VB ou Equipe Web)
+  for (const task of backlogTasks) {
+    const team = getTaskTeam(task);
+    if (!teamMap.has(team)) {
+      teamMap.set(team, []);
+    }
+    teamMap.get(team)!.push(task);
+  }
+
+  const totalizers: Totalizer[] = [];
+
+  // Helper function to calculate breakdown by type
+  const calculateBreakdownByType = (taskList: TaskItem[]) => {
+    const bugs = taskList.filter(t => t.tipo === 'Bug' && !isDuvidaOcultaTask(t));
+    const duvidasOcultas = taskList.filter(t => t.tipo === 'Bug' && isDuvidaOcultaTask(t));
+    const tarefas = taskList.filter(t => t.tipo !== 'Bug');
+    
+    return {
+      bugs: bugs.length,
+      duvidasOcultas: duvidasOcultas.length,
+      tarefas: tarefas.length,
+      bugsHours: bugs.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      duvidasOcultasHours: duvidasOcultas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      tarefasHours: tarefas.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+    };
+  };
+
+  for (const [team, teamTasks] of teamMap.entries()) {
+    // Backlog usa apenas estimativa (não tem tempo gasto processado)
+    const breakdown = calculateBreakdownByType(teamTasks);
+    totalizers.push({
+      label: team,
+      count: teamTasks.length,
+      hours: 0, // Backlog não tem horas trabalhadas
+      estimatedHours: teamTasks.reduce((sum, t) => sum + (t.estimativa || 0), 0),
+      byType: breakdown,
+    });
+  }
+
+  // Ordenar por horas estimadas (demanda futura)
+  // Equipe VB primeiro, depois Equipe Web
+  return totalizers.sort((a, b) => {
+    if (a.label === 'Equipe VB' && b.label !== 'Equipe VB') return -1;
+    if (a.label !== 'Equipe VB' && b.label === 'Equipe VB') return 1;
+    return b.estimatedHours - a.estimatedHours;
+  });
+}
+
 // =============================================================================
 // BACKLOG ANALYTICS - Complete backlog analysis for sprint allocation
 // =============================================================================
@@ -763,6 +818,7 @@ export interface BacklogAnalytics {
   byModule: Totalizer[]; // NEW: Analysis by module
   byStatus: Totalizer[];
   byResponsible: Totalizer[]; // NEW: Analysis by responsible
+  byTeam: Totalizer[]; // NEW: Analysis by team (Equipe VB, Equipe Web)
   ageAnalysis: BacklogAgeAnalysis; // NEW: Temporal/age analysis
   estimateAnalysis: BacklogEstimateAnalysis; // NEW: Estimate analysis
   riskAnalysis: BacklogRiskAnalysis; // NEW: Risk analysis
@@ -1059,6 +1115,9 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
   // By Client
   const byClient = calculateBacklogAnalysisByClient(backlogFiltered);
 
+  // By Team
+  const byTeam = calculateBacklogAnalysisByTeam(backlogFiltered);
+
   // By Module
   const moduleMap = new Map<string, TaskItem[]>();
   backlogFiltered.forEach((task) => {
@@ -1131,6 +1190,7 @@ export function calculateBacklogAnalytics(tasks: TaskItem[]): BacklogAnalytics {
     byModule,
     byStatus,
     byResponsible,
+    byTeam,
     ageAnalysis,
     estimateAnalysis,
     riskAnalysis,

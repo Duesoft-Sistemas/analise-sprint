@@ -497,7 +497,6 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     estimativaRestante > 0 ? Math.round((variance / estimativaRestante) * 100) : 0;
 
   const isCompleted = isCompletedStatus(task.status);
-  const isOverTime = !isCompleted && estimativaRestante > 0 && tempoGasto > estimativaRestante;
 
   // Determinar cores para complexidade
   const getComplexityColor = (complexity: number) => {
@@ -527,10 +526,8 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     ? 'bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
     : 'hover:bg-gray-50 dark:hover:bg-gray-700/50';
 
-  const overtimeOutlineClass = isOverTime ? 'outline outline-2 outline-red-200 dark:outline-red-500/60' : '';
-
   return (
-    <tr className={`${rowTypeClass} transition-colors ${overtimeOutlineClass}`}>
+    <tr className={`${rowTypeClass} transition-colors`}>
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{task.chave}</td>
       <td className="px-4 py-3 text-sm max-w-xl">
         <div className="text-gray-700 dark:text-gray-300 truncate" title={task.resumo}>

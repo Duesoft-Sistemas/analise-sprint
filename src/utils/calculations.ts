@@ -463,3 +463,21 @@ export function getSprintHoursForIntern(
   return sprintHours * (30 / 40);
 }
 
+/**
+ * Get team for a task based on detalhes ocultos
+ * Returns 'Equipe Web' if task has 'EquipeWeb' in detalhesOcultos, otherwise 'Equipe VB' (default)
+ */
+export function getTaskTeam(task: { detalhesOcultos?: string[] }): 'Equipe Web' | 'Equipe VB' {
+  if (!task.detalhesOcultos || task.detalhesOcultos.length === 0) {
+    return 'Equipe VB';
+  }
+
+  const hasEquipeWeb = task.detalhesOcultos.some(d => {
+    if (!d) return false;
+    const normalized = normalizeForComparison(d);
+    return normalized === 'equipeweb' || normalized === 'equipe web';
+  });
+
+  return hasEquipeWeb ? 'Equipe Web' : 'Equipe VB';
+}
+
