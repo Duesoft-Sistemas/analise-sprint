@@ -310,6 +310,125 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               )}
             </div>
 
+            {/* Bonificação de Eficiência */}
+            <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <button
+                onClick={() => toggleSection('efficiency-bonus')}
+                className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    Bonificação de Eficiência (Muito Eficiente)
+                  </span>
+                </div>
+                {expandedSections.has('efficiency-bonus') ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {expandedSections.has('efficiency-bonus') && (
+                <div className="p-4 bg-white dark:bg-gray-800">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Sistema de bonificação progressiva para tarefas muito eficientes. Quanto mais eficiente, mais pontos de eficiência são ganhos.
+                  </p>
+                  
+                  {/* Bugs */}
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-lg mb-3 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      Para Bugs (Zona de Complexidade)
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      A eficiência é calculada comparando as horas gastas com o limite máximo da zona eficiente.
+                    </p>
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-100 dark:bg-gray-700">
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Complexidade</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-100 dark:bg-green-900/20">Eficiência &lt; 25%</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-100 dark:bg-blue-900/20">Eficiência ≥ 25%</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-purple-100 dark:bg-purple-900/20">Eficiência ≥ 50%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold text-center">1-2</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-50 dark:bg-green-900/10 font-semibold text-green-700 dark:text-green-400">1.0 ponto</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-50 dark:bg-blue-900/10 font-semibold text-blue-700 dark:text-blue-400">1.2 pontos (máximo)</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400">—</td>
+                          </tr>
+                          <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold text-center">3-5</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-50 dark:bg-green-900/10 font-semibold text-green-700 dark:text-green-400">1.0 ponto</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-50 dark:bg-blue-900/10 font-semibold text-blue-700 dark:text-blue-400">1.2 pontos</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-purple-50 dark:bg-purple-900/10 font-semibold text-purple-700 dark:text-purple-400">1.5 pontos (máximo)</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <AlertTriangle className="w-4 h-4 inline mr-1" />
+                        <strong>Nota:</strong> Tarefas na zona "aceitável" recebem 0.5 pontos (sem bonificação). Tarefas ineficientes recebem 0 pontos.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-lg mb-3 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                      Para Features (Desvio Percentual)
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      A eficiência é calculada pelo desvio percentual positivo (quanto mais rápido executou em relação à estimativa).
+                    </p>
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-100 dark:bg-gray-700">
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Complexidade</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-100 dark:bg-green-900/20">Desvio &lt; 25%</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-100 dark:bg-blue-900/20">Desvio ≥ 25%</th>
+                            <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-purple-100 dark:bg-purple-900/20">Desvio ≥ 50%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold text-center">1-2</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-50 dark:bg-green-900/10 font-semibold text-green-700 dark:text-green-400">1.0 ponto</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-50 dark:bg-blue-900/10 font-semibold text-blue-700 dark:text-blue-400">1.2 pontos (máximo)</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400">—</td>
+                          </tr>
+                          <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 font-semibold text-center">3-5</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-green-50 dark:bg-green-900/10 font-semibold text-green-700 dark:text-green-400">1.0 ponto</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-blue-50 dark:bg-blue-900/10 font-semibold text-blue-700 dark:text-blue-400">1.2 pontos</td>
+                            <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-purple-50 dark:bg-purple-900/10 font-semibold text-purple-700 dark:text-purple-400">1.5 pontos (máximo)</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        <Info className="w-4 h-4 inline mr-1" />
+                        <strong>Exemplo:</strong> Se estimou 10h e gastou 5h, o desvio é +50% (executou 50% mais rápido). Para complexidade 3-5, isso resulta em 1.5 pontos de eficiência.
+                      </p>
+                    </div>
+                    <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                      <p className="text-sm text-orange-800 dark:text-orange-200">
+                        <Info className="w-4 h-4 inline mr-1" />
+                        <strong>Nota:</strong> Desvios negativos dentro da tolerância recebem 1.0 ponto (sem bonificação). Desvios negativos fora da tolerância recebem 0 pontos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Performance Score Weights */}
             <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg">
               <button

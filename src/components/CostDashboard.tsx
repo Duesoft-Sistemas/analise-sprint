@@ -9,6 +9,8 @@ import {
   Filter,
   BarChart3,
   X,
+  Clock,
+  Hash,
 } from 'lucide-react';
 import {
   LineChart,
@@ -21,7 +23,7 @@ import {
 } from 'recharts';
 import { useSprintStore } from '../store/useSprintStore';
 import { calculateCostAnalytics } from '../services/costAnalytics';
-import { formatHours, normalizeForComparison, isFullyCompletedStatus } from '../utils/calculations';
+import { formatHours, normalizeForComparison, isFullyCompletedStatus, isBacklogSprintValue } from '../utils/calculations';
 
 /**
  * Format currency value
@@ -44,6 +46,7 @@ export const CostDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<'client' | 'feature' | 'developer'>('client');
   const [paginationLimit, setPaginationLimit] = useState<number | null>(10);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedDeveloper, setSelectedDeveloper] = useState<string | null>(null);
 
   // Available sprints for filter (only completed sprints, sorted by date)
   const availableSprints = useMemo(() => {
@@ -88,6 +91,235 @@ export const CostDashboard: React.FC = () => {
     }
     return calculateCostAnalytics(tasks, worklogs, sprintMetadata, costData, selectedSprints);
   }, [tasks, worklogs, sprintMetadata, costData, selectedSprints]);
+
+  // Calculate developer tasks with hours and cost
+  const developerTasks = useMemo(() => {
+    if (!selectedDeveloper || costData.length === 0 || !analytics) {
+      return [];
+    }
+
+    // Helper to get hourly rate
+    const getHourlyRate = (developer: string): number => {
+      const cost = costData.find(c => normalizeForComparison(c.responsavel) === normalizeForComparison(developer));
+      return cost?.valorHora || 0;
+    };
+
+    // Filter tasks by period (same logic as analytics)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const completedSprints = sprintMetadata.filter(meta => {
+      const sprintEnd = new Date(meta.dataFim);
+      sprintEnd.setHours(23, 59, 59, 999);
+      return sprintEnd < today;
+    });
+    
+    const completedSprintNames = new Set(completedSprints.map(m => m.sprint));
+
+    // Determine which sprints to include
+    const sprintsToInclude = selectedSprints.length > 0 
+      ? new Set(selectedSprints)
+      : completedSprintNames;
+
+    // Filter tasks
+    const filteredTasks = tasks.filter(task => {
+      // Exclude backlog tasks
+      if (!task.sprint || task.sprint.trim() === '' || isBacklogSprintValue(task.sprint)) {
+        return false;
+      }
+      
+      // Only include tasks from selected sprints
+      if (!sprintsToInclude.has(task.sprint)) {
+        return false;
+      }
+      
+      // Only include fully completed tasks
+      if (!isFullyCompletedStatus(task.status)) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    // Get worklogs for the period
+    let worklogsInPeriod: typeof worklogs = [];
+    if (selectedSprints.length > 0) {
+      const selectedMetadata = sprintMetadata.filter(m => selectedSprints.includes(m.sprint));
+      if (selectedMetadata.length > 0) {
+        const startDate = new Date(Math.min(...selectedMetadata.map(m => m.dataInicio.getTime())));
+        const endDate = new Date(Math.max(...selectedMetadata.map(m => m.dataFim.getTime())));
+        worklogsInPeriod = worklogs.filter(w => {
+          const worklogDate = new Date(w.data);
+          return worklogDate >= startDate && worklogDate <= endDate;
+        });
+      }
+    } else {
+      if (completedSprints.length > 0) {
+        const startDate = new Date(Math.min(...completedSprints.map(m => m.dataInicio.getTime())));
+        const endDate = new Date(Math.max(...completedSprints.map(m => m.dataFim.getTime())));
+        worklogsInPeriod = worklogs.filter(w => {
+          const worklogDate = new Date(w.data);
+          return worklogDate >= startDate && worklogDate <= endDate;
+        });
+      }
+    }
+
+    // Calculate tasks with hours and cost for the selected developer
+    const taskMap = new Map<string, {
+      task: typeof tasks[0];
+      hours: number;
+      cost: number;
+    }>();
+
+    for (const task of filteredTasks) {
+      const taskWorklogs = worklogsInPeriod.filter(w => 
+        (w.taskId === task.id || w.taskId === task.chave) &&
+        normalizeForComparison(w.responsavel?.trim() || task.responsavel) === normalizeForComparison(selectedDeveloper)
+      );
+
+      let taskHours = 0;
+      let taskCost = 0;
+      const hourlyRate = getHourlyRate(selectedDeveloper);
+
+      for (const worklog of taskWorklogs) {
+        const worklogHours = worklog.tempoGasto;
+        if (worklogHours > 0) {
+          taskHours += worklogHours;
+          taskCost += worklogHours * hourlyRate;
+        }
+      }
+
+      if (taskHours > 0) {
+        taskMap.set(task.id, {
+          task,
+          hours: taskHours,
+          cost: taskCost,
+        });
+      }
+    }
+
+    return Array.from(taskMap.values())
+      .sort((a, b) => b.cost - a.cost); // Sort by cost descending
+  }, [selectedDeveloper, tasks, worklogs, sprintMetadata, costData, selectedSprints, analytics]);
+
+  // Calculate client tasks with hours and cost
+  const clientTasks = useMemo(() => {
+    if (!selectedClient || costData.length === 0 || !analytics) {
+      return [];
+    }
+
+    // Helper to get hourly rate
+    const getHourlyRate = (developer: string): number => {
+      const cost = costData.find(c => normalizeForComparison(c.responsavel) === normalizeForComparison(developer));
+      return cost?.valorHora || 0;
+    };
+
+    // Filter tasks by period (same logic as analytics)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const completedSprints = sprintMetadata.filter(meta => {
+      const sprintEnd = new Date(meta.dataFim);
+      sprintEnd.setHours(23, 59, 59, 999);
+      return sprintEnd < today;
+    });
+    
+    const completedSprintNames = new Set(completedSprints.map(m => m.sprint));
+
+    // Determine which sprints to include
+    const sprintsToInclude = selectedSprints.length > 0 
+      ? new Set(selectedSprints)
+      : completedSprintNames;
+
+    // Filter tasks
+    const filteredTasks = tasks.filter(task => {
+      // Exclude backlog tasks
+      if (!task.sprint || task.sprint.trim() === '' || isBacklogSprintValue(task.sprint)) {
+        return false;
+      }
+      
+      // Only include tasks from selected sprints
+      if (!sprintsToInclude.has(task.sprint)) {
+        return false;
+      }
+      
+      // Only include fully completed tasks
+      if (!isFullyCompletedStatus(task.status)) {
+        return false;
+      }
+      
+      // Filter by client
+      const hasClient = task.categorias.some(cat => 
+        normalizeForComparison(cat) === normalizeForComparison(selectedClient)
+      );
+      
+      if (!hasClient) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    // Get worklogs for the period
+    let worklogsInPeriod: typeof worklogs = [];
+    if (selectedSprints.length > 0) {
+      const selectedMetadata = sprintMetadata.filter(m => selectedSprints.includes(m.sprint));
+      if (selectedMetadata.length > 0) {
+        const startDate = new Date(Math.min(...selectedMetadata.map(m => m.dataInicio.getTime())));
+        const endDate = new Date(Math.max(...selectedMetadata.map(m => m.dataFim.getTime())));
+        worklogsInPeriod = worklogs.filter(w => {
+          const worklogDate = new Date(w.data);
+          return worklogDate >= startDate && worklogDate <= endDate;
+        });
+      }
+    } else {
+      if (completedSprints.length > 0) {
+        const startDate = new Date(Math.min(...completedSprints.map(m => m.dataInicio.getTime())));
+        const endDate = new Date(Math.max(...completedSprints.map(m => m.dataFim.getTime())));
+        worklogsInPeriod = worklogs.filter(w => {
+          const worklogDate = new Date(w.data);
+          return worklogDate >= startDate && worklogDate <= endDate;
+        });
+      }
+    }
+
+    // Calculate tasks with hours and cost
+    const taskMap = new Map<string, {
+      task: typeof tasks[0];
+      hours: number;
+      cost: number;
+    }>();
+
+    for (const task of filteredTasks) {
+      const taskWorklogs = worklogsInPeriod.filter(w => 
+        w.taskId === task.id || w.taskId === task.chave
+      );
+
+      let taskHours = 0;
+      let taskCost = 0;
+
+      for (const worklog of taskWorklogs) {
+        const worklogHours = worklog.tempoGasto;
+        if (worklogHours > 0) {
+          const responsible = worklog.responsavel?.trim() || task.responsavel;
+          const hourlyRate = getHourlyRate(responsible);
+          taskHours += worklogHours;
+          taskCost += worklogHours * hourlyRate;
+        }
+      }
+
+      if (taskHours > 0) {
+        taskMap.set(task.id, {
+          task,
+          hours: taskHours,
+          cost: taskCost,
+        });
+      }
+    }
+
+    return Array.from(taskMap.values())
+      .sort((a, b) => b.cost - a.cost); // Sort by cost descending
+  }, [selectedClient, tasks, worklogs, sprintMetadata, costData, selectedSprints, analytics]);
 
   // Calculate client costs over time (by sprint)
   const clientCostsOverTime = useMemo(() => {
@@ -492,6 +724,122 @@ export const CostDashboard: React.FC = () => {
               </ResponsiveContainer>
             </div>
           )}
+
+          {/* Client Tasks List */}
+          {selectedClient && clientTasks.length > 0 && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg mt-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
+                    <Code className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Tarefas de {selectedClient}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                      {clientTasks.length} tarefa{clientTasks.length > 1 ? 's' : ''} • {formatHours(clientTasks.reduce((sum, item) => sum + item.hours, 0))} • {formatCurrency(clientTasks.reduce((sum, item) => sum + item.cost, 0))}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                  title="Fechar lista de tarefas"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {clientTasks.map((item) => (
+                  <div
+                    key={item.task.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-100 dark:border-blue-800/50 shadow-sm hover:shadow-md transition-all duration-200 hover:border-blue-300 dark:hover:border-blue-700"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/40 rounded-md flex-shrink-0">
+                          <Hash className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
+                          <span className="font-semibold text-blue-800 dark:text-blue-300 text-sm">
+                            {item.task.chave || item.task.id}
+                          </span>
+                        </div>
+                        <p className="text-gray-800 dark:text-gray-200 font-medium truncate">
+                          {item.task.resumo || '-'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                          <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {formatHours(item.hours)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                          <DollarSign className="w-4 h-4" />
+                          <span className="font-bold">
+                            {formatCurrency(item.cost)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary Footer */}
+              <div className="mt-6 pt-4 border-t-2 border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                    <span className="font-bold text-gray-900 dark:text-white">Resumo Total</span>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total de Horas</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">
+                        {formatHours(clientTasks.reduce((sum, item) => sum + item.hours, 0))}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Custo Total</p>
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-400">
+                        {formatCurrency(clientTasks.reduce((sum, item) => sum + item.cost, 0))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedClient && clientTasks.length === 0 && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
+                    <Code className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Tarefas de {selectedClient}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-8 border border-blue-100 dark:border-blue-800/50">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Nenhuma tarefa encontrada para este cliente no período selecionado.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -560,7 +908,13 @@ export const CostDashboard: React.FC = () => {
                   {analytics.byDeveloper
                     .slice(0, paginationLimit === null ? undefined : paginationLimit)
                     .map((dev) => (
-                    <tr key={dev.developer} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr 
+                      key={dev.developer} 
+                      onClick={() => setSelectedDeveloper(selectedDeveloper === dev.developer ? null : dev.developer)}
+                      className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors ${
+                        selectedDeveloper === dev.developer ? 'bg-green-50 dark:bg-green-900/20' : ''
+                      }`}
+                    >
                       <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{dev.developer}</td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-900 dark:text-white">{formatCurrency(dev.totalCost)}</td>
                       <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatHours(dev.totalHours)}</td>
@@ -572,6 +926,122 @@ export const CostDashboard: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Developer Tasks List */}
+          {selectedDeveloper && developerTasks.length > 0 && (
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800 shadow-lg mt-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md">
+                    <Code className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Tarefas de {selectedDeveloper}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                      {developerTasks.length} tarefa{developerTasks.length > 1 ? 's' : ''} • {formatHours(developerTasks.reduce((sum, item) => sum + item.hours, 0))} • {formatCurrency(developerTasks.reduce((sum, item) => sum + item.cost, 0))}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedDeveloper(null)}
+                  className="p-2 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                  title="Fechar lista de tarefas"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {developerTasks.map((item) => (
+                  <div
+                    key={item.task.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-green-100 dark:border-green-800/50 shadow-sm hover:shadow-md transition-all duration-200 hover:border-green-300 dark:hover:border-green-700"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 px-2.5 py-1 bg-green-100 dark:bg-green-900/40 rounded-md flex-shrink-0">
+                          <Hash className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
+                          <span className="font-semibold text-green-800 dark:text-green-300 text-sm">
+                            {item.task.chave || item.task.id}
+                          </span>
+                        </div>
+                        <p className="text-gray-800 dark:text-gray-200 font-medium truncate">
+                          {item.task.resumo || '-'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                          <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {formatHours(item.hours)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                          <DollarSign className="w-4 h-4" />
+                          <span className="font-bold">
+                            {formatCurrency(item.cost)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary Footer */}
+              <div className="mt-6 pt-4 border-t-2 border-green-200 dark:border-green-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-green-700 dark:text-green-400" />
+                    <span className="font-bold text-gray-900 dark:text-white">Resumo Total</span>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total de Horas</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">
+                        {formatHours(developerTasks.reduce((sum, item) => sum + item.hours, 0))}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Custo Total</p>
+                      <p className="text-xl font-bold text-green-700 dark:text-green-400">
+                        {formatCurrency(developerTasks.reduce((sum, item) => sum + item.cost, 0))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedDeveloper && developerTasks.length === 0 && (
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800 shadow-lg mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md">
+                    <Code className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Tarefas de {selectedDeveloper}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedDeveloper(null)}
+                  className="p-2 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-8 border border-green-100 dark:border-green-800/50">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Nenhuma tarefa encontrada para este desenvolvedor no período selecionado.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

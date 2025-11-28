@@ -44,27 +44,36 @@ function filterTasksByPeriod(
   startDate: Date;
   endDate: Date;
 } {
+  // First, filter only completed sprints
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const completedSprints = sprintMetadata.filter(meta => {
+    const sprintEnd = new Date(meta.dataFim);
+    sprintEnd.setHours(23, 59, 59, 999);
+    return sprintEnd < today; // Only completed sprints
+  });
+  
+  const completedSprintNames = new Set(completedSprints.map(m => m.sprint));
+
   if (selectedSprints.length === 0 || sprintMetadata.length === 0) {
-    // If no sprints selected, return all tasks from valid sprints (exclude backlog)
-    // IMPORTANT: Only include tasks from valid sprints and fully completed
+    // If no sprints selected, return all tasks from COMPLETED sprints only (exclude backlog)
+    // IMPORTANT: Only include tasks from completed sprints and fully completed
     const validTasks = tasks.filter(t => {
       // Exclude backlog tasks - only tasks from valid sprints
       if (!t.sprint || t.sprint.trim() === '' || isBacklogSprintValue(t.sprint)) {
+        return false;
+      }
+      // Only include tasks from completed sprints
+      if (!completedSprintNames.has(t.sprint)) {
         return false;
       }
       // Only include fully completed tasks
       return isFullyCompletedStatus(t.status);
     });
     
-    const allDates = validTasks
-      .flatMap(t => {
-        const taskWorklogs = worklogs.filter(w => w.taskId === t.id || w.taskId === t.chave);
-        return taskWorklogs.map(w => w.data);
-      })
-      .concat(validTasks.map(t => t.criado))
-      .filter(Boolean);
-    
-    if (allDates.length === 0) {
+    // Use date range from all completed sprints
+    if (completedSprints.length === 0) {
       const today = new Date();
       return {
         tasksInPeriod: validTasks,
@@ -74,18 +83,21 @@ function filterTasksByPeriod(
       };
     }
     
-    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+    const startDate = new Date(Math.min(...completedSprints.map(m => m.dataInicio.getTime())));
+    const endDate = new Date(Math.max(...completedSprints.map(m => m.dataFim.getTime())));
+    
+    // Filter worklogs by date range
+    const worklogsInPeriod = worklogs.filter(w => isDateInPeriod(w.data, startDate, endDate));
     
     return {
       tasksInPeriod: validTasks,
-      worklogsInPeriod: worklogs,
-      startDate: minDate,
-      endDate: maxDate,
+      worklogsInPeriod: worklogsInPeriod,
+      startDate,
+      endDate,
     };
   }
 
-  // Get date range from selected sprints
+  // Get date range from selected sprints (which are already filtered to completed sprints in the UI)
   const selectedMetadata = sprintMetadata.filter(m => selectedSprints.includes(m.sprint));
   if (selectedMetadata.length === 0) {
     const today = new Date();
@@ -119,12 +131,6 @@ function filterTasksByPeriod(
     // Include tasks from selected sprints
     if (selectedSprints.length > 0 && selectedSprints.includes(t.sprint)) {
       return true;
-    }
-    
-    // If no sprints selected, include tasks that have worklogs in the period
-    if (selectedSprints.length === 0) {
-      const taskWorklogs = worklogs.filter(w => (w.taskId === t.id || w.taskId === t.chave) && isDateInPeriod(w.data, startDate, endDate));
-      return taskWorklogs.length > 0;
     }
     
     return false;
